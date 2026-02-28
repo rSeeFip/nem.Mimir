@@ -17,6 +17,7 @@ internal sealed class LiteLlmClient : ILlmService
 {
     internal const string HttpClientName = "LiteLlm";
     private const string ChatCompletionsEndpoint = "/v1/chat/completions";
+    private const string ModelsEndpoint = "/v1/models";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly LiteLlmOptions _options;
@@ -114,6 +115,124 @@ internal sealed class LiteLlmClient : ILlmService
                 yield return chunk;
             }
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<LlmModelInfoDto>> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var httpClient = _httpClientFactory.CreateClient(HttpClientName);
+            using var response = await httpClient.GetAsync(ModelsEndpoint, cancellationToken).ConfigureAwait(false);
+
+            response.EnsureSuccessStatusCode();
+
+            var modelsResponse = await response.Content.ReadFromJsonAsync<ModelsListResponse>(
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (modelsResponse?.Data is null)
+            {
+                _logger.LogWarning("LiteLLM returned null models list");
+                return GetHardcodedModels(isAvailable: false);
+            }
+
+            var availableModelIds = modelsResponse.Data
+                .Select(m => m.Id)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Cast<string>()
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            _logger.LogDebug("Retrieved {ModelCount} available models from LiteLLM", availableModelIds.Count);
+
+            return BuildModelInfoList(availableModelIds);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Failed to connect to LiteLLM proxy at {BaseUrl}", _options.BaseUrl);
+            return GetHardcodedModels(isAvailable: false);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse LiteLLM models response");
+            return GetHardcodedModels(isAvailable: false);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("Request to fetch LiteLLM models was cancelled");
+            throw;
+        }
+    }
+
+    private IReadOnlyList<LlmModelInfoDto> BuildModelInfoList(HashSet<string> availableModelIds)
+    {
+        var models = new List<LlmModelInfoDto>
+        {
+            new(
+                Id: LlmModels.Fast,
+                Name: "Phi-4 Mini",
+                ContextWindow: 16384,
+                RecommendedUse: "Fast responses, simple queries",
+                IsAvailable: availableModelIds.Contains(LlmModels.Fast)),
+
+            new(
+                Id: LlmModels.Primary,
+                Name: "Qwen 2.5 72B",
+                ContextWindow: 131072,
+                RecommendedUse: "Complex reasoning, detailed analysis",
+                IsAvailable: availableModelIds.Contains(LlmModels.Primary)),
+
+            new(
+                Id: LlmModels.Coding,
+                Name: "Qwen 2.5 Coder 32B",
+                ContextWindow: 131072,
+                RecommendedUse: "Code generation, technical tasks",
+                IsAvailable: availableModelIds.Contains(LlmModels.Coding)),
+
+            new(
+                Id: LlmModels.Embedding,
+                Name: "Nomic Embed Text",
+                ContextWindow: 8192,
+                RecommendedUse: "Text embeddings (not for chat)",
+                IsAvailable: availableModelIds.Contains(LlmModels.Embedding)),
+        };
+
+        return models.AsReadOnly();
+    }
+
+    private static IReadOnlyList<LlmModelInfoDto> GetHardcodedModels(bool isAvailable)
+    {
+        var models = new List<LlmModelInfoDto>
+        {
+            new(
+                Id: LlmModels.Fast,
+                Name: "Phi-4 Mini",
+                ContextWindow: 16384,
+                RecommendedUse: "Fast responses, simple queries",
+                IsAvailable: isAvailable),
+
+            new(
+                Id: LlmModels.Primary,
+                Name: "Qwen 2.5 72B",
+                ContextWindow: 131072,
+                RecommendedUse: "Complex reasoning, detailed analysis",
+                IsAvailable: isAvailable),
+
+            new(
+                Id: LlmModels.Coding,
+                Name: "Qwen 2.5 Coder 32B",
+                ContextWindow: 131072,
+                RecommendedUse: "Code generation, technical tasks",
+                IsAvailable: isAvailable),
+
+            new(
+                Id: LlmModels.Embedding,
+                Name: "Nomic Embed Text",
+                ContextWindow: 8192,
+                RecommendedUse: "Text embeddings (not for chat)",
+                IsAvailable: isAvailable),
+        };
+
+        return models.AsReadOnly();
     }
 
     private static ChatCompletionRequest BuildRequest(

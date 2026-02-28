@@ -129,3 +129,29 @@ internal sealed class ChatCompletionDelta
     [JsonPropertyName("content")]
     public string? Content { get; init; }
 }
+
+// ─── Models List Response ────────────────────────────────────────
+
+/// <summary>
+/// Response from /v1/models endpoint listing available models.
+/// </summary>
+internal sealed class ModelsListResponse
+{
+    [JsonPropertyName("data")]
+    public IReadOnlyList<ModelInfo>? Data { get; init; }
+}
+
+internal sealed class ModelInfo
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("object")]
+    public string? Object { get; init; }
+
+    [JsonPropertyName("created")]
+    public long Created { get; init; }
+
+    [JsonPropertyName("owned_by")]
+    public string? OwnedBy { get; init; }
+}

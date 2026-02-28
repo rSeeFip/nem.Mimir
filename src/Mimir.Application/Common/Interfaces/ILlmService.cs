@@ -31,4 +31,11 @@ public interface ILlmService
         string model,
         IReadOnlyList<LlmMessage> messages,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves a list of available LLM models from the LiteLLM proxy.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A read-only list of available models with metadata.</returns>
+    Task<IReadOnlyList<LlmModelInfoDto>> GetAvailableModelsAsync(CancellationToken cancellationToken = default);
 }
