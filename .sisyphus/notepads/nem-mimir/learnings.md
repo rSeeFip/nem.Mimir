@@ -383,3 +383,125 @@ Used `Microsoft.EntityFrameworkCore.InMemory` (v10.0.3) instead of Testcontainer
 - 44 Infrastructure tests ✅ (32 new + 12 existing)
 - 3 Integration tests ✅
 - **Total: 214 tests passing, 0 warnings, 0 errors**
+
+
+
+## T16: SignalR Streaming Hub — ChatHub with IAsyncEnumerable
+
+### Completed
+- `ChatHub.cs` — `[Authorize]` sealed Hub with `SendMessage()` returning `IAsyncEnumerable<ChatToken>`
+- `ChatToken.cs` — `sealed record ChatToken(string Token, bool IsComplete, int? QueuePosition)`
+- JWT query string auth for WebSocket connections (`OnMessageReceived` event handler in Program.cs)
+- SignalR service registration (`AddSignalR` with KeepAlive/Timeout/MaxMessageSize config)
+- Hub endpoint mapping (`MapHub<ChatHub>("/hubs/chat")`)
+- 4 integration tests in `ChatHubTests.cs` — all passing
+- Package: `Microsoft.AspNetCore.SignalR.Client` v10.0.3 for test project
+
+### Key Technical Learnings
+
+#### 1. CS1626/CS1631: Cannot yield inside try-catch
+**Problem**: C# forbids `yield return` inside `try` blocks that have `catch` clauses. The LLM streaming loop needs try-catch for error handling and partial response persistence, but `SendMessage()` returns `IAsyncEnumerable<ChatToken>` via yield.
+**Solution**: Use **Channel pattern** — `Channel.CreateUnbounded<ChatToken>()` with a producer task (`ProduceTokensAsync`) that writes to `ChannelWriter` inside try-catch, and the `SendMessage()` method reads from `ChannelReader` and yields. This cleanly separates the error-handling boundary from the yield boundary.
+**Key Insight**: `UnboundedChannelOptions { SingleWriter = true, SingleReader = true }` for optimal performance.
+
+#### 2. Hub Does NOT Use MediatR for Streaming
+MediatR handlers return `Task<T>`, not `IAsyncEnumerable<T>`. The hub calls `ILlmService`, `IConversationRepository`, and `IUnitOfWork` directly. This is acceptable because the hub IS the presentation layer — it orchestrates the same services the command handler would.
+
+#### 3. Partial Response Persistence on Disconnect
+When `cancellationToken.IsCancellationRequested` fires (client disconnect), the partial response accumulated in `StringBuilder` is persisted with `CancellationToken.None`. Using the original token would fail since it's already cancelled.
+
+#### 4. SignalR Integration Test Pattern with WebApplicationFactory
+For SignalR hub testing with `WebApplicationFactory`:
+- Use `factory.Server` (TestServer) to get `BaseAddress` and `CreateHandler()`
+- `HubConnectionBuilder().WithUrl(url, options => { options.HttpMessageHandlerFactory = _ => server.CreateHandler(); })`
+- Unauthenticated connections throw exceptions (hub has `[Authorize]`)
+- The `/hubs/chat/negotiate` endpoint returns 401 for unauthenticated requests
+- `IAsyncLifetime` for proper `HubConnection` disposal
+
+#### 5. JWT Query String Auth for WebSockets
+WebSocket connections cannot send custom HTTP headers after the initial handshake. SignalR sends the access token via `?access_token=xxx` query parameter. The `OnMessageReceived` event in `JwtBearerEvents` extracts it when the request path starts with `/hubs`.
+
+### Files Created
+- `src/Mimir.Api/Hubs/ChatHub.cs`
+- `src/Mimir.Api/Hubs/ChatToken.cs`
+- `tests/Mimir.Api.IntegrationTests/ChatHubTests.cs`
+
+### Files Modified
+- `src/Mimir.Api/Program.cs` (AddSignalR, MapHub, JWT OnMessageReceived)
+- `Directory.Packages.props` (SignalR.Client version)
+- `tests/Mimir.Api.IntegrationTests/Mimir.Api.IntegrationTests.csproj` (SignalR.Client package ref)
+
+### Test Results
+- 160 Domain tests ✅
+- 115 Application tests ✅
+- 74 Infrastructure tests ✅
+- 40 Integration tests ✅ (4 new ChatHub tests)
+- **Total: 389 tests passing, 0 warnings, 0 errors**
+
+
+## T20: Output Sanitization Middleware
+
+### Completed
+- `ISanitizationService` interface in `Application/Common/Sanitization/`
+- `SanitizationSettings` IOptions config with SectionName="Sanitization"
+- `SanitizationService` — `internal sealed partial class` with source-generated regexes
+- `OutputSanitizationMiddleware` — lightweight middleware that logs suspicious patterns on POST/PUT to message endpoints
+- DI registration: singleton ISanitizationService + IOptions<SanitizationSettings> in Infrastructure DependencyInjection.cs
+- Config sections added to appsettings.json and appsettings.Development.json
+- Middleware added to Program.cs pipeline after GlobalExceptionHandlerMiddleware
+- 44 new unit tests (42 [Fact] + 1 [Theory] with 3 InlineData = 44 test methods) — all passing
+
+### Key Technical Learnings
+
+#### 1. GeneratedRegex (Source-Generated Regex)
+Used `[GeneratedRegex]` attribute on `partial Regex` methods for compile-time regex generation.
+This requires the containing class to be `partial` — hence `internal sealed partial class SanitizationService`.
+Benefits: no runtime compilation overhead, analyzer-friendly, AOT-compatible.
+
+#### 2. NSubstitute Logger Assertion Ambiguity
+**Problem**: `_logger.ReceivedWithAnyArgs().LogWarning(...)` is ambiguous between
+`LogWarning(EventId, string?, object?[])` and `LogWarning(Exception?, string?, object?[])` overloads.
+**Solution**: Assert on the underlying `ILogger.Log()` method directly:
+```csharp
+_logger.Received(1).Log(
+    LogLevel.Warning,
+    Arg.Any<EventId>(),
+    Arg.Any<object>(),
+    Arg.Any<Exception?>(),
+    Arg.Any<Func<object, Exception?, string>>());
+```
+
+#### 3. Sanitization Design Decisions
+- **User input**: Strip ALL HTML (configurable), remove control chars, enforce max length, trim
+- **LLM output**: Strip only dangerous tags (script/iframe/embed/object/form) + event handlers + prompt markers
+- **Preserved tags**: code, pre, em, strong (markdown-friendly)
+- **Max output length**: MaxMessageLength × 4 (LLM responses legitimately longer)
+- **Suspicious patterns**: Detection for LOGGING only, never blocking
+- **Trim() effect**: `.Trim()` removes trailing \r\n — tests must account for this
+
+#### 4. Middleware Pattern (Lightweight)
+Instead of body-rewriting middleware (heavy, fragile for JSON), used a thin middleware that:
+- Only inspects query parameters on POST/PUT to message/conversation/chat endpoints
+- Calls ISanitizationService.ContainsSuspiciousPatterns()
+- Actual sanitization happens at APPLICATION layer (command handlers, ChatHub)
+- ISanitizationService injected via method parameter (HttpContext-scoped DI)
+
+### Files Created
+- src/Mimir.Application/Common/Sanitization/ISanitizationService.cs
+- src/Mimir.Application/Common/Sanitization/SanitizationSettings.cs
+- src/Mimir.Infrastructure/Services/SanitizationService.cs
+- src/Mimir.Api/Middleware/OutputSanitizationMiddleware.cs
+- tests/Mimir.Infrastructure.Tests/Services/SanitizationServiceTests.cs
+
+### Files Modified
+- src/Mimir.Infrastructure/DependencyInjection.cs (ISanitizationService + SanitizationSettings registration)
+- src/Mimir.Api/Program.cs (OutputSanitizationMiddleware in pipeline)
+- src/Mimir.Api/appsettings.json (Sanitization config section)
+- src/Mimir.Api/appsettings.Development.json (Sanitization config section)
+
+### Test Results
+- 160 Domain tests ✅
+- 115 Application tests ✅
+- 127 Infrastructure tests ✅ (44 new sanitization tests)
+- 40 Integration tests ✅
+- **Total: 442 tests passing, 0 warnings, 0 errors**

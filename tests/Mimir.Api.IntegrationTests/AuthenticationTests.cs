@@ -19,15 +19,13 @@ public sealed class AuthenticationTests
     [Theory]
     [InlineData("/api/conversations")]
     [InlineData("/api/users/me")]
-    public async Task AuthenticatedEndpoint_WithoutToken_Returns401(string endpoint)
+    public async Task AuthenticatedEndpoint_WithoutToken_ReturnsNon200(string endpoint)
     {
         // Act
         var response = await _client.GetAsync(endpoint);
 
-        // Assert — endpoints that don't exist yet will return 404,
-        // but once controllers are added they should return 401.
-        // For now, verify the response is NOT 200 (i.e., not accessible without auth).
-        // Since no controllers exist yet, the routing returns 404.
+        // Assert — once controllers are added they should return 401.
+        // Endpoints that don't exist yet will return 404.
         var statusCode = response.StatusCode;
         statusCode.ShouldNotBe(HttpStatusCode.OK,
             "Unauthenticated requests should not succeed");
