@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  mimir-db:
+    environment:
+      POSTGRES_INITDB_ARGS: "-c log_statement=all"
+    volumes:
+      - mimir-db-data:/var/lib/postgresql/data
+
+  mimir-keycloak:
+    environment:
+      KC_LOG_LEVEL: DEBUG
+
+  mimir-litellm:
+    environment:
+      - LOG_LEVEL=DEBUG

@@ -1,0 +1,29 @@
+model_list:
+  - model_name: qwen-2.5-72b
+    litellm_params:
+      model: openai/lm_studio/qwen2.5-72b-instruct
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+
+  - model_name: phi-4-mini
+    litellm_params:
+      model: openai/lm_studio/phi-4-mini-instruct
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+
+  - model_name: qwen-2.5-coder-32b
+    litellm_params:
+      model: openai/lm_studio/qwen2.5-coder-32b-instruct
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+
+  - model_name: nomic-embed-text
+    litellm_params:
+      model: openai/lm_studio/nomic-embed-text-v1.5
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+
+general_settings:
+  master_key: ${LITELLM_MASTER_KEY:-sk-dev-only-key}
+  drop_params: true
+  disable_spend_logs: true
