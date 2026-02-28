@@ -13,6 +13,7 @@ using Mimir.Infrastructure.Persistence.Repositories;
 using Mimir.Infrastructure.Services;
 using Mimir.Application.Common.Sanitization;
 using Polly;
+using Docker.DotNet;
 
 public static class DependencyInjection
 {
@@ -98,6 +99,10 @@ public static class DependencyInjection
 
         // LLM service
         services.AddScoped<ILlmService, LiteLlmClient>();
+
+        // Docker sandbox service
+        services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
+        services.AddScoped<ISandboxService, SandboxService>();
 
         return services;
     }

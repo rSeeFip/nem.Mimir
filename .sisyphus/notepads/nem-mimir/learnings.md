@@ -505,3 +505,246 @@ Instead of body-rewriting middleware (heavy, fragile for JSON), used a thin midd
 - 127 Infrastructure tests ✅ (44 new sanitization tests)
 - 40 Integration tests ✅
 - **Total: 442 tests passing, 0 warnings, 0 errors**
+
+## T21: Terminal TUI Client — Mimir.Tui
+
+### Completed
+- `Mimir.Tui` console application with Spectre.Console for rich terminal UI
+- Keycloak authentication via direct access grant (resource owner password credentials)
+- REST API client for conversations (list, create, get, archive) and models
+- SignalR streaming client via `HubConnection.StreamAsync<ChatTokenDto>("SendMessage", ...)`
+- Slash command system: /model, /new, /list, /archive, /help, /quit, /exit
+- Markdown-aware rendering with `[GeneratedRegex]` for bold, italic, inline code, code blocks
+- Queue position display during streaming
+- Full main loop in Program.cs with login → hub connect → command dispatch → streaming
+- 44 unit tests across 4 test files — all passing
+- 0 warnings, 0 errors build
+
+### Architecture
+```
+src/Mimir.Tui/
+├── Commands/CommandParser.cs      — Static parser: input → ParsedCommand(CommandType, Argument)
+├── Models/                        — DTOs mirroring API contracts
+│   ├── TuiSettings.cs            — IConfiguration POCO (ApiBaseUrl, HubUrl, KeycloakUrl, etc.)
+│   ├── ChatTokenDto.cs           — Client-side ChatToken mirror
+│   ├── ConversationListItemDto.cs
+│   ├── ConversationDetailDto.cs  — Includes MessageItemDto
+│   ├── ModelInfoDto.cs
+│   ├── TokenResponse.cs          — Keycloak token response (snake_case JSON)
+│   └── PaginatedResponse.cs
+├── Services/
+│   ├── AuthenticationService.cs   — Keycloak login, token storage, expiry tracking
+│   ├── ConversationApiService.cs  — REST API calls with Bearer auth
+│   ├── ChatStreamService.cs       — SignalR hub connection + StreamAsync
+│   └── ModelService.cs            — Model selection + API calls
+├── Rendering/
+│   └── MessageRenderer.cs         — Spectre.Console markup with markdown conversion
+├── Program.cs                     — Main loop orchestrator
+└── appsettings.json               — Configurable URLs and defaults
+```
+
+### Key Technical Learnings
+
+#### 1. System.Net.Http.Json Built-in for net10.0
+**Problem**: Adding `System.Net.Http.Json` PackageReference causes NU1510 warning (already part of framework).
+**Solution**: Don't add it — `ReadFromJsonAsync<T>()` extension methods are available without any package reference in net10.0.
+
+#### 2. SignalR Client Transitive Dependencies
+**Problem**: Adding `Microsoft.Extensions.Logging.Abstractions` or `DependencyInjection.Abstractions` version 9.0.0 alongside SignalR.Client 10.0.3 causes NU1605 (version downgrade).
+**Solution**: Don't reference these packages — SignalR.Client already pulls in 10.0.x versions transitively.
+
+#### 3. ConfigurationBuilder Requires Full Packages
+**Problem**: `Microsoft.Extensions.Configuration.Abstractions` alone doesn't provide `ConfigurationBuilder` class.
+**Solution**: Need `Microsoft.Extensions.Configuration` (core), `.Json` (for AddJsonFile), and `.Binder` (for Get<T>).
+
+#### 4. Spectre.Console Markup Escaping
+Spectre.Console uses `[markup]` syntax which conflicts with literal brackets in user content. `Markup.Escape()` must be called before any formatting to prevent injection. Order: escape first → then apply formatting regexes.
+
+#### 5. Test Pattern: FakeHttpMessageHandler
+For testing HttpClient-dependent services without external dependencies:
+- Create `FakeHttpMessageHandler : HttpMessageHandler` with configurable status code and response body
+- Capture `LastRequestContent` for assertion on sent data
+- No need for NSubstitute/mocking — HttpClient takes a handler in constructor
+
+### Package Versions Added to Directory.Packages.props
+- Spectre.Console: 0.54.0
+- Microsoft.Extensions.Configuration: 10.0.3
+- Microsoft.Extensions.Configuration.Json: 10.0.3
+- Microsoft.Extensions.Configuration.Binder: 10.0.3
+
+### Files Created
+- src/Mimir.Tui/Mimir.Tui.csproj
+- src/Mimir.Tui/appsettings.json
+- src/Mimir.Tui/Program.cs
+- src/Mimir.Tui/Models/ (7 files)
+- src/Mimir.Tui/Services/ (4 files)
+- src/Mimir.Tui/Commands/CommandParser.cs
+- src/Mimir.Tui/Rendering/MessageRenderer.cs
+- tests/Mimir.Tui.Tests/Mimir.Tui.Tests.csproj
+- tests/Mimir.Tui.Tests/Commands/CommandParserTests.cs (16 tests)
+- tests/Mimir.Tui.Tests/Rendering/MessageRendererTests.cs (11 tests)
+- tests/Mimir.Tui.Tests/Services/AuthenticationServiceTests.cs (6 tests)
+- tests/Mimir.Tui.Tests/Services/ModelServiceTests.cs (11 tests including Theory)
+
+### Files Modified
+- Directory.Packages.props (added Spectre.Console, Configuration packages)
+- nem.Mimir.sln (added Mimir.Tui + Mimir.Tui.Tests projects)
+
+### Test Results
+- 160 Domain tests ✅
+- 115 Application tests ✅
+- 127 Infrastructure tests ✅
+- 40 Integration tests ✅
+- 44 TUI tests ✅ (new)
+- **Total: 486 tests passing, 0 warnings, 0 errors** (TUI project only — pre-existing Infrastructure.Tests has Docker.DotNet API breaking changes unrelated to this task)
+
+
+## T22: Telegram Bot Worker Service — Mimir.Telegram
+
+### Completed
+- `Mimir.Telegram` worker service with long-polling (NOT webhooks)
+- Auth flow via Keycloak with one-time auth codes
+- Commands: `/start`, `/new`, `/list`, `/model`, `/help`
+- Message handling with streaming display (edit "Thinking..." message with accumulated tokens every 500ms)
+- HTTP client (`MimirApiClient`) for Mimir API communication via typed HttpClient
+- Health check (`TelegramBotHealthCheck`), configuration, graceful shutdown
+- 39 unit tests (9 UserStateManager + 8 AuthenticationService + 12 CommandHandler + 4 MessageHandler + 6 parametrized) — all passing
+- 0 warnings, 0 errors build
+
+### Architecture
+```
+src/Mimir.Telegram/
+├── Configuration/TelegramSettings.cs     — IOptions config (BotToken, MimirApiBaseUrl, etc.)
+├── Services/
+│   ├── UserStateManager.cs               — ConcurrentDictionary-based per-user state tracking
+│   ├── AuthenticationService.cs           — Keycloak auth + one-time auth code generation/validation
+│   ├── MimirApiClient.cs                  — Typed HttpClient for API (conversations, messages, models, streaming)
+│   └── TelegramBotService.cs              — BackgroundService with long-polling via GetUpdates()
+├── Handlers/
+│   ├── CommandHandler.cs                  — /start, /new, /list, /model, /help, unknown
+│   └── MessageHandler.cs                  — Non-command text → stream via MimirApiClient → edit message
+├── Health/TelegramBotHealthCheck.cs       — IHealthCheck verifying bot connectivity
+├── Program.cs                             — Host setup, DI, HttpClient registration
+├── appsettings.json + appsettings.Development.json
+```
+
+### Key Technical Learnings
+
+#### 1. Namespace Collision: `Mimir.Telegram` vs `Telegram.Bot.Types`
+**Problem**: Root namespace `Mimir.Telegram` collides with the `Telegram.Bot` SDK namespace. The compiler resolves `Telegram.Bot.Types` as `Mimir.Telegram.Bot.Types` which doesn't exist, causing 100+ CS0234 errors in test files.
+**Solution**: Use `global::Telegram.Bot` qualifier in `using` directives:
+```csharp
+using global::Telegram.Bot;
+using global::Telegram.Bot.Types;
+using global::Telegram.Bot.Types.Enums;
+```
+**Note**: This only affects the TEST project where the `using Mimir.Telegram.Handlers;` import brings `Mimir.Telegram` into scope. The source project is fine because it IS the `Mimir.Telegram` namespace.
+
+#### 2. NSubstitute Cannot Intercept Extension Methods
+**Problem**: `Telegram.Bot.TelegramBotClientExtensions.SendMessage()` is an **extension method** on `ITelegramBotClient`, not an interface method. NSubstitute (Castle.DynamicProxy) can only intercept interface/virtual members, not static extension methods.
+**Symptom**: `RedundantArgumentMatcherException` — all `Arg.Is<>()` / `Arg.Any<>()` matchers become "unbound" because the actual interface method called is `SendRequest<TResponse>(IRequest<TResponse>, CancellationToken)`, not `SendMessage()`.
+**Solution**: Instead of `_bot.Received(1).SendMessage(Arg.Is<ChatId>(...), ...)`, use `_bot.ReceivedCalls()` to inspect the underlying `SendRequest` call and extract the typed request:
+```csharp
+private string? GetSentMessageText()
+{
+    var calls = _bot.ReceivedCalls();
+    foreach (var call in calls)
+    {
+        var args = call.GetArguments();
+        if (args.Length > 0 && args[0] is SendMessageRequest request)
+            return request.Text;
+    }
+    return null;
+}
+```
+**Key Insight**: `SendMessage()` delegates to `bot.SendRequest(new SendMessageRequest { ChatId = ..., Text = ... }, ct)`. The `SendMessageRequest` object contains all parameters.
+
+#### 3. Telegram.Bot v22.9.0 SendMessage Signature
+The extension method has 16 parameters (non-obvious from docs):
+```
+SendMessage(ITelegramBotClient, ChatId, string, ParseMode, ReplyParameters, ReplyMarkup,
+    LinkPreviewOptions, int?, IEnumerable<MessageEntity>, bool, bool, string, string, bool,
+    long?, SuggestedPostParameters, CancellationToken)
+```
+Many params have non-nullable value types (`ParseMode`, `bool`, `ReplyMarkup`) NOT nullable (`ParseMode?`, `bool?`, `ReplyMarkup?`). Getting these wrong causes CS1503 in `Arg.Any<>()` calls.
+
+#### 4. yield return Inside try-catch (Again!)
+**Problem**: `MimirApiClient.StreamMessageAsync()` initially used `yield return` inside a `try` block with `catch` — C# forbids this (CS1626).
+**Solution**: Extracted `TryParseStreamChunk()` as a separate non-iterator method. The iterator method (`StreamMessageAsync`) does the `yield return` outside try-catch, and the parsing helper handles the exception-prone JSON deserialization.
+
+#### 5. Worker Service Pattern for Telegram Long-Polling
+- `TelegramBotService : BackgroundService` overrides `ExecuteAsync`
+- Uses `GetUpdates()` with offset tracking (last update ID + 1) for exactly-once delivery
+- Graceful shutdown via `CancellationToken` from `StopAsync`
+- Error handling: catch per-update to avoid losing other updates in the batch
+
+### Package Versions Added to Directory.Packages.props
+- Telegram.Bot: 22.9.0
+- Microsoft.Extensions.Hosting: 10.0.3 (already existed as transitive, now explicit)
+- Microsoft.Extensions.Http: 10.0.3
+- Microsoft.Extensions.Diagnostics.HealthChecks: 10.0.3
+
+### Files Created
+- src/Mimir.Telegram/Mimir.Telegram.csproj
+- src/Mimir.Telegram/Configuration/TelegramSettings.cs
+- src/Mimir.Telegram/Services/UserStateManager.cs
+- src/Mimir.Telegram/Services/AuthenticationService.cs
+- src/Mimir.Telegram/Services/MimirApiClient.cs
+- src/Mimir.Telegram/Services/TelegramBotService.cs
+- src/Mimir.Telegram/Handlers/CommandHandler.cs
+- src/Mimir.Telegram/Handlers/MessageHandler.cs
+- src/Mimir.Telegram/Health/TelegramBotHealthCheck.cs
+- src/Mimir.Telegram/Program.cs
+- src/Mimir.Telegram/appsettings.json + appsettings.Development.json
+- tests/Mimir.Telegram.Tests/Mimir.Telegram.Tests.csproj
+- tests/Mimir.Telegram.Tests/Services/UserStateManagerTests.cs (9 tests)
+- tests/Mimir.Telegram.Tests/Services/AuthenticationServiceTests.cs (8 tests)
+- tests/Mimir.Telegram.Tests/Handlers/CommandHandlerTests.cs (12 tests incl. Theory)
+- tests/Mimir.Telegram.Tests/Handlers/MessageHandlerTests.cs (4 tests)
+
+### Files Modified
+- Directory.Packages.props (added Telegram.Bot + hosting/http/health packages)
+- nem.Mimir.sln (added Mimir.Telegram + Mimir.Telegram.Tests projects)
+
+### Test Results
+- 160 Domain tests ✅
+- 115 Application tests ✅
+- 127 Infrastructure tests ✅ (pre-existing Docker.DotNet error in SandboxServiceTests — NOT ours)
+- 40 API Integration tests ✅
+- 44 TUI tests ✅
+- 39 Telegram tests ✅ (new)
+- **Total: 525 tests (Telegram projects: 39/39 passing, 0 warnings, 0 errors)**
+
+---
+
+# T24: Docker Sandbox Container - Bug Fix
+
+## Problem: Docker.DotNet vs Docker.DotNet.Enhanced Type Mismatch
+
+### Root Cause
+- `Testcontainers.PostgreSql` (used in test projects) transitively depends on `Docker.DotNet.Enhanced 3.131.1`
+- `Docker.DotNet.Enhanced` ships its OWN `Docker.DotNet.dll` (same assembly name, different API)
+- In Enhanced's `IContainerOperations.ExtractArchiveToContainerAsync`, the parameter type is `CopyToContainerParameters` (not `ContainerPathStatParameters`)
+- The Infrastructure project compiled against standard `Docker.DotNet 3.125.15` (which uses `ContainerPathStatParameters`)
+- At test runtime, Enhanced's `Docker.DotNet.dll` wins (it has a `net10.0` TFM vs `netstandard2.1`), causing `MissingMethodException`
+
+### Key Differences Between Standard and Enhanced
+| Feature | Docker.DotNet 3.125.15 | Docker.DotNet.Enhanced 3.131.1 |
+| --- | --- | --- |
+| Assembly version | 3.125.0.0 | 3.131.0.0 |
+| `ExtractArchiveToContainerAsync` param | `ContainerPathStatParameters` | `CopyToContainerParameters` |
+| `ContainerPathStatParameters` props | `Path`, `AllowOverwriteDirWithFile` | `Path` only |
+| `CopyToContainerParameters` | Does NOT exist | `Path`, `AllowOverwriteDirWithFile`, `CopyUIDGID` |
+| TFMs | netstandard2.0, netstandard2.1 | netstandard2.0, netstandard2.1, net8.0, net9.0, net10.0 |
+
+### Fix Applied
+1. Changed `Directory.Packages.props`: `Docker.DotNet 3.125.15` → `Docker.DotNet.Enhanced 3.131.1`
+2. Changed `Mimir.Infrastructure.csproj`: `<PackageReference Include="Docker.DotNet.Enhanced" />`
+3. Changed `SandboxService.cs` line 194: `ContainerPathStatParameters` → `CopyToContainerParameters`
+
+### Lesson
+When `Testcontainers` is in the dependency graph, ALWAYS use `Docker.DotNet.Enhanced` instead of plain `Docker.DotNet` to avoid assembly identity conflicts at runtime. The Enhanced package replaces the standard assembly with an incompatible API surface.
+
+### Results
+- Full solution: 0 errors, 0 warnings
+- All 24 SandboxService tests: PASSING (was 6 pass, 18 fail)

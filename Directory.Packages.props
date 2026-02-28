@@ -16,6 +16,7 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.3.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.3" />
+    <PackageVersion Include="Docker.DotNet.Enhanced" Version="3.131.1" />
 
     <!-- API packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
@@ -24,6 +25,16 @@
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
 
+    <!-- Telegram packages -->
+    <PackageVersion Include="Telegram.Bot" Version="22.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.3" />
+    <!-- TUI packages -->
+    <PackageVersion Include="Spectre.Console" Version="0.54.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.3" />
     <!-- Test packages -->
     <PackageVersion Include="xunit" Version="2.8.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.8" />
