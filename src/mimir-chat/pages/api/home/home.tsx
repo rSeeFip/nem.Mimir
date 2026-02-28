@@ -385,13 +385,7 @@ const Home = ({
     >
       <Head>
         <title>nem.Mimir</title>
-        <meta name="description" content="nem.Mimir — your private AI assistant" />
-        <meta
-          name="viewport"
-          content="height=device-height ,width=device-width, initial-scale=1, user-scalable=no"
-        />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/favicon.ico" sizes="32x32" />
+        <meta name="description" content="nem.Mimir — Enterprise AI Assistant powered by local LLMs" />
       </Head>
       {selectedConversation && (
         <main

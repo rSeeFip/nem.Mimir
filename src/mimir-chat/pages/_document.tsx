@@ -13,7 +13,7 @@ export default function Document(props: Props) {
     <Html lang={currentLocale}>
       <Head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="nem.Mimir"></meta>
+        <meta name="apple-mobile-web-app-title" content="nem.Mimir" />
         <meta name="theme-color" content="#0f1117" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />

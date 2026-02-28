@@ -129,8 +129,8 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
     <div
       className={`group md:px-4 ${
         message.role === 'assistant'
-          ? 'border-b border-black/10 bg-gray-50 text-gray-800 dark:border-gray-900/50 dark:bg-[#444654] dark:text-gray-100'
-          : 'border-b border-black/10 bg-white text-gray-800 dark:border-gray-900/50 dark:bg-[#343541] dark:text-gray-100'
+          ? 'border-b border-black/10 bg-gray-50 text-gray-800 dark:border-nem-500/30 dark:bg-nem-800 dark:text-nem-text-primary'
+          : 'border-b border-black/10 bg-white text-gray-800 dark:border-nem-500/30 dark:bg-nem-900 dark:text-nem-text-primary'
       }`}
       style={{ overflowWrap: 'anywhere' }}
     >
@@ -150,7 +150,7 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
                 <div className="flex w-full flex-col">
                   <textarea
                     ref={textareaRef}
-                    className="w-full resize-none whitespace-pre-wrap border-none dark:bg-[#343541]"
+                    className="w-full resize-none whitespace-pre-wrap border-none dark:bg-nem-900"
                     value={messageContent}
                     onChange={handleInputChange}
                     onKeyDown={handlePressEnter}

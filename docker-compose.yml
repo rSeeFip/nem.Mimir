@@ -49,6 +49,44 @@ services:
     networks:
       - mimir-network
 
+  mimir-api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    image: mimir-api:latest
+    container_name: mimir-api
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=mimir-db;Port=5432;Database=mimir;Username=${DB_USER:-mimir};Password=${DB_PASSWORD:-changeme}
+      RabbitMQ__Host: mimir-rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__User: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-guest}
+      Keycloak__Url: http://mimir-keycloak:8080
+      Keycloak__Realm: mimir
+      Keycloak__ClientId: mimir-api
+      Keycloak__ClientSecret: ${KEYCLOAK_CLIENT_SECRET:-dev-secret}
+      LiteLLM__BaseUrl: http://mimir-litellm:4000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      mimir-db:
+        condition: service_healthy
+      mimir-keycloak:
+        condition: service_healthy
+      mimir-rabbitmq:
+        condition: service_healthy
+    networks:
+      - mimir-network
+
+
   mimir-litellm:
     image: ghcr.io/berriai/litellm:main-latest
     container_name: mimir-litellm

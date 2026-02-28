@@ -19,6 +19,7 @@ import HomeContext from '@/pages/api/home/home.context';
 import { ChatFolders } from './components/ChatFolders';
 import { ChatbarSettings } from './components/ChatbarSettings';
 import { Conversations } from './components/Conversations';
+import { IconSparkles } from '@tabler/icons-react';
 
 import Sidebar from '../Sidebar';
 import ChatbarContext from './Chatbar.context';
@@ -215,10 +216,23 @@ export const Chatbar = () => {
 
       }}
     >
-      <Sidebar<Conversation>
+        <Sidebar<Conversation>
         side={'left'}
         isOpen={showChatbar}
         addItemButtonTitle={t('New chat')}
+        headerComponent={
+          <div className="flex flex-col mb-4 p-2 border-b border-nem-500/30">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-6 h-6 rounded-md bg-nem-900 border border-nem-500/30 text-nem-accent">
+                <span className="font-bold text-xs">M</span>
+              </div>
+              <span className="font-bold text-lg tracking-wide text-nem-text-primary">
+                <span className="text-nem-accent">nem</span>.Mimir
+              </span>
+            </div>
+            <span className="text-xs text-nem-text-secondary mt-1 ml-8">Enterprise AI Assistant</span>
+          </div>
+        }
         itemComponent={<Conversations conversations={filteredConversations} />}
         folderComponent={<ChatFolders searchTerm={searchTerm} />}
         items={filteredConversations}

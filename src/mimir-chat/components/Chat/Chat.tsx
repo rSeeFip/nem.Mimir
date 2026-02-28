@@ -346,7 +346,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
   }, [messagesEndRef]);
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-white dark:bg-[#343541]">
+    <div className="relative flex-1 overflow-hidden bg-white dark:bg-nem-900">
       {modelError ? (
         <ErrorMessageDiv error={modelError} />
       ) : (
@@ -359,13 +359,28 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
             {selectedConversation?.messages.length === 0 ? (
               <>
                 <div className="mx-auto flex flex-col space-y-5 md:space-y-10 px-3 pt-5 md:pt-12 sm:max-w-[600px]">
-                  <div className="text-center text-3xl font-semibold text-gray-800 dark:text-gray-100">
+                  <div className="text-center">
                     {models.length === 0 ? (
                       <div>
                         <Spinner size="16px" className="mx-auto" />
                       </div>
                     ) : (
-                      <span className="text-2xl font-bold text-white">nem.Mimir</span>
+                      <div className="flex flex-col items-center justify-center space-y-4 pt-10">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-nem-900 border border-nem-500/30 text-nem-accent shadow-[0_0_20px_rgba(34,211,238,0.1)]">
+                          <span className="text-3xl font-bold">M</span>
+                        </div>
+                        <div className="flex flex-col space-y-1">
+                          <h1 className="text-4xl font-bold tracking-tight text-nem-text-primary">
+                            <span className="text-nem-accent">nem</span>.Mimir
+                          </h1>
+                          <p className="text-lg font-normal text-nem-text-secondary">
+                            Enterprise AI Assistant
+                          </p>
+                        </div>
+                        <p className="text-sm font-medium text-nem-text-muted pt-4">
+                          How can I help you today?
+                        </p>
+                      </div>
                     )}
                   </div>
 
@@ -399,7 +414,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
               </>
             ) : (
               <>
-                <div className="sticky top-0 z-10 flex justify-center border border-b-neutral-300 bg-neutral-100 py-2 text-sm text-neutral-500 dark:border-none dark:bg-[#444654] dark:text-neutral-200">
+                <div className="sticky top-0 z-10 flex justify-center border border-b-neutral-300 bg-neutral-100 py-2 text-sm text-neutral-500 dark:border-none dark:bg-nem-600 dark:text-neutral-200">
                   {t('Model')}: {selectedConversation?.model.name} | {t('Temp')}
                   : {selectedConversation?.temperature} |
                   <button
@@ -442,7 +457,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
                 {loading && <ChatLoader />}
 
                 <div
-                  className="h-[162px] bg-white dark:bg-[#343541]"
+                  className="h-[162px] bg-white dark:bg-nem-900"
                   ref={messagesEndRef}
                 />
               </>

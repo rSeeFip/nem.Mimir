@@ -123,3 +123,59 @@ var result = await _cache.GetOrCreateAsync(cacheKey, async entry =>
 - `dotnet build`: 0 errors, 0 warnings ✓
 - `dotnet test`: 569 tests total, all passed ✓
   - Domain: 160, Application: 130, Infrastructure: 151, Tui: 44, Telegram: 39, Integration: 45
+
+
+## [2026-02-28] Task: P10 — nem.* Branding + Theming
+
+### Tailwind Custom Color Palette
+- Colors defined under `theme.extend.colors.nem` in `tailwind.config.js`
+- Nested structure: `nem.900`, `nem.800`, `nem.accent.DEFAULT`, `nem.text.primary`, etc.
+- In Tailwind classes: `bg-nem-700`, `text-nem-accent`, `border-nem-500`
+- CANNOT use `theme()` inside arbitrary values in className — use `bg-nem-700` not `bg-[theme('colors.nem.700')]`
+- For JS inline styles (`e.target.style.background`), use raw hex since Tailwind classes don't apply there
+
+### Hardcoded Color Mapping (OpenAI ChatGPT UI → nem.*)
+- `#343541` → `bg-nem-700` (main chat area background)
+- `#444654` → `bg-nem-600` (assistant message bg, toolbar bg)
+- `#40414F` → `bg-nem-700` (input field background)
+- `#202123` → `bg-nem-800` (sidebar, modals, search bar)
+- Also replaced gradient utilities: `via-[#343541]` → `via-nem-700`, `to-[#343541]` → `to-nem-700`
+
+### Files Modified (Full List)
+**Branding/Meta:**
+- `tailwind.config.js` — nem color palette
+- `styles/globals.css` — HTML bg, scrollbar colors
+- `public/favicon.svg`, `public/logo.svg` — NEW SVG assets
+- `components/Branding/NemMimirLogo.tsx`, `index.ts` — NEW (unused component, available for sidebar integration)
+- `pages/_document.tsx` — meta tags, theme-color, SVG favicon
+- `pages/api/home/home.tsx` — title, description, favicon links
+
+**Component Branding:**
+- `components/Chat/Chat.tsx` — welcome heading "nem.Mimir", bg colors
+- `components/Chat/ChatInput.tsx` — footer, gradient, input bg colors
+- `components/Chat/ChatMessage.tsx` — message bg colors
+- `components/Chat/ChatLoader.tsx` — loader bg
+- `components/Chat/Regenerate.tsx` — regenerate button bg
+- `components/Chat/ModelSelect.tsx` — select bg
+- `components/Chat/VariableModal.tsx` — modal + input bg
+- `components/Chat/PromptList.tsx` — dropdown bg
+- `components/Chat/PluginSelect.tsx` — option text + bg
+- `components/Folder/Folder.tsx` — folder bg + drag highlight
+- `components/Chatbar/components/Conversation.tsx` — conversation item bg
+- `components/Chatbar/components/PluginKeys.tsx` — modal + input bg
+- `components/Settings/SettingDialog.tsx` — modal bg
+- `components/Promptbar/components/Prompt.tsx` — prompt item hover bg
+- `components/Promptbar/components/PromptModal.tsx` — modal + input bg
+- `components/Search/Search.tsx` — search input bg
+- `components/Sidebar/Sidebar.tsx` — sidebar bg, borders
+- `components/Mobile/Navbar.tsx` — mobile nav bg
+- `utils/app/const.ts` — system prompt
+
+### Build Status
+- `npm run build`: ✓ 0 errors
+- LSP diagnostics: ✓ 0 errors on all modified files
+- Zero remaining hardcoded ChatGPT colors in codebase (verified via regex search)
+
+### Gotchas
+- NemMimirLogo component import in Chat.tsx caused build failure — removed in favor of inline `<span>` for welcome heading
+- Locale files (fr, de, es, ja, etc.) still contain ChatGPT references in translated system prompts — not updated (low priority, non-blocking)

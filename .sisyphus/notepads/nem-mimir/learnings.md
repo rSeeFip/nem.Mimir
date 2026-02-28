@@ -950,3 +950,47 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - `npm run build` passes cleanly (exit 0)
 - Only pre-existing React Hook dependency warnings (not introduced by P8)
 - Output: 1.02MB main route, 118KB shared JS
+
+## Docker Compose Architecture (Added: P5-COMPLETION)
+
+### RabbitMQ + mimir-api Service Integration
+- **RabbitMQ Service**: Already added in commit 155232e, fully configured with health checks
+  - Image: `rabbitmq:3-management-alpine`
+  - Ports: 5672 (AMQP), 15672 (Management UI)
+  - Health check: `rabbitmq-diagnostics -q ping`
+  - Volume: `mimir-rabbitmq-data` for persistence
+  
+- **mimir-api Service**: Added to complete P5 requirements
+  - Builds from `docker/api/Dockerfile` (multi-stage .NET 10 Alpine)
+  - Port: 5000 (ASPNETCORE_HTTP_PORTS)
+  - **Depends on** (with health check conditions):
+    - `mimir-db` (service_healthy)
+    - `mimir-keycloak` (service_healthy)
+    - `mimir-rabbitmq` (service_healthy)
+  - Environment variables configured for RabbitMQ connectivity:
+    - `RabbitMQ__Host: mimir-rabbitmq` (service name as host)
+    - `RabbitMQ__Port: 5672`
+    - `RabbitMQ__User` and `RabbitMQ__Password` from env
+  - Health check: `/health` endpoint check with 30s start_period
+
+### Dockerfile Pattern for .NET API
+- Multi-stage build: SDK (builder) → ASP.NET runtime
+- Uses `mcr.microsoft.com/dotnet/sdk:10.0-alpine` and `aspnet:10.0-alpine`
+- Installs `curl` for health check support
+- Solution-level restore + project-level restore pattern
+- Publishes to Release config in `/app/publish`
+- Entry point: `dotnet Mimir.Api.dll`
+
+### Service Startup Order
+With depends_on health checks, Docker Compose waits for:
+1. PostgreSQL ready (5432)
+2. Keycloak healthy (/health endpoint)
+3. RabbitMQ healthy (ping diagnostic)
+4. Then starts mimir-api
+
+This ensures Wolverine can immediately connect to RabbitMQ in mimir-api on startup.
+
+### Future Implications
+- P11 expects `mimir-chat` service to depend on `mimir-api` + `keycloak`
+- P12 will remove SPA hosting from Program.cs (API-only mode ready)
+- P13 will test full E2E stack with all 8 services
