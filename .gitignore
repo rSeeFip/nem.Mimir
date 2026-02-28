@@ -58,3 +58,8 @@ Thumbs.db
 # OS
 .DS_Store
 Thumbs.db
+
+# mimir-chat (Next.js)
+src/mimir-chat/node_modules/
+src/mimir-chat/.next/
+src/mimir-chat/.env.local
