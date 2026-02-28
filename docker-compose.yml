@@ -86,6 +86,34 @@ services:
     networks:
       - mimir-network
 
+  mimir-chat:
+    build:
+      context: ./src/mimir-chat
+      dockerfile: Dockerfile
+    container_name: nem-mimir-chat
+    ports:
+      - "3000:3000"
+    environment:
+      - KEYCLOAK_CLIENT_ID=mimir-chat
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-change-me}
+      - KEYCLOAK_ISSUER=http://mimir-keycloak:8080/realms/mimir
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-this-to-a-random-string}
+      - OPENAI_API_HOST=http://mimir-api:5000
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen2.5-coder-32b-instruct}
+    depends_on:
+      mimir-api:
+        condition: service_healthy
+      mimir-keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - mimir-network
 
   mimir-litellm:
     image: ghcr.io/berriai/litellm:main-latest
