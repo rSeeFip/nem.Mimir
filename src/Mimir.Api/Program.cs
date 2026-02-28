@@ -11,6 +11,7 @@ using Mimir.Application;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Infrastructure;
 using Serilog;
+using Mimir.Api.Hubs;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -63,6 +64,19 @@ try
                 OnTokenValidated = context =>
                 {
                     MapKeycloakRoleClaims(context);
+                    return Task.CompletedTask;
+                },
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+
+                    if (!string.IsNullOrEmpty(accessToken) &&
+                        path.StartsWithSegments("/hubs"))
+                    {
+                        context.Token = accessToken;
+                    }
+
                     return Task.CompletedTask;
                 }
             };
@@ -156,13 +170,21 @@ try
     // ── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+    builder.Services.AddMemoryCache();
     builder.Services.AddControllers();
+    builder.Services.AddSignalR(options =>
+    {
+        options.KeepAliveInterval = TimeSpan.FromSeconds(30);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+        options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
+    });
 
     var app = builder.Build();
 
     // ── Middleware Pipeline (order matters) ───────────────────────────────────
     app.UseSerilogRequestLogging();
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+    app.UseMiddleware<OutputSanitizationMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {
@@ -176,6 +198,7 @@ try
     app.UseRateLimiter();
 
     app.MapControllers();
+    app.MapHub<ChatHub>("/hubs/chat");
     app.MapHealthChecks("/health", new HealthCheckOptions
     {
         AllowCachingResponses = false
