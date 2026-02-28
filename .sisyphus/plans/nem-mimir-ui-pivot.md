@@ -21,7 +21,7 @@
 > P7-P8 parallel, P9-P10 sequential after
 
 - [x] P7: Clone openchat-ui into src/mimir-chat/ (git subtree or copy, strip .git, update package.json name to @nem/mimir-chat, verify npm install + npm run build works standalone) ✅ COMMITTED 4d36206
-- [ ] P8: Add Keycloak OIDC auth to openchat-ui (next-auth + @next-auth/keycloak-provider OR custom middleware, protect all routes, pass JWT to API calls, remove API key input UI, add user profile display)
+- [x] P8: Add Keycloak OIDC auth to openchat-ui (next-auth + @next-auth/keycloak-provider OR custom middleware, protect all routes, pass JWT to API calls, remove API key input UI, add user profile display) ✅ COMMITTED 29f133a
 - [ ] P9: Configure openchat-ui to use Mimir.Api (OPENAI_API_HOST → http://mimir-api:5001, update pages/api/chat.ts to forward JWT, update pages/api/models.ts to forward JWT, add conversation persistence via Mimir.Api REST endpoints instead of localStorage)
 - [ ] P10: nem.* branding + theming (Tailwind config: nem.* color palette, logo, favicon, app name "nem.Mimir", dark mode default, responsive layout verification)
 
