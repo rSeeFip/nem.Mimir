@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mimir.Infrastructure\Mimir.Infrastructure.csproj" />
+    <ProjectReference Include="..\Mimir.Sync\Mimir.Sync.csproj" />
   </ItemGroup>
 
 </Project>

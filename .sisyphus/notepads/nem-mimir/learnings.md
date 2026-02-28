@@ -807,3 +807,27 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 ### Build Results
 - `dotnet build src/Mimir.Sync/Mimir.Sync.csproj` → 0 errors, 0 warnings ✅
 - `dotnet build nem.Mimir.sln` → 0 errors, 0 warnings ✅ (13 projects, no regressions)
+
+## [2026-02-28] Task: P3 - Wolverine Integration into Mimir.Api
+
+### Key Findings
+
+1. **WolverineFx 5.x `UseWolverine` on `IHostApplicationBuilder`**: The task spec said `builder.Host.UseWolverine()` but `ConfigureHostBuilder` (from `WebApplicationBuilder.Host`) does NOT have `UseWolverine`. The correct call for minimal hosting is `builder.UseWolverine(opts => ...)` which targets `IHostApplicationBuilder` — `WebApplicationBuilder` implements this interface.
+
+2. **`MapWolverineEndpoints()` requires WolverineFx.Http**: This method is NOT in core `WolverineFx` package. It's in `WolverineFx.Http` which is for P4, not P3. For messaging-only integration (RabbitMQ transport), no endpoint mapping is needed — Wolverine handles message routing internally.
+
+3. **`using Wolverine;` is required**: The `UseWolverine` extension method lives in the `Wolverine` namespace (class `HostBuilderExtensions`). Must be explicitly imported.
+
+4. **Integration tests need `DisableAllExternalWolverineTransports()`**: When Wolverine is added to the host, it tries to connect to RabbitMQ at startup. In test environments using `WebApplicationFactory`, this causes `ObjectDisposedException`. Fix: call `services.DisableAllExternalWolverineTransports()` in `ConfigureTestServices`.
+
+5. **SolutionStructureTests guard architecture**: There's a test `ApiProject_ShouldOnlyReferenceInfrastructureProject` that validates project references. Updated to `ApiProject_ShouldReferenceInfrastructureAndSyncProjects` to allow the new Mimir.Sync reference.
+
+6. **Wolverine and MediatR coexist fine**: No conflicts between the two. MediatR handles in-process CQRS, Wolverine handles inter-service messaging via RabbitMQ.
+
+### Files Modified
+- `src/Mimir.Api/Mimir.Api.csproj` — added Mimir.Sync project reference
+- `src/Mimir.Api/Program.cs` — added `using Wolverine;`, `using Mimir.Sync.Configuration;`, `builder.UseWolverine()` call
+- `src/Mimir.Api/appsettings.json` — added `RabbitMQ.ConnectionString`
+- `src/Mimir.Api/appsettings.Development.json` — added `RabbitMQ.ConnectionString`
+- `tests/Mimir.Domain.Tests/SolutionStructureTests.cs` — updated architecture test for 2 references
+- `tests/Mimir.Api.IntegrationTests/MimirWebApplicationFactory.cs` — added `DisableAllExternalWolverineTransports()`

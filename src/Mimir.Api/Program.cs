@@ -12,6 +12,8 @@ using Mimir.Application.Common.Interfaces;
 using Mimir.Infrastructure;
 using Serilog;
 using Mimir.Api.Hubs;
+using Mimir.Sync.Configuration;
+using Wolverine;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -26,6 +28,12 @@ try
 
     // ── Serilog ──────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
+
+    // ── Wolverine Messaging ────────────────────────────────────────────────
+    builder.UseWolverine(opts =>
+    {
+        opts.AddMimirMessaging(builder.Configuration);
+    });
 
     // ── Settings Binding ─────────────────────────────────────────────────────
     builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));

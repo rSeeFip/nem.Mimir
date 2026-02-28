@@ -70,7 +70,7 @@ public class SolutionStructureTests
     }
 
     [Fact]
-    public void ApiProject_ShouldOnlyReferenceInfrastructureProject()
+    public void ApiProject_ShouldReferenceInfrastructureAndSyncProjects()
     {
         // Arrange
         var projectRoot = GetProjectRootPath();
@@ -83,8 +83,9 @@ public class SolutionStructureTests
             .ToList();
 
         // Assert
-        projectReferences.ShouldHaveSingleItem();
-        projectReferences[0].ToLower().ShouldContain("mimir.infrastructure");
+        projectReferences.Count.ShouldBe(2);
+        projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.infrastructure"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.sync"));
     }
 
     [Fact]

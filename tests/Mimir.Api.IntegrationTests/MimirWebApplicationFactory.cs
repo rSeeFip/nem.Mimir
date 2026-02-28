@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Mimir.Infrastructure.Persistence;
 using Serilog;
+using Wolverine;
 namespace Mimir.Api.IntegrationTests;
 
 /// <summary>
@@ -32,6 +33,9 @@ public sealed class MimirWebApplicationFactory : WebApplicationFactory<Program>
             {
                 options.UseInMemoryDatabase("MimirTestDb_" + Guid.NewGuid().ToString("N"));
             });
+
+            // Disable Wolverine's external transports (RabbitMQ) for integration tests
+            services.DisableAllExternalWolverineTransports();
         });
 
         builder.ConfigureAppConfiguration((context, config) =>
