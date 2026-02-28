@@ -1,0 +1,44 @@
+# Mimir Telegram Bot — Multi-stage .NET 10 build for ARM64
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+
+WORKDIR /src
+
+# Copy solution and root config files
+COPY ["nem.Mimir.sln", "."]
+COPY ["Directory.Build.props", "."]
+COPY ["Directory.Packages.props", "."]
+
+# Copy project files for restore
+COPY ["src/Mimir.Telegram/Mimir.Telegram.csproj", "src/Mimir.Telegram/"]
+COPY ["src/Mimir.Domain/Mimir.Domain.csproj", "src/Mimir.Domain/"]
+COPY ["src/Mimir.Application/Mimir.Application.csproj", "src/Mimir.Application/"]
+COPY ["src/Mimir.Infrastructure/Mimir.Infrastructure.csproj", "src/Mimir.Infrastructure/"]
+
+# Restore dependencies
+RUN dotnet restore "src/Mimir.Telegram/Mimir.Telegram.csproj"
+
+# Copy full source and publish
+COPY . .
+RUN dotnet publish "src/Mimir.Telegram/Mimir.Telegram.csproj" -c Release -o /app/publish --no-restore --arch arm64 --os linux
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview
+
+# Security: Create non-root user
+RUN groupadd -r mimir && useradd -r -g mimir -s /bin/false mimir
+
+WORKDIR /app
+
+# Copy published application from build stage
+COPY --from=build /app/publish .
+
+# Health check — verify runtime is available
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["dotnet", "--list-runtimes"] || exit 1
+
+# Run as non-root user
+USER mimir
+
+# Start the Worker Service
+ENTRYPOINT ["dotnet", "Mimir.Telegram.dll"]

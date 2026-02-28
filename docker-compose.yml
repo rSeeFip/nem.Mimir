@@ -67,6 +67,43 @@ services:
     networks:
       - mimir-network
 
+  mimir-telegram:
+    build:
+      context: .
+      dockerfile: docker/telegram/Dockerfile.telegram
+    container_name: mimir-telegram
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      - Telegram__BotToken=${TELEGRAM_BOT_TOKEN}
+      - Api__BaseUrl=http://mimir-api:5000
+      - ConnectionStrings__DefaultConnection=Host=mimir-db;Port=5432;Database=mimir;Username=${DB_USER:-mimir};Password=${DB_PASSWORD:-changeme}
+    depends_on:
+      mimir-db:
+        condition: service_healthy
+    networks:
+      - mimir-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  mimir-sandbox:
+    build:
+      context: ./docker/sandbox
+      dockerfile: Dockerfile
+    image: mimir-sandbox:latest
+    container_name: mimir-sandbox
+    # One-shot container — built here, managed by SandboxService at runtime.
+    # No ports exposed, no network access. Containers are created per execution
+    # with: network_mode: none, read_only: true, tmpfs /tmp (100MB),
+    # memory: 512MB, cpus: 1, user: sandbox, seccomp: docker/sandbox/seccomp-profile.json
+    profiles:
+      - sandbox-build
+
 networks:
   mimir-network:
     driver: bridge
