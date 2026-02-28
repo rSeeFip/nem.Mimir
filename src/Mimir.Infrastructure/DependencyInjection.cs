@@ -11,6 +11,7 @@ using Mimir.Infrastructure.Persistence;
 using Mimir.Infrastructure.Persistence.Interceptors;
 using Mimir.Infrastructure.Persistence.Repositories;
 using Mimir.Infrastructure.Services;
+using Mimir.Application.Common.Sanitization;
 using Polly;
 
 public static class DependencyInjection
@@ -42,6 +43,9 @@ public static class DependencyInjection
  // Audit service
  services.AddScoped<IAuditService, AuditService>();
 
+        // Sanitization service (singleton — stateless)
+        services.Configure<SanitizationSettings>(configuration.GetSection(SanitizationSettings.SectionName));
+        services.AddSingleton<ISanitizationService, SanitizationService>();
         // LiteLLM options
         services.Configure<LiteLlmOptions>(configuration.GetSection(LiteLlmOptions.SectionName));
 
