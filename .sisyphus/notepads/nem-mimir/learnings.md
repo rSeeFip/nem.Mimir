@@ -748,3 +748,62 @@ When `Testcontainers` is in the dependency graph, ALWAYS use `Docker.DotNet.Enha
 ### Results
 - Full solution: 0 errors, 0 warnings
 - All 24 SandboxService tests: PASSING (was 6 pass, 18 fail)
+
+
+## P2: Mimir.Sync — Wolverine Messaging Layer
+
+### Completed
+- `src/Mimir.Sync/` class library (net10.0) added to solution under `src` folder
+- 5 message records in `Messages/`: ChatRequestReceived, ChatCompleted, MessageSent, ConversationCreated, AuditEventPublished
+- 3 handler classes in `Handlers/`: ChatCompletedHandler, MessageSentHandler, AuditEventHandler (all `internal sealed`)
+- Publisher interface + implementation in `Publishers/`: IMimirEventPublisher + MimirEventPublisher (IMessageBus wrapper)
+- Configuration extension in `Configuration/`: WolverineConfiguration.AddMimirMessaging(WolverineOptions, IConfiguration)
+- NuGet: WolverineFx 5.16.4, WolverineFx.RabbitMQ 5.16.4 added to Directory.Packages.props
+
+### Key Technical Learnings
+
+#### 1. Microsoft.Extensions.* Version Alignment with Wolverine
+**Problem**: WolverineFx 5.16.4 transitively depends on `Microsoft.Extensions.Logging.Abstractions >= 10.0.0` (via JasperFx.RuntimeCompiler 4.4.0). The existing `Directory.Packages.props` had version 9.0.0 pinned, causing NU1605 (package downgrade) which is treated as error.
+**Solution**: Bumped `Microsoft.Extensions.Logging.Abstractions` and `Microsoft.Extensions.DependencyInjection.Abstractions` from 9.0.0 to 10.0.3 in `Directory.Packages.props`. Full solution still builds cleanly.
+**Lesson**: When adding Wolverine to a net10.0 project, ensure all `Microsoft.Extensions.*` packages are at 10.0.x to avoid downgrade conflicts.
+
+#### 2. Wolverine Handler Convention
+Wolverine handlers use **method-level DI** (not constructor injection):
+- Class is `internal sealed class XyzHandler`
+- Method is `public static async Task Handle(TMessage message, IDep1 dep1, ..., CancellationToken ct)`
+- Wolverine resolves all `Handle()` parameters from the container
+- No base class, no interface implementation needed
+
+#### 3. Wolverine RabbitMQ Configuration
+```csharp
+opts.UseRabbitMq(new Uri(connectionString))
+    .AutoProvision()
+    .EnableWolverineControlQueues();
+opts.Policies.UseDurableInboxOnAllListeners();
+opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
+opts.Discovery.IncludeAssembly(typeof(WolverineConfiguration).Assembly);
+```
+
+#### 4. Clean .csproj for Central Package Management
+The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUsings in the .csproj, but `Directory.Build.props` already sets these globally. Removed duplicate properties to keep the .csproj clean — only PackageReferences, ProjectReferences, and any project-specific config.
+
+### Files Created
+- src/Mimir.Sync/Mimir.Sync.csproj
+- src/Mimir.Sync/Messages/ChatRequestReceived.cs
+- src/Mimir.Sync/Messages/ChatCompleted.cs
+- src/Mimir.Sync/Messages/MessageSent.cs
+- src/Mimir.Sync/Messages/ConversationCreated.cs
+- src/Mimir.Sync/Messages/AuditEventPublished.cs
+- src/Mimir.Sync/Handlers/ChatCompletedHandler.cs
+- src/Mimir.Sync/Handlers/MessageSentHandler.cs
+- src/Mimir.Sync/Handlers/AuditEventHandler.cs
+- src/Mimir.Sync/Publishers/IMimirEventPublisher.cs
+- src/Mimir.Sync/Publishers/MimirEventPublisher.cs
+- src/Mimir.Sync/Configuration/WolverineConfiguration.cs
+
+### Files Modified
+- Directory.Packages.props (added WolverineFx/WolverineFx.RabbitMQ, bumped Logging+DI Abstractions to 10.0.3)
+
+### Build Results
+- `dotnet build src/Mimir.Sync/Mimir.Sync.csproj` → 0 errors, 0 warnings ✅
+- `dotnet build nem.Mimir.sln` → 0 errors, 0 warnings ✅ (13 projects, no regressions)

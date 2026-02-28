@@ -10,7 +10,7 @@
 ## Wave 5-PIVOT: Remove Angular, Add Wolverine Sync Layer
 > Sequential — each builds on previous
 
-- [ ] P1: Remove Angular mimir-web project (delete src/mimir-web/, remove from solution, clean angular.json refs, remove build-web.sh, remove wwwroot from .gitignore)
+- [x] P1: Remove Angular mimir-web project (delete src/mimir-web/, remove from solution, clean angular.json refs, remove build-web.sh, remove wwwroot from .gitignore) ✅ COMMITTED 1d33077
 - [ ] P2: Add Mimir.Sync project — Wolverine messaging layer (src/Mimir.Sync/Mimir.Sync.csproj, Wolverine+RabbitMQ packages, message types: ChatRequestReceived, ChatCompleted, MessageSent, ConversationCreated, AuditEventPublished; handlers: ChatCompletedHandler → audit log, MessageSentHandler → persist + publish)
 - [ ] P3: Integrate Wolverine into Mimir.Api (AddWolverine + UseWolverine in Program.cs, RabbitMQ transport config, reference Mimir.Sync, coexist with existing MediatR handlers)
 - [ ] P4: Add OpenAI-compatible SSE endpoints to Mimir.Api — POST /v1/chat/completions (JWT auth → validate → proxy to LiteLLM with SSE streaming → publish ChatCompleted via Wolverine), GET /v1/models (proxy to LiteLLM /v1/models, filter+return)

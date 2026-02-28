@@ -6,9 +6,13 @@
     <PackageVersion Include="AutoMapper" Version="13.0.1" />
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.3" />
+
+ <!-- Wolverine -->
+ <PackageVersion Include="WolverineFx" Version="5.16.4" />
+ <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.16.4" />
 
     <!-- Infrastructure packages -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
