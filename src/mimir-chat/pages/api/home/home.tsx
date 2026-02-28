@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from 'react-query';
 import { useSession } from 'next-auth/react';
 
@@ -21,7 +21,9 @@ import {
   saveConversation,
   saveConversations,
   updateConversation,
+  createConversationOnApi,
 } from '@/utils/app/conversation';
+import { fetchConversations } from '@/utils/app/conversationApi';
 import { saveFolders } from '@/utils/app/folders';
 import { savePrompts } from '@/utils/app/prompts';
 import { getSettings } from '@/utils/app/settings';
@@ -180,10 +182,10 @@ const Home = ({
 
   // CONVERSATION OPERATIONS  --------------------------------------------
 
-  const handleNewConversation = () => {
+  const handleNewConversation = useCallback(async () => {
     const lastConversation = conversations[conversations.length - 1];
 
-    const newConversation: Conversation = {
+    let newConversation: Conversation = {
       id: uuidv4(),
       name: t('New Conversation'),
       messages: [],
@@ -198,6 +200,9 @@ const Home = ({
       folderId: null,
     };
 
+    // Create on API — returns server-assigned ID (gracefully falls back)
+    newConversation = await createConversationOnApi(newConversation);
+
     const updatedConversations = [...conversations, newConversation];
 
     dispatch({ field: 'selectedConversation', value: newConversation });
@@ -207,7 +212,7 @@ const Home = ({
     saveConversations(updatedConversations);
 
     dispatch({ field: 'loading', value: false });
-  };
+  }, [conversations, defaultModelId, dispatch, t]);
 
   const handleUpdateConversation = (
     conversation: Conversation,
@@ -296,16 +301,33 @@ const Home = ({
       dispatch({ field: 'prompts', value: JSON.parse(prompts) });
     }
 
-    const conversationHistory = localStorage.getItem('conversationHistory');
-    if (conversationHistory) {
-      const parsedConversationHistory: Conversation[] =
-        JSON.parse(conversationHistory);
-      const cleanedConversationHistory = cleanConversationHistory(
-        parsedConversationHistory,
-      );
+    // Fetch conversations from API first, fall back to localStorage
+    const loadConversations = async () => {
+      try {
+        const apiConversations = await fetchConversations();
+        if (apiConversations.length > 0) {
+          dispatch({ field: 'conversations', value: apiConversations });
+          // Update localStorage cache
+          saveConversations(apiConversations);
+          return;
+        }
+      } catch (err) {
+        console.warn('[home] API conversation fetch failed, using localStorage:', err);
+      }
 
-      dispatch({ field: 'conversations', value: cleanedConversationHistory });
-    }
+      // Fallback: load from localStorage
+      const conversationHistory = localStorage.getItem('conversationHistory');
+      if (conversationHistory) {
+        const parsedConversationHistory: Conversation[] =
+          JSON.parse(conversationHistory);
+        const cleanedConversationHistory = cleanConversationHistory(
+          parsedConversationHistory,
+        );
+        dispatch({ field: 'conversations', value: cleanedConversationHistory });
+      }
+    };
+
+    loadConversations();
 
     const selectedConversation = localStorage.getItem('selectedConversation');
     if (selectedConversation) {
@@ -362,13 +384,14 @@ const Home = ({
       }}
     >
       <Head>
-        <title>Chatbot UI</title>
-        <meta name="description" content="ChatGPT but better." />
+        <title>nem.Mimir</title>
+        <meta name="description" content="nem.Mimir — your private AI assistant" />
         <meta
           name="viewport"
           content="height=device-height ,width=device-width, initial-scale=1, user-scalable=no"
         />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.ico" sizes="32x32" />
       </Head>
       {selectedConversation && (
         <main

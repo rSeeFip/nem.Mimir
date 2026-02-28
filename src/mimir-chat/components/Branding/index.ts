@@ -1,0 +1,1 @@
+export { NemMimirLogo } from './NemMimirLogo';
