@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from 'react-query';
+import { useSession } from 'next-auth/react';
 
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
@@ -53,6 +54,9 @@ const Home = ({
   defaultModelId,
 }: Props) => {
   const { t } = useTranslation('chat');
+
+  // Require authentication — redirects to Keycloak login if not authenticated
+  const { data: session, status } = useSession({ required: true });
   const { getModels } = useApiService();
   const { getModelsError } = useErrorService();
   const [initialRender, setInitialRender] = useState<boolean>(true);
@@ -63,7 +67,7 @@ const Home = ({
 
   const {
     state: {
-      apiKey,
+
       lightMode,
       folders,
       conversations,
@@ -77,13 +81,11 @@ const Home = ({
   const stopConversationRef = useRef<boolean>(false);
 
   const { data, error, refetch } = useQuery(
-    ['GetModels', apiKey, serverSideApiKeyIsSet],
+    ['GetModels', serverSideApiKeyIsSet],
     ({ signal }) => {
-      if (!apiKey && !serverSideApiKeyIsSet) return null;
-
       return getModels(
         {
-          key: apiKey,
+          key: '',
         },
         signal,
       );
@@ -259,15 +261,7 @@ const Home = ({
       });
     }
 
-    const apiKey = localStorage.getItem('apiKey');
 
-    if (serverSideApiKeyIsSet) {
-      dispatch({ field: 'apiKey', value: '' });
-
-      localStorage.removeItem('apiKey');
-    } else if (apiKey) {
-      dispatch({ field: 'apiKey', value: apiKey });
-    }
 
     const pluginKeys = localStorage.getItem('pluginKeys');
     if (serverSidePluginKeysSet) {
@@ -347,6 +341,14 @@ const Home = ({
     serverSidePluginKeysSet,
   ]);
 
+  if (status === 'loading') {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#343541]">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <HomeContext.Provider
       value={{
@@ -415,7 +417,7 @@ export const getServerSideProps: GetServerSideProps = async ({ locale }) => {
 
   return {
     props: {
-      serverSideApiKeyIsSet: !!process.env.OPENAI_API_KEY,
+      serverSideApiKeyIsSet: true,
       defaultModelId,
       serverSidePluginKeysSet,
       ...(await serverSideTranslations(locale ?? 'en', [

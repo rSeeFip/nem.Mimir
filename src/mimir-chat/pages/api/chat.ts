@@ -3,15 +3,19 @@ import { OpenAIError, OpenAIStream } from '@/utils/server';
 
 import { ChatBody, Message } from '@/types/chat';
 
+import { getToken } from 'next-auth/jwt';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
 import llamaTokenizer from 'llama-tokenizer-js';
 
-export const config = {
-  runtime: 'edge',
-};
-
-const handler = async (req: Request): Promise<Response> => {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
-    const { model, messages, key, prompt, temperature } = (await req.json()) as ChatBody;
+    const token = await getToken({ req });
+    if (!token?.accessToken) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { model, messages, prompt, temperature } = req.body as ChatBody;
 
     let promptToSend = prompt;
     if (!promptToSend) {
@@ -39,15 +43,40 @@ const handler = async (req: Request): Promise<Response> => {
       messagesToSend = [message, ...messagesToSend];
     }
 
-    const stream = await OpenAIStream(model, promptToSend, temperatureToUse, key, messagesToSend);
+    const stream = await OpenAIStream(
+      model,
+      promptToSend,
+      temperatureToUse,
+      token.accessToken as string,
+      messagesToSend,
+    );
 
-    return new Response(stream);
+    // Stream the response to the client
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        res.write(text);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    res.end();
   } catch (error) {
     console.error(error);
     if (error instanceof OpenAIError) {
-      return new Response('Error', { status: 500, statusText: error.message });
+      return res.status(500).json({ error: error.message });
     } else {
-      return new Response('Error', { status: 500 });
+      return res.status(500).json({ error: 'Error' });
     }
   }
 };

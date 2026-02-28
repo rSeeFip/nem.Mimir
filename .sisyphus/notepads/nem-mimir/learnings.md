@@ -831,3 +831,122 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - `src/Mimir.Api/appsettings.Development.json` — added `RabbitMQ.ConnectionString`
 - `tests/Mimir.Domain.Tests/SolutionStructureTests.cs` — updated architecture test for 2 references
 - `tests/Mimir.Api.IntegrationTests/MimirWebApplicationFactory.cs` — added `DisableAllExternalWolverineTransports()`
+
+## [2026-02-28] Task: P4 - OpenAI-Compatible SSE Endpoints
+
+### Key Findings
+- Mimir.Api.csproj has `<NoWarn>$(NoWarn);1591;1587</NoWarn>` — XML doc warnings are suppressed at API level (but TreatWarningsAsErrors still active globally)
+- Route must be `[Route("v1")]` not `api/v1` for openchat-ui compatibility
+- SSE streaming: write directly to Response.Body, return `Task` not `Task<IActionResult>`, call `Response.StartAsync()` before streaming
+- Use `JsonIgnoreCondition.WhenWritingNull` for OpenAI-style null omission
+- `[JsonPropertyName("snake_case")]` on all DTO properties for OpenAI wire format
+- `ChatRequestReceived` and `ChatCompleted` require `ConversationId` — use ephemeral Guid for OpenAI-compat calls (no persistent conversation)
+- `ChatCompleted` also needs `MessageId` — generate fresh Guid
+- ILlmService already has all needed methods: SendMessageAsync, StreamMessageAsync, GetAvailableModelsAsync
+- Mimir.Api already references Mimir.Sync (has IMimirEventPublisher access)
+
+### Files Created
+- `src/Mimir.Api/Models/OpenAi/ChatCompletionRequest.cs`
+- `src/Mimir.Api/Models/OpenAi/ChatCompletionResponse.cs`
+- `src/Mimir.Api/Models/OpenAi/OpenAiModelsResponse.cs`
+- `src/Mimir.Api/Controllers/OpenAiCompatController.cs`
+
+### Verification
+- Build: 0 errors, 0 warnings ✓
+- Tests: 569 passed (160+130+151+44+39+45) ✓
+
+## [2026-02-28] Task: P6 - Mimir.Sync.Tests
+
+### NSubstitute + Internal Types + ILogger<T> Gotcha
+- `Substitute.For<ILogger<InternalHandler>>()` FAILS even with `InternalsVisibleTo("DynamicProxyGenAssembly2, PublicKey=...")` because Castle.DynamicProxy cannot create a proxy for `ILogger<T>` when `T` is an internal type from another assembly
+- Error: "Type 'Castle.Proxies.ObjectProxy_X' from assembly 'DynamicProxyGenAssembly2' is attempting to implement an inaccessible interface"
+- **Solution**: Use `NullLogger<T>.Instance` from `Microsoft.Extensions.Logging.Abstractions` for tests that don't verify logging
+- For tests that DO verify logging, create a simple `FakeLogger<T> : ILogger<T>` that captures `LogEntry` records
+- This is a concrete class (not a proxy), so it works fine with internal types
+
+### Wolverine Handler Testing Pattern
+- Handlers have STATIC `Handle` methods — call directly: `await Handler.Handle(msg, dep1, dep2, ct)`
+- No constructor injection, no SUT instantiation needed
+- Mock IAuditService with NSubstitute, pass NullLogger/FakeLogger for ILogger<T>
+- Verify calls via `_auditService.Received(1).LogAsync(...)` with `Arg.Is<T>()` matchers
+
+### Publisher Testing Pattern  
+- MimirEventPublisher is a public class — standard NSubstitute mocking works fine
+- Mock `IMessageBus` from Wolverine, verify `_messageBus.Received(1).PublishAsync(message)`
+- Need `<PackageReference Include="WolverineFx" />` in test csproj for `IMessageBus`
+
+### Build & Test Status (P6)
+- `dotnet build`: 0 errors, 0 warnings ✓
+- `dotnet test`: 585 tests total, all passed ✓
+  - Domain: 160, Application: 130, Infrastructure: 151, Tui: 44, Telegram: 39, Integration: 45, **Sync: 16**
+
+### New Files Created (P6)
+- `tests/Mimir.Sync.Tests/Mimir.Sync.Tests.csproj` — Test project
+- `tests/Mimir.Sync.Tests/FakeLogger.cs` — Fake logger for internal type workaround
+- `tests/Mimir.Sync.Tests/Handlers/ChatCompletedHandlerTests.cs` — 4 tests
+- `tests/Mimir.Sync.Tests/Handlers/MessageSentHandlerTests.cs` — 4 tests
+- `tests/Mimir.Sync.Tests/Handlers/AuditEventHandlerTests.cs` — 3 tests
+- `tests/Mimir.Sync.Tests/Publishers/MimirEventPublisherTests.cs` — 5 tests
+
+### Modified Files (P6)
+- `src/Mimir.Sync/Mimir.Sync.csproj` — Added InternalsVisibleTo for test project and DynamicProxyGenAssembly2
+- `nem.Mimir.sln` — Added Mimir.Sync.Tests project
+
+## P7: Clone openchat-ui (2026-02-28)
+
+### What worked
+- `npm install` succeeded without `--legacy-peer-deps` on Node v22 (repo targets Node 19, but works fine on 22)
+- `npm run build` (next build) succeeded with only React Hook dependency warnings — no breaking errors
+- No `.nvmrc` or `.node-version` file in the repo, only Dockerfile needed Node version update
+
+### Key observations
+- openchat-ui has 30 npm audit vulnerabilities (3 low, 14 moderate, 9 high, 4 critical) — expected for outdated deps
+- Build output: 904KB for main route, 116KB shared JS
+- Pages router (not App router) with Next.js 13.2.4
+- Uses `next-i18next` for internationalization (46 static pages generated for locales)
+- Browserslist caniuse-lite is outdated but doesn't block build
+- 679 packages installed total
+- Source files at `src/mimir-chat/` are properly git-tracked; node_modules, .next, .env.local are gitignored
+
+### Files modified
+- `src/mimir-chat/package.json`: name → `@nem/mimir-chat`
+- `src/mimir-chat/Dockerfile`: node:19-alpine → node:20-alpine (both base and production stages)
+- `.gitignore`: added mimir-chat node_modules, .next, .env.local entries
+
+## P8: Keycloak OIDC Authentication (2026-02-28)
+
+### What worked
+- next-auth v4 with Keycloak provider integrates cleanly with Pages Router
+- `useSession({ required: true })` in the main page component (home.tsx) handles route protection simply
+- JWT access tokens flow from NextAuth callbacks → `getToken()` in API routes → Bearer header to backend
+- Edge Runtime API routes had to be converted to Node.js runtime to use `getToken()` from next-auth/jwt
+- Streaming responses work fine with Node.js runtime using `res.write()` chunks instead of Web Streams
+- Type augmentation via `types/next-auth.d.ts` picked up automatically by tsconfig `typeRoots` setting
+- Inline user profile in ChatbarSettings.tsx (no separate component needed) — cleaner than a standalone component
+
+### Key decisions
+- Left `serverSideApiKeyIsSet` flag intact — used throughout for conditional logic, removing it would cascade too many changes
+- Left `ChatBody.key` field as `''` rather than removing it from the type — preserves API contract, server ignores it
+- Left `apiKey` in `HomeInitialState` — dead code but harmless, removing it risks breaking dispatch type inference
+- Did NOT implement token refresh (P9 scope) — tokens will expire and user must re-login
+- `OPENAI_API_KEY` env var still needed as a flag for `serverSideApiKeyIsSet` check in getServerSideProps
+
+### Files modified
+- `package.json`: added next-auth@4
+- `pages/_app.tsx`: SessionProvider wrapper
+- `pages/api/auth/[...nextauth].ts`: Keycloak provider with JWT/session callbacks
+- `pages/api/chat.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
+- `pages/api/models.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
+- `pages/api/home/home.tsx`: useSession route protection, removed apiKey from query/localStorage/state
+- `components/Chat/Chat.tsx`: removed apiKey conditional, simplified to modelError check only
+- `components/Chatbar/components/ChatbarSettings.tsx`: removed Key component, added inline user profile + logout
+- `components/Chatbar/Chatbar.tsx`: removed handleApiKeyChange
+- `components/Chatbar/Chatbar.context.tsx`: removed handleApiKeyChange from interface
+- `utils/server/index.ts`: simplified auth header to always use Bearer token
+- `types/next-auth.d.ts`: created — augments Session with accessToken and JWT with accessToken/refreshToken/expiresAt
+- `.env.local.example`: added Keycloak env vars (KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_SECRET, KEYCLOAK_ISSUER, NEXTAUTH_URL, NEXTAUTH_SECRET)
+
+### Build result
+- `npm run build` passes cleanly (exit 0)
+- Only pre-existing React Hook dependency warnings (not introduced by P8)
+- Output: 1.02MB main route, 118KB shared JS

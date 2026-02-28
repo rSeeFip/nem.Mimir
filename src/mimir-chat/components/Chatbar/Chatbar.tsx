@@ -46,14 +46,7 @@ export const Chatbar = () => {
     dispatch: chatDispatch,
   } = chatBarContextValue;
 
-  const handleApiKeyChange = useCallback(
-    (apiKey: string) => {
-      homeDispatch({ field: 'apiKey', value: apiKey });
 
-      localStorage.setItem('apiKey', apiKey);
-    },
-    [homeDispatch],
-  );
 
   const handlePluginKeyChange = (pluginKey: PluginKey) => {
     if (pluginKeys.some((key) => key.pluginId === pluginKey.pluginId)) {
@@ -216,7 +209,7 @@ export const Chatbar = () => {
         handleExportData,
         handlePluginKeyChange,
         handleClearPluginKey,
-        handleApiKeyChange,
+
       }}
     >
       <Sidebar<Conversation>

@@ -89,3 +89,37 @@ var result = await _cache.GetOrCreateAsync(cacheKey, async entry =>
   - Application: 115 tests
   - Infrastructure: 127 tests
   - Integration: 45 tests
+
+## [2026-02-28] Task: P4 - OpenAI-Compatible SSE Endpoints
+
+### OpenAI API Compatibility Pattern
+- Route MUST be `[Route("v1")]` (not `api/v1`) — openchat-ui expects `/v1/chat/completions` and `/v1/models`
+- All JSON properties use snake_case via `[JsonPropertyName("finish_reason")]` attributes
+- SSE format: `data: {json}\n\n` per chunk, `data: [DONE]\n\n` terminator
+- Response IDs follow `chatcmpl-{guid}` format
+- `created` field is Unix timestamp in seconds
+- Non-streaming returns `chat.completion` object; streaming returns `chat.completion.chunk` objects
+- First streaming chunk includes `delta.role = "assistant"`; subsequent chunks have `role = null`
+
+### SSE Streaming in ASP.NET Core
+- Set `Response.ContentType = "text/event-stream"`, `Cache-Control: no-cache`, `Connection: keep-alive`
+- Call `Response.StartAsync()` to force headers to be sent immediately before streaming
+- Use `Response.WriteAsync($"data: {json}\n\n")` + `Response.Body.FlushAsync()` for each chunk
+- Use `JsonIgnoreCondition.WhenWritingNull` to omit null fields (OpenAI convention)
+- Controller action returns `Task` (not `Task<IActionResult>`) — writes directly to Response
+
+### Event Publishing for OpenAI-compat Endpoints
+- `ChatRequestReceived` needs a `ConversationId` — generate ephemeral `Guid.NewGuid()` for OpenAI-compat calls
+- `ChatCompleted` also needs `MessageId` — generate ephemeral Guid since no persistence
+- For streaming, estimate prompt tokens (~4 chars/token) and count chunks as completion tokens
+
+### New Files Created (P4)
+- `src/Mimir.Api/Models/OpenAi/ChatCompletionRequest.cs` — Request DTO
+- `src/Mimir.Api/Models/OpenAi/ChatCompletionResponse.cs` — Response DTOs (chunk + non-streaming)
+- `src/Mimir.Api/Models/OpenAi/OpenAiModelsResponse.cs` — Models list DTO
+- `src/Mimir.Api/Controllers/OpenAiCompatController.cs` — Controller with SSE streaming
+
+### Build & Test Status (P4)
+- `dotnet build`: 0 errors, 0 warnings ✓
+- `dotnet test`: 569 tests total, all passed ✓
+  - Domain: 160, Application: 130, Infrastructure: 151, Tui: 44, Telegram: 39, Integration: 45

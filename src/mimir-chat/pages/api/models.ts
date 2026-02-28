@@ -2,15 +2,15 @@ import { OPENAI_API_HOST, OPENAI_API_TYPE, OPENAI_API_VERSION, OPENAI_ORGANIZATI
 
 import { OpenAIModel, OpenAIModelID, OpenAIModels } from '@/types/openai';
 
-export const config = {
-  runtime: 'edge',
-};
+import { getToken } from 'next-auth/jwt';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
-const handler = async (req: Request): Promise<Response> => {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
-    const { key } = (await req.json()) as {
-      key: string;
-    };
+    const token = await getToken({ req });
+    if (!token?.accessToken) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     let url = `${OPENAI_API_HOST}/v1/models`;
     if (OPENAI_API_TYPE === 'azure') {
@@ -20,11 +20,9 @@ const handler = async (req: Request): Promise<Response> => {
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
-        ...(OPENAI_API_TYPE === 'openai' && {
-          Authorization: `Bearer ${key ? key : process.env.OPENAI_API_KEY}`
-        }),
+        Authorization: `Bearer ${token.accessToken}`,
         ...(OPENAI_API_TYPE === 'azure' && {
-          'api-key': `${key ? key : process.env.OPENAI_API_KEY}`
+          'api-key': `${token.accessToken}`
         }),
         ...((OPENAI_API_TYPE === 'openai' && OPENAI_ORGANIZATION) && {
           'OpenAI-Organization': OPENAI_ORGANIZATION,
@@ -33,10 +31,7 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (response.status === 401) {
-      return new Response(response.body, {
-        status: 500,
-        headers: response.headers,
-      });
+      return res.status(500).json({ error: 'Upstream API returned 401' });
     } else if (response.status !== 200) {
       console.error(
         `OpenAI API returned an error ${
@@ -62,10 +57,10 @@ const handler = async (req: Request): Promise<Response> => {
       })
       .filter(Boolean);
 
-    return new Response(JSON.stringify(models), { status: 200 });
+    return res.status(200).json(models);
   } catch (error) {
     console.error(error);
-    return new Response('Error', { status: 500 });
+    return res.status(500).json({ error: 'Error' });
   }
 };
 

@@ -13,14 +13,14 @@
 - [x] P1: Remove Angular mimir-web project (delete src/mimir-web/, remove from solution, clean angular.json refs, remove build-web.sh, remove wwwroot from .gitignore) ✅ COMMITTED 1d33077
 - [x] P2: Add Mimir.Sync project — Wolverine messaging layer (src/Mimir.Sync/Mimir.Sync.csproj, Wolverine+RabbitMQ packages, message types: ChatRequestReceived, ChatCompleted, MessageSent, ConversationCreated, AuditEventPublished; handlers: ChatCompletedHandler → audit log, MessageSentHandler → persist + publish) ✅ COMMITTED 545233d
 - [x] P3: Integrate Wolverine into Mimir.Api (AddWolverine + UseWolverine in Program.cs, RabbitMQ transport config, reference Mimir.Sync, coexist with existing MediatR handlers) ✅ COMMITTED 80dfc5c
-- [ ] P4: Add OpenAI-compatible SSE endpoints to Mimir.Api — POST /v1/chat/completions (JWT auth → validate → proxy to LiteLLM with SSE streaming → publish ChatCompleted via Wolverine), GET /v1/models (proxy to LiteLLM /v1/models, filter+return)
-- [ ] P5: Add RabbitMQ to docker-compose.yml (rabbitmq:3-management, port 5672/15672, health check, mimir-api depends_on rabbitmq)
-- [ ] P6: Mimir.Sync unit tests (test all handlers, test message publishing, test SSE endpoint integration)
+- [x] P4: Add OpenAI-compatible SSE endpoints to Mimir.Api — POST /v1/chat/completions (JWT auth → validate → proxy to LiteLLM with SSE streaming → publish ChatCompleted via Wolverine), GET /v1/models (proxy to LiteLLM /v1/models, filter+return) ✅ COMMITTED 208ff87
+- [x] P5: Add RabbitMQ to docker-compose.yml (rabbitmq:3-management, port 5672/15672, health check, mimir-api depends_on rabbitmq) ✅ COMMITTED 155232e
+- [x] P6: Mimir.Sync unit tests (test all handlers, test message publishing, test SSE endpoint integration) ✅ COMMITTED 453ab4f (16 tests, 585 total)
 
 ## Wave 6-PIVOT: openchat-ui Integration
 > P7-P8 parallel, P9-P10 sequential after
 
-- [ ] P7: Clone openchat-ui into src/mimir-chat/ (git subtree or copy, strip .git, update package.json name to @nem/mimir-chat, verify npm install + npm run build works standalone)
+- [x] P7: Clone openchat-ui into src/mimir-chat/ (git subtree or copy, strip .git, update package.json name to @nem/mimir-chat, verify npm install + npm run build works standalone) ✅ COMMITTED 4d36206
 - [ ] P8: Add Keycloak OIDC auth to openchat-ui (next-auth + @next-auth/keycloak-provider OR custom middleware, protect all routes, pass JWT to API calls, remove API key input UI, add user profile display)
 - [ ] P9: Configure openchat-ui to use Mimir.Api (OPENAI_API_HOST → http://mimir-api:5001, update pages/api/chat.ts to forward JWT, update pages/api/models.ts to forward JWT, add conversation persistence via Mimir.Api REST endpoints instead of localStorage)
 - [ ] P10: nem.* branding + theming (Tailwind config: nem.* color palette, logo, favicon, app name "nem.Mimir", dark mode default, responsive layout verification)
