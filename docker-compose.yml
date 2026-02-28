@@ -104,10 +104,32 @@ services:
     profiles:
       - sandbox-build
 
+  mimir-rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: mimir-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - mimir-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - mimir-network
 networks:
   mimir-network:
     driver: bridge
 
 volumes:
   mimir-db-data:
+    driver: local
+  mimir-rabbitmq-data:
     driver: local
