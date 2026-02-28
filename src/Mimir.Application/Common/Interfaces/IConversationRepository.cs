@@ -52,4 +52,25 @@ public interface IConversationRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The conversation with messages if found; otherwise, null.</returns>
     Task<Conversation?> GetWithMessagesAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a conversation from the repository.
+    /// </summary>
+    /// <param name="id">The conversation's unique identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a paginated list of messages for a specific conversation.
+    /// </summary>
+    /// <param name="conversationId">The conversation's unique identifier.</param>
+    /// <param name="pageNumber">The page number (1-based).</param>
+    /// <param name="pageSize">The number of items per page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A paginated list of messages.</returns>
+    Task<PaginatedList<Message>> GetMessagesAsync(
+        Guid conversationId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

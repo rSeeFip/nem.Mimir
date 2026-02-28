@@ -37,4 +37,21 @@ public interface IUserRepository
     /// <param name="user">The user entity to update.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task UpdateAsync(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a user by their email address.
+    /// </summary>
+    /// <param name="email">The email address.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The user if found; otherwise, null.</returns>
+    Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a paginated list of all users.
+    /// </summary>
+    /// <param name="pageNumber">The page number (1-based).</param>
+    /// <param name="pageSize">The number of items per page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A paginated list of users.</returns>
+    Task<(IReadOnlyList<User> Items, int TotalCount)> GetAllAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }

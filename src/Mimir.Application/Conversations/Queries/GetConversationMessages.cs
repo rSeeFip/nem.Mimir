@@ -1,0 +1,71 @@
+using AutoMapper;
+using FluentValidation;
+using MediatR;
+using Mimir.Application.Common.Exceptions;
+using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Models;
+using Mimir.Domain.Entities;
+
+namespace Mimir.Application.Conversations.Queries;
+
+public sealed record GetConversationMessagesQuery(
+    Guid ConversationId,
+    int PageNumber,
+    int PageSize) : IQuery<PaginatedList<MessageDto>>;
+
+public sealed class GetConversationMessagesQueryValidator : AbstractValidator<GetConversationMessagesQuery>
+{
+    public GetConversationMessagesQueryValidator()
+    {
+        RuleFor(x => x.ConversationId)
+            .NotEmpty().WithMessage("Conversation ID is required.");
+
+        RuleFor(x => x.PageNumber)
+            .GreaterThanOrEqualTo(1).WithMessage("Page number must be at least 1.");
+
+        RuleFor(x => x.PageSize)
+            .InclusiveBetween(1, 100).WithMessage("Page size must be between 1 and 100.");
+    }
+}
+
+internal sealed class GetConversationMessagesQueryHandler : IRequestHandler<GetConversationMessagesQuery, PaginatedList<MessageDto>>
+{
+    private readonly IConversationRepository _repository;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly IMapper _mapper;
+
+    public GetConversationMessagesQueryHandler(
+        IConversationRepository repository,
+        ICurrentUserService currentUserService,
+        IMapper mapper)
+    {
+        _repository = repository;
+        _currentUserService = currentUserService;
+        _mapper = mapper;
+    }
+
+    public async Task<PaginatedList<MessageDto>> Handle(GetConversationMessagesQuery request, CancellationToken cancellationToken)
+    {
+        var conversation = await _repository.GetByIdAsync(request.ConversationId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Conversation), request.ConversationId);
+
+        EnsureOwnership(conversation);
+
+        var result = await _repository.GetMessagesAsync(request.ConversationId, request.PageNumber, request.PageSize, cancellationToken);
+
+        var dtoItems = _mapper.Map<IReadOnlyCollection<MessageDto>>(result.Items);
+
+        return new PaginatedList<MessageDto>(dtoItems, result.PageNumber, result.TotalPages, result.TotalCount);
+    }
+
+    private void EnsureOwnership(Conversation conversation)
+    {
+        var userId = _currentUserService.UserId
+            ?? throw new ForbiddenAccessException("User is not authenticated.");
+
+        if (conversation.UserId != Guid.Parse(userId))
+        {
+            throw new ForbiddenAccessException();
+        }
+    }
+}

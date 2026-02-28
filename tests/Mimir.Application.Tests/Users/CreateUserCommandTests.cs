@@ -1,0 +1,144 @@
+using AutoMapper;
+using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
+using Mimir.Application.Common.Models;
+using Mimir.Application.Users.Commands;
+using Mimir.Domain.Entities;
+using Mimir.Domain.Enums;
+using NSubstitute;
+using Shouldly;
+
+namespace Mimir.Application.Tests.Users;
+
+public sealed class CreateUserCommandTests
+{
+    private readonly IUserRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
+    private readonly CreateUserCommandHandler _handler;
+
+    public CreateUserCommandTests()
+    {
+        _repository = Substitute.For<IUserRepository>();
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+
+        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
+        _mapper = mapperConfig.CreateMapper();
+
+        _handler = new CreateUserCommandHandler(_repository, _unitOfWork, _mapper);
+    }
+
+    [Fact]
+    public async Task Handle_ValidCommand_ShouldCreateUserAndReturnDto()
+    {
+        // Arrange
+        _repository.CreateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => callInfo.Arg<User>());
+
+        var command = new CreateUserCommand("test@example.com", "Test User");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Username.ShouldBe("Test User");
+        result.Email.ShouldBe("test@example.com");
+        result.Role.ShouldBe("User");
+        result.IsActive.ShouldBeTrue();
+
+        await _repository.Received(1).CreateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WithAdminRole_ShouldCreateAdminUser()
+    {
+        // Arrange
+        _repository.CreateAsync(Arg.Any<User>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => callInfo.Arg<User>());
+
+        var command = new CreateUserCommand("admin@example.com", "Admin User", UserRole.Admin);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Role.ShouldBe("Admin");
+    }
+
+    [Fact]
+    public void Validator_EmptyEmail_ShouldFail()
+    {
+        // Arrange
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("", "Test User");
+
+        // Act
+        var result = validator.Validate(command);
+
+        // Assert
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "Email");
+    }
+
+    [Fact]
+    public void Validator_InvalidEmail_ShouldFail()
+    {
+        // Arrange
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("not-an-email", "Test User");
+
+        // Act
+        var result = validator.Validate(command);
+
+        // Assert
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "Email");
+    }
+
+    [Fact]
+    public void Validator_EmptyDisplayName_ShouldFail()
+    {
+        // Arrange
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("test@example.com", "");
+
+        // Act
+        var result = validator.Validate(command);
+
+        // Assert
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "DisplayName");
+    }
+
+    [Fact]
+    public void Validator_DisplayNameTooLong_ShouldFail()
+    {
+        // Arrange
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("test@example.com", new string('x', 101));
+
+        // Act
+        var result = validator.Validate(command);
+
+        // Assert
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == "DisplayName");
+    }
+
+    [Fact]
+    public void Validator_ValidCommand_ShouldPass()
+    {
+        // Arrange
+        var validator = new CreateUserCommandValidator();
+        var command = new CreateUserCommand("test@example.com", "Test User");
+
+        // Act
+        var result = validator.Validate(command);
+
+        // Assert
+        result.IsValid.ShouldBeTrue();
+    }
+}

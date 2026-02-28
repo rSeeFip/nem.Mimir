@@ -10,6 +10,7 @@ public class User : BaseAuditableEntity<Guid>
     public string Email { get; private set; } = string.Empty;
     public UserRole Role { get; private set; }
     public DateTimeOffset? LastLoginAt { get; private set; }
+    public bool IsActive { get; private set; } = true;
 
     private User() { }
 
@@ -27,6 +28,7 @@ public class User : BaseAuditableEntity<Guid>
             Username = username,
             Email = email,
             Role = role,
+            IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -43,6 +45,12 @@ public class User : BaseAuditableEntity<Guid>
     public void ChangeRole(UserRole newRole)
     {
         Role = newRole;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }
