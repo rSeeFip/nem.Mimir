@@ -92,9 +92,9 @@ try
     // ── CORS ─────────────────────────────────────────────────────────────────
     builder.Services.AddCors(options =>
     {
-        options.AddPolicy("AllowAngularDev", policy =>
+        options.AddPolicy("AllowFrontend", policy =>
         {
-            policy.WithOrigins("http://localhost:4200")
+            policy.WithOrigins("http://localhost:3000", "http://localhost:4200")
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -132,6 +132,8 @@ try
             });
         });
     });
+
+
 
     // ── Swagger ──────────────────────────────────────────────────────────────
     builder.Services.AddEndpointsApiExplorer();
@@ -192,7 +194,7 @@ try
         app.UseSwaggerUI();
     }
 
-    app.UseCors("AllowAngularDev");
+    app.UseCors("AllowFrontend");
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseRateLimiter();
