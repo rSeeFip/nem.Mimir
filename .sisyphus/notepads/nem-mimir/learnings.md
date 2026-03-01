@@ -994,3 +994,56 @@ This ensures Wolverine can immediately connect to RabbitMQ in mimir-api on start
 - P11 expects `mimir-chat` service to depend on `mimir-api` + `keycloak`
 - P12 will remove SPA hosting from Program.cs (API-only mode ready)
 - P13 will test full E2E stack with all 8 services
+
+---
+
+## P13: E2E Integration Tests — Learnings
+
+### WireMock Stub Staleness in Shared Collection Fixtures
+- WireMock stubs configured once in `InitializeAsync()` can silently stop matching in later test classes, even though they should be persistent.
+- Root cause unclear (possibly test ordering or WireMock internal state).
+- **Fix**: Re-register the WireMock stub in the test method that depends on it (e.g., `ModelsTests` re-registers `/v1/models` stub before calling the endpoint).
+
+### `IDateTimeService` Missing from Production DI
+- `AuditableEntityInterceptor` depends on `IDateTimeService` but no implementation is registered anywhere in `src/`.
+- Latent bug — only surfaces when DB writes occur (e.g., conversation creation in E2E tests).
+- **Fix**: Register `TestDateTimeService` (returning `DateTimeOffset.UtcNow`) in `ConfigureTestServices`.
+
+### Health Check URL Capture Timing in Minimal Hosting
+- `builder.Configuration.GetSection(...)` reads ORIGINAL config before `Build()`. `ConfigureAppConfiguration` only applies during `Build()`.
+- `AddUrlGroup(new Uri(liteLlmBaseUrl + "/health"), ...)` captures the wrong (original) URL.
+- **Fix**: Clear `HealthCheckServiceOptions.Registrations` in `ConfigureTestServices`, then re-register health checks with correct WireMock URLs.
+
+### Named HttpClient Override Pattern
+- Calling `services.AddHttpClient("LiteLlm", client => { ... })` in `ConfigureTestServices` adds an additional configuration delegate that runs AFTER the original, overriding `BaseAddress`.
+- This is the correct pattern for redirecting named HttpClients to WireMock.
+
+### Wolverine + WebApplicationFactory
+- `DisableAllExternalWolverineTransports()` is the working pattern — matches existing `MimirWebApplicationFactory` in integration tests.
+- This prevents Wolverine from trying to connect to a real RabbitMQ during WebApplicationFactory startup (even though Testcontainers RabbitMQ is available, Wolverine transport config is separate).
+
+### WebApplicationFactory Lazy Server Initialization
+- Must call `_ = Server;` in `InitializeAsync()` to force server creation before tests run.
+- Without this, the first test's HTTP request triggers server creation, which can cause timing issues with Testcontainers.
+
+### IAsyncLifetime Return Types
+- Use `Task` return types (not `ValueTask`) for xUnit 2.8.1 `IAsyncLifetime`.
+- `DisposeAsync` uses `new` modifier when the base class (`WebApplicationFactory`) also defines it.
+
+### 10-Second First Request Timeout
+- First WireMock-proxied requests take ~10s due to a resilience handler timeout in the HTTP pipeline.
+- Subsequent requests are fast (~3ms).
+- Tests account for this with adequate timeouts.
+
+### E2E Test Project Structure
+- Collection fixture: `E2ETestCollection` with `ICollectionFixture<E2EWebApplicationFactory>`.
+- All test classes use `[Collection("E2E")]` and inject the factory via constructor.
+- `JwtTokenHelper` creates HS256 tokens with configurable claims, expiry, issuer, audience.
+- Test signing key: `E2E-Test-Signing-Key-That-Is-Long-Enough-For-HS256-Algorithm!!`
+- Factory overrides JWT validation via `PostConfigure<JwtBearerOptions>` to use symmetric key instead of Keycloak OIDC.
+
+### Package Versions Added
+- `WireMock.Net` 1.25.0 — HTTP API mocking
+- `Testcontainers.RabbitMq` 4.10.0 — Real RabbitMQ in Docker for tests
+
+### Final Test Count: 600 total (15 E2E + 585 existing)
