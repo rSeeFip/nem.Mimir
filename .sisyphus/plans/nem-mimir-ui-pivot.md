@@ -30,7 +30,7 @@
 
 - [x] P11: openchat-ui Dockerfile + Docker Compose service (multi-stage Node 20-alpine, env vars for Keycloak + API host, add mimir-chat service to docker-compose.yml, depends_on mimir-api + keycloak, port 3000, health check) ✅ COMMITTED 6461f32
 - [x] P12: Update Mimir.Api Program.cs — remove SPA hosting (already completed in P1: removed UseStaticFiles, UseDefaultFiles, MapFallbackToFile, CORS updated for localhost:3000) ✅ DONE (P1)
-- [ ] P13: End-to-end integration test — full Docker Compose up (db + keycloak + litellm + rabbitmq + mimir-api + mimir-chat + sandbox), verify: Keycloak login → chat UI loads → send message → SSE streaming works → conversation persisted → Wolverine event published to RabbitMQ → audit logged
+- [x] P13: End-to-end integration test — full Docker Compose up (db + keycloak + litellm + rabbitmq + mimir-api + mimir-chat + sandbox), verify: Keycloak login → chat UI loads → send message → SSE streaming works → conversation persisted → Wolverine event published to RabbitMQ → audit logged ✅ COMMITTED b1dbc94
 
 ## Wave 8-ADJUSTED: Plugin System + Full Docker (from original plan, adjusted)
 > These tasks carry forward from original Wave 6

@@ -14,6 +14,7 @@ using Mimir.Infrastructure.Services;
 using Mimir.Application.Common.Sanitization;
 using Polly;
 using Docker.DotNet;
+using Mimir.Infrastructure.Plugins;
 
 public static class DependencyInjection
 {
@@ -105,6 +106,9 @@ public static class DependencyInjection
         // Docker sandbox service
         services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
         services.AddScoped<ISandboxService, SandboxService>();
+
+        // Plugin service (singleton — manages plugin lifecycle)
+        services.AddSingleton<IPluginService, PluginManager>();
 
         return services;
     }
