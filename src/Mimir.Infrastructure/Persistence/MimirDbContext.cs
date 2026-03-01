@@ -2,7 +2,9 @@ namespace Mimir.Infrastructure.Persistence;
 
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Mimir.Domain.Common;
 using Mimir.Domain.Entities;
+using Mimir.Infrastructure.Persistence.Converters;
 
 public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContext(options)
 {
@@ -16,5 +18,16 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+    }
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        foreach (var (idType, valueType) in typeof(ITypedId<>).Assembly.GetTypedIds())
+        {
+            var converterType = typeof(TypedIdValueConverter<,>).MakeGenericType(idType, valueType);
+            configurationBuilder.Properties(idType).HaveConversion(converterType);
+        }
     }
 }

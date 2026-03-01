@@ -14,6 +14,8 @@ using Serilog;
 using Mimir.Api.Hubs;
 using Mimir.Sync.Configuration;
 using Wolverine;
+using Mimir.Infrastructure.Serialization;
+using Mimir.Api.Swagger;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -180,6 +182,8 @@ try
                 new List<string>()
             }
         });
+
+        options.SchemaFilter<TypedIdSchemaFilter>();
     });
 
     // ── Application & Infrastructure Services ────────────────────────────────
@@ -190,13 +194,15 @@ try
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
     builder.Services.AddMemoryCache();
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new TypedIdJsonConverterFactory()));
     builder.Services.AddSignalR(options =>
     {
         options.KeepAliveInterval = TimeSpan.FromSeconds(30);
         options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
         options.MaximumReceiveMessageSize = 256 * 1024; // 256 KB — prevent DoS via large messages
-    });
+    })
+    .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new TypedIdJsonConverterFactory()));
 
     var app = builder.Build();
 
