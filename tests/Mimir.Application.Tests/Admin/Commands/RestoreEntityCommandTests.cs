@@ -24,13 +24,11 @@ public sealed class RestoreEntityCommandTests
         _handler = new RestoreEntityCommandHandler(_restoreRepository, _unitOfWork);
     }
 
-    private static T CreateDeletedEntity<T>(T entity) where T : BaseAuditableEntity<Guid>
+    private static T CreateDeletedEntity<T>(T entity)
     {
-        var baseType = typeof(BaseAuditableEntity<Guid>);
-        baseType.GetProperty(nameof(BaseAuditableEntity<Guid>.IsDeleted))!
-            .SetValue(entity, true);
-        baseType.GetProperty(nameof(BaseAuditableEntity<Guid>.DeletedAt))!
-            .SetValue(entity, DateTimeOffset.UtcNow);
+        var type = entity!.GetType().BaseType!;
+        type.GetProperty("IsDeleted")!.SetValue(entity, true);
+        type.GetProperty("DeletedAt")!.SetValue(entity, DateTimeOffset.UtcNow);
         return entity;
     }
 
@@ -81,10 +79,10 @@ public sealed class RestoreEntityCommandTests
         var prompt = CreateDeletedEntity(SystemPrompt.Create("Test Prompt", "Template", "Description"));
         prompt.IsDeleted.ShouldBeTrue();
 
-        _restoreRepository.GetByIdIncludingDeletedAsync("systemprompt", prompt.Id, Arg.Any<CancellationToken>())
+        _restoreRepository.GetByIdIncludingDeletedAsync("systemprompt", prompt.Id.Value, Arg.Any<CancellationToken>())
             .Returns(prompt);
 
-        var command = new RestoreEntityCommand("systemprompt", prompt.Id);
+        var command = new RestoreEntityCommand("systemprompt", prompt.Id.Value);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
@@ -100,7 +98,7 @@ public sealed class RestoreEntityCommandTests
         // Arrange
         var entityId = Guid.NewGuid();
         _restoreRepository.GetByIdIncludingDeletedAsync("conversation", entityId, Arg.Any<CancellationToken>())
-            .Returns((BaseAuditableEntity<Guid>?)null);
+            .Returns((object?)null);
 
         var command = new RestoreEntityCommand("conversation", entityId);
 
@@ -207,7 +205,7 @@ public sealed class RestoreEntityCommandTests
         // Arrange
         var entityId = Guid.NewGuid();
         _restoreRepository.GetByIdIncludingDeletedAsync("user", entityId, Arg.Any<CancellationToken>())
-            .Returns((BaseAuditableEntity<Guid>?)null);
+            .Returns((object?)null);
 
         var command = new RestoreEntityCommand("user", entityId);
 
@@ -215,7 +213,7 @@ public sealed class RestoreEntityCommandTests
         await Should.ThrowAsync<NotFoundException>(
             () => _handler.Handle(command, CancellationToken.None));
 
-        _restoreRepository.DidNotReceive().Restore(Arg.Any<BaseAuditableEntity<Guid>>());
+        _restoreRepository.DidNotReceive().Restore(Arg.Any<object>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -235,7 +233,7 @@ public sealed class RestoreEntityCommandTests
         await Should.ThrowAsync<ValidationException>(
             () => _handler.Handle(command, CancellationToken.None));
 
-        _restoreRepository.DidNotReceive().Restore(Arg.Any<BaseAuditableEntity<Guid>>());
+        _restoreRepository.DidNotReceive().Restore(Arg.Any<object>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

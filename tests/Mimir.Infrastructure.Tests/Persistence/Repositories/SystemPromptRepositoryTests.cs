@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Mimir.Domain.Entities;
 using Mimir.Infrastructure.Persistence.Repositories;
+using Mimir.Domain.ValueObjects;
 using Shouldly;
 
 namespace Mimir.Infrastructure.Tests.Persistence.Repositories;
@@ -56,7 +57,7 @@ public sealed class SystemPromptRepositoryTests : RepositoryTestBase
         var repository = new SystemPromptRepository(Context);
 
         // Act
-        var result = await repository.GetByIdAsync(Guid.NewGuid());
+        var result = await repository.GetByIdAsync(SystemPromptId.New());
 
         // Assert
         result.ShouldBeNull();
@@ -122,7 +123,7 @@ public sealed class SystemPromptRepositoryTests : RepositoryTestBase
         var repository = new SystemPromptRepository(Context);
 
         // Act & Assert — should not throw
-        await repository.DeleteAsync(Guid.NewGuid());
+        await repository.DeleteAsync(SystemPromptId.New());
     }
 
     [Fact]

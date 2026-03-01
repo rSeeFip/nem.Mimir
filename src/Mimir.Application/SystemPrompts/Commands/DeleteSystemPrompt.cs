@@ -3,6 +3,7 @@ using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.SystemPrompts.Commands;
 
@@ -10,7 +11,7 @@ namespace Mimir.Application.SystemPrompts.Commands;
 /// Command to delete an existing system prompt by its identifier.
 /// </summary>
 /// <param name="Id">The unique identifier of the system prompt to delete.</param>
-public sealed record DeleteSystemPromptCommand(Guid Id) : ICommand;
+public sealed record DeleteSystemPromptCommand(SystemPromptId Id) : ICommand;
 
 /// <summary>
 /// Validates the <see cref="DeleteSystemPromptCommand"/> ensuring the system prompt ID is provided.

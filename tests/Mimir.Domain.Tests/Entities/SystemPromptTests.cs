@@ -19,7 +19,7 @@ public class SystemPromptTests
         var prompt = SystemPrompt.Create(name, template, description);
 
         // Assert
-        prompt.Id.ShouldNotBe(Guid.Empty);
+        prompt.Id.ShouldNotBe(SystemPromptId.Empty);
         prompt.Name.ShouldBe(name);
         prompt.Template.ShouldBe(template);
         prompt.Description.ShouldBe(description);

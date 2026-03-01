@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Mimir.Application.Common.Models;
 using Mimir.Application.SystemPrompts.Commands;
 using Mimir.Application.SystemPrompts.Queries;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Api.Controllers;
 
@@ -69,11 +70,11 @@ public sealed class SystemPromptsController : ControllerBase
     /// <param name="id">The system prompt identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The system prompt.</returns>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id}")]
     [ProducesResponseType(typeof(SystemPromptDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetById(SystemPromptId id, CancellationToken ct)
     {
         var result = await _sender.Send(new GetSystemPromptByIdQuery(id), ct);
         return Ok(result);
@@ -85,11 +86,11 @@ public sealed class SystemPromptsController : ControllerBase
     /// <param name="id">The system prompt identifier.</param>
     /// <param name="request">The update payload.</param>
     /// <param name="ct">Cancellation token.</param>
-    [HttpPut("{id:guid}")]
+    [HttpPut("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSystemPromptRequest request, CancellationToken ct)
+    public async Task<IActionResult> Update(SystemPromptId id, [FromBody] UpdateSystemPromptRequest request, CancellationToken ct)
     {
         await _sender.Send(
             new UpdateSystemPromptCommand(id, request.Name, request.Template, request.Description ?? string.Empty), ct);
@@ -101,11 +102,11 @@ public sealed class SystemPromptsController : ControllerBase
     /// </summary>
     /// <param name="id">The system prompt identifier.</param>
     /// <param name="ct">Cancellation token.</param>
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Delete(SystemPromptId id, CancellationToken ct)
     {
         await _sender.Send(new DeleteSystemPromptCommand(id), ct);
         return NoContent();
@@ -118,11 +119,11 @@ public sealed class SystemPromptsController : ControllerBase
     /// <param name="request">The rendering payload with variable values.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The rendered prompt text.</returns>
-    [HttpPost("{id:guid}/render")]
+    [HttpPost("{id}/render")]
     [ProducesResponseType(typeof(RenderSystemPromptResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Render(Guid id, [FromBody] RenderSystemPromptRequest request, CancellationToken ct)
+    public async Task<IActionResult> Render(SystemPromptId id, [FromBody] RenderSystemPromptRequest request, CancellationToken ct)
     {
         var result = await _sender.Send(
             new RenderSystemPromptQuery(id, request.Variables ?? new Dictionary<string, string>()), ct);

@@ -1,8 +1,9 @@
 namespace Mimir.Domain.Entities;
 
 using Mimir.Domain.Common;
+using Mimir.Domain.ValueObjects;
 
-public sealed class SystemPrompt : BaseAuditableEntity<Guid>
+public sealed class SystemPrompt : BaseAuditableEntity<SystemPromptId>
 {
     public string Name { get; private set; } = string.Empty;
     public string Template { get; private set; } = string.Empty;
@@ -22,7 +23,7 @@ public sealed class SystemPrompt : BaseAuditableEntity<Guid>
 
         return new SystemPrompt
         {
-            Id = Guid.NewGuid(),
+            Id = SystemPromptId.New(),
             Name = name,
             Template = template,
             Description = description ?? string.Empty,

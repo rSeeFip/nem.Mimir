@@ -1,3 +1,4 @@
+using Mimir.Domain.ValueObjects;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.SystemPrompts.Queries;
@@ -53,7 +54,7 @@ public sealed class RenderSystemPromptQueryTests
     public async Task Handle_NonExistentPrompt_ShouldThrowNotFoundException()
     {
         // Arrange
-        var id = Guid.NewGuid();
+        var id = SystemPromptId.New();
         _repository.GetByIdAsync(id, Arg.Any<CancellationToken>())
             .Returns((SystemPrompt?)null);
 

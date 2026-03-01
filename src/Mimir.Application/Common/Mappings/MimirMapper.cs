@@ -1,6 +1,8 @@
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
+
 using Mimir.Domain.Enums;
+using Mimir.Domain.ValueObjects;
 using Riok.Mapperly.Abstractions;
 
 namespace Mimir.Application.Common.Mappings;
@@ -19,7 +21,10 @@ public sealed partial class MimirMapper
     [MapperIgnoreSource(nameof(SystemPrompt.IsDeleted))]
     [MapperIgnoreSource(nameof(SystemPrompt.DeletedAt))]
     [MapperIgnoreSource(nameof(SystemPrompt.DomainEvents))]
+    [MapperIgnoreSource(nameof(SystemPrompt.DomainEvents))]
     public partial SystemPromptDto MapToSystemPromptDto(SystemPrompt entity);
+
+    private Guid MapSystemPromptId(SystemPromptId id) => id.Value;
 
     public UserDto MapToUserDto(User entity) =>
         new(

@@ -15,7 +15,7 @@ public interface IEntityRestoreRepository
     /// <param name="entityId">The unique identifier of the entity.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The entity if found (including soft-deleted); otherwise, null.</returns>
-    Task<BaseAuditableEntity<Guid>?> GetByIdIncludingDeletedAsync(
+    Task<object?> GetByIdIncludingDeletedAsync(
         string entityType,
         Guid entityId,
         CancellationToken cancellationToken = default);
@@ -24,5 +24,5 @@ public interface IEntityRestoreRepository
     /// Restores a soft-deleted entity by setting IsDeleted to false and DeletedAt to null.
     /// </summary>
     /// <param name="entity">The entity to restore.</param>
-    void Restore(BaseAuditableEntity<Guid> entity);
+    void Restore(object entity);
 }

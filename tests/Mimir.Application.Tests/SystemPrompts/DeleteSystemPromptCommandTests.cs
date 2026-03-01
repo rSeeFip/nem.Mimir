@@ -1,3 +1,4 @@
+using Mimir.Domain.ValueObjects;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.SystemPrompts.Commands;
@@ -45,7 +46,7 @@ public sealed class DeleteSystemPromptCommandTests
     public async Task Handle_NonExistentPrompt_ShouldThrowNotFoundException()
     {
         // Arrange
-        var id = Guid.NewGuid();
+        var id = SystemPromptId.New();
         _repository.GetByIdAsync(id, Arg.Any<CancellationToken>())
             .Returns((SystemPrompt?)null);
 
@@ -60,7 +61,7 @@ public sealed class DeleteSystemPromptCommandTests
     public void Validator_EmptyId_ShouldFail()
     {
         var validator = new DeleteSystemPromptCommandValidator();
-        var command = new DeleteSystemPromptCommand(Guid.Empty);
+        var command = new DeleteSystemPromptCommand(SystemPromptId.Empty);
 
         var result = validator.Validate(command);
 
@@ -72,7 +73,7 @@ public sealed class DeleteSystemPromptCommandTests
     public void Validator_ValidId_ShouldPass()
     {
         var validator = new DeleteSystemPromptCommandValidator();
-        var command = new DeleteSystemPromptCommand(Guid.NewGuid());
+        var command = new DeleteSystemPromptCommand(SystemPromptId.New());
 
         var result = validator.Validate(command);
 

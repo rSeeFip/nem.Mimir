@@ -2,6 +2,7 @@ using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.SystemPrompts.Queries;
 
@@ -11,7 +12,7 @@ namespace Mimir.Application.SystemPrompts.Queries;
 /// <param name="Id">The unique identifier of the system prompt to render.</param>
 /// <param name="Variables">A dictionary of variable names and their replacement values.</param>
 public sealed record RenderSystemPromptQuery(
-    Guid Id,
+    SystemPromptId Id,
     IDictionary<string, string> Variables) : IQuery<string>;
 
 internal sealed class RenderSystemPromptQueryHandler : IRequestHandler<RenderSystemPromptQuery, string>

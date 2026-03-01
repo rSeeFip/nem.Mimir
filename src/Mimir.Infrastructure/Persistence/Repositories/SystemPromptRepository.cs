@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 internal sealed class SystemPromptRepository(MimirDbContext context) : ISystemPromptRepository
 {
-    public async Task<SystemPrompt?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<SystemPrompt?> GetByIdAsync(SystemPromptId id, CancellationToken cancellationToken = default)
     {
         return await context.SystemPrompts
             .AsNoTracking()
@@ -55,7 +56,7 @@ internal sealed class SystemPromptRepository(MimirDbContext context) : ISystemPr
         return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(SystemPromptId id, CancellationToken cancellationToken = default)
     {
         var prompt = await context.SystemPrompts
             .FindAsync([id], cancellationToken)

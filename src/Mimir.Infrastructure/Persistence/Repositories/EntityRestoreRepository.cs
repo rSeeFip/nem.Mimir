@@ -2,12 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Common;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Infrastructure.Persistence.Repositories;
 
 internal sealed class EntityRestoreRepository(MimirDbContext context) : IEntityRestoreRepository
 {
-    public async Task<BaseAuditableEntity<Guid>?> GetByIdIncludingDeletedAsync(
+    public async Task<object?> GetByIdIncludingDeletedAsync(
         string entityType,
         Guid entityId,
         CancellationToken cancellationToken = default)
@@ -22,16 +23,16 @@ internal sealed class EntityRestoreRepository(MimirDbContext context) : IEntityR
                 .FirstOrDefaultAsync(e => e.Id == entityId, cancellationToken),
             "systemprompt" => await context.SystemPrompts
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(e => e.Id == entityId, cancellationToken),
+                .FirstOrDefaultAsync(e => e.Id == SystemPromptId.From(entityId), cancellationToken),
             _ => null,
         };
     }
 
-    public void Restore(BaseAuditableEntity<Guid> entity)
+    public void Restore(object entity)
     {
         var entry = context.Entry(entity);
-        entry.Property(nameof(BaseAuditableEntity<Guid>.IsDeleted)).CurrentValue = false;
-        entry.Property(nameof(BaseAuditableEntity<Guid>.DeletedAt)).CurrentValue = null;
+        entry.Property("IsDeleted").CurrentValue = false;
+        entry.Property("DeletedAt").CurrentValue = null;
         entry.State = EntityState.Modified;
     }
 }

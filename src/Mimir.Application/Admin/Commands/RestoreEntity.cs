@@ -59,12 +59,12 @@ internal sealed class RestoreEntityCommandHandler : IRequestHandler<RestoreEntit
             entityType, request.EntityId, cancellationToken)
             ?? throw new NotFoundException(request.EntityType, request.EntityId);
 
-        if (!entity.IsDeleted)
+        bool isDeleted = (bool)entity.GetType().GetProperty("IsDeleted")!.GetValue(entity)!;
+        if (!isDeleted)
         {
             throw new ValidationException(
                 $"Entity \"{request.EntityType}\" ({request.EntityId}) is not soft-deleted and cannot be restored.");
         }
-
         _restoreRepository.Restore(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }

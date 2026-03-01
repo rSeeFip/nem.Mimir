@@ -3,6 +3,7 @@ using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.SystemPrompts.Commands;
 
@@ -14,7 +15,7 @@ namespace Mimir.Application.SystemPrompts.Commands;
 /// <param name="Template">The updated template content.</param>
 /// <param name="Description">The updated description.</param>
 public sealed record UpdateSystemPromptCommand(
-    Guid Id,
+    SystemPromptId Id,
     string Name,
     string Template,
     string Description) : ICommand;

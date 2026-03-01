@@ -125,16 +125,16 @@ public sealed class SystemPromptsControllerTests
     // ── Route constraint validation ─────────────────────────────────────────
 
     [Fact]
-    public async Task GetById_WithInvalidGuid_Returns404()
+    public async Task GetById_WithInvalidGuid_Returns401()
     {
-        // Route constraint {id:guid} means invalid GUIDs don't match any route → 404
+        // Route constraint removed -> matches route and hits auth -> 401
         var response = await _client.GetAsync("/api/systemprompts/not-a-guid");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task Update_WithInvalidGuid_Returns404()
+    public async Task Update_WithInvalidGuid_Returns401()
     {
         // Arrange
         var payload = new { Name = "Updated", Template = "Template", Description = "Desc" };
@@ -143,21 +143,21 @@ public sealed class SystemPromptsControllerTests
         var response = await _client.PutAsJsonAsync("/api/systemprompts/not-a-guid", payload);
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task Delete_WithInvalidGuid_Returns404()
+    public async Task Delete_WithInvalidGuid_Returns401()
     {
         // Act
         var response = await _client.DeleteAsync("/api/systemprompts/not-a-guid");
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task Render_WithInvalidGuid_Returns404()
+    public async Task Render_WithInvalidGuid_Returns401()
     {
         // Arrange
         var payload = new { Variables = new Dictionary<string, string>() };
@@ -166,7 +166,7 @@ public sealed class SystemPromptsControllerTests
         var response = await _client.PostAsJsonAsync("/api/systemprompts/not-a-guid/render", payload);
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     // ── Route existence: verify endpoints are mapped ────────────────────────
@@ -211,20 +211,12 @@ public sealed class SystemPromptsControllerTests
     [InlineData("12345")]
     [InlineData("abc")]
     [InlineData("")]
-    public async Task GetById_WithNonGuidId_Returns404(string invalidId)
+    public async Task GetById_WithNonGuidId_Returns401(string invalidId)
     {
-        // Route constraint {id:guid} rejects non-GUIDs → 404
+        // Route constraint removed -> matches route and hits auth -> 401
         var response = await _client.GetAsync($"/api/systemprompts/{invalidId}");
 
-        // Non-empty invalid IDs should be 404 (route constraint), empty is root route → 401
-        if (string.IsNullOrEmpty(invalidId))
-        {
-            response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        }
-        else
-        {
-            response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        }
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

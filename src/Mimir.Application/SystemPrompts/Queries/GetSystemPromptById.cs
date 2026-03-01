@@ -4,6 +4,7 @@ using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.SystemPrompts.Queries;
 
@@ -11,7 +12,7 @@ namespace Mimir.Application.SystemPrompts.Queries;
 /// Query to retrieve a system prompt by its unique identifier.
 /// </summary>
 /// <param name="Id">The unique identifier of the system prompt to retrieve.</param>
-public sealed record GetSystemPromptByIdQuery(Guid Id) : IQuery<SystemPromptDto>;
+public sealed record GetSystemPromptByIdQuery(SystemPromptId Id) : IQuery<SystemPromptDto>;
 
 internal sealed class GetSystemPromptByIdQueryHandler : IRequestHandler<GetSystemPromptByIdQuery, SystemPromptDto>
 {

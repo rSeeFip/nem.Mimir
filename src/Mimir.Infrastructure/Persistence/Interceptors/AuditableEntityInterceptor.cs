@@ -34,26 +34,43 @@ public class AuditableEntityInterceptor(
         var utcNow = dateTimeService.UtcNow;
         var userId = currentUserService.UserId;
 
-        foreach (var entry in context.ChangeTracker.Entries<BaseAuditableEntity<Guid>>())
+        foreach (var entry in context.ChangeTracker.Entries())
         {
+            var isAuditable = IsAuditableEntity(entry.Entity.GetType());
+            if (!isAuditable) continue;
+
             if (entry.State == EntityState.Deleted)
             {
                 entry.State = EntityState.Modified;
-                entry.Property(nameof(BaseAuditableEntity<Guid>.IsDeleted)).CurrentValue = true;
-                entry.Property(nameof(BaseAuditableEntity<Guid>.DeletedAt)).CurrentValue = utcNow;
+                entry.Property("IsDeleted").CurrentValue = true;
+                entry.Property("DeletedAt").CurrentValue = utcNow;
             }
 
             if (entry.State == EntityState.Added)
             {
-                entry.Property(nameof(BaseAuditableEntity<Guid>.CreatedAt)).CurrentValue = utcNow;
-                entry.Property(nameof(BaseAuditableEntity<Guid>.CreatedBy)).CurrentValue = userId;
+                entry.Property("CreatedAt").CurrentValue = utcNow;
+                entry.Property("CreatedBy").CurrentValue = userId;
             }
 
             if (entry.State is EntityState.Added or EntityState.Modified)
             {
-                entry.Property(nameof(BaseAuditableEntity<Guid>.UpdatedAt)).CurrentValue = utcNow;
-                entry.Property(nameof(BaseAuditableEntity<Guid>.UpdatedBy)).CurrentValue = userId;
+                entry.Property("UpdatedAt").CurrentValue = utcNow;
+                entry.Property("UpdatedBy").CurrentValue = userId;
             }
         }
+    }
+
+    private bool IsAuditableEntity(Type type)
+    {
+        var currentType = type;
+        while (currentType != null && currentType != typeof(object))
+        {
+            if (currentType.IsGenericType && currentType.GetGenericTypeDefinition() == typeof(BaseAuditableEntity<>))
+            {
+                return true;
+            }
+            currentType = currentType.BaseType;
+        }
+        return false;
     }
 }

@@ -1,6 +1,8 @@
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
 
+using Mimir.Domain.ValueObjects;
+
 namespace Mimir.Application.Common.Interfaces;
 
 /// <summary>
@@ -11,7 +13,7 @@ public interface ISystemPromptRepository
     /// <summary>
     /// Gets a system prompt by its unique identifier.
     /// </summary>
-    Task<SystemPrompt?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<SystemPrompt?> GetByIdAsync(SystemPromptId id, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets all system prompts with pagination.
@@ -34,7 +36,7 @@ public interface ISystemPromptRepository
     /// <summary>
     /// Deletes a system prompt by its identifier.
     /// </summary>
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task DeleteAsync(SystemPromptId id, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the default system prompt, if one is set.

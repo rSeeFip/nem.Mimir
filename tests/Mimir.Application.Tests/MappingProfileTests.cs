@@ -38,7 +38,7 @@ public sealed class MappingProfileTests
 
         // Assert
         dto.ShouldNotBeNull();
-        dto.Id.ShouldBe(prompt.Id);
+        dto.Id.ShouldBe(prompt.Id.Value);
         dto.Name.ShouldBe("Test Prompt");
         dto.Template.ShouldBe("You are a helper.");
     }

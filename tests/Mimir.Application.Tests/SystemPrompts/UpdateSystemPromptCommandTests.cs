@@ -1,3 +1,4 @@
+using Mimir.Domain.ValueObjects;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.SystemPrompts.Commands;
@@ -49,7 +50,7 @@ public sealed class UpdateSystemPromptCommandTests
     public async Task Handle_NonExistentPrompt_ShouldThrowNotFoundException()
     {
         // Arrange
-        var id = Guid.NewGuid();
+        var id = SystemPromptId.New();
         _repository.GetByIdAsync(id, Arg.Any<CancellationToken>())
             .Returns((SystemPrompt?)null);
 
@@ -64,7 +65,7 @@ public sealed class UpdateSystemPromptCommandTests
     public void Validator_EmptyId_ShouldFail()
     {
         var validator = new UpdateSystemPromptCommandValidator();
-        var command = new UpdateSystemPromptCommand(Guid.Empty, "Name", "Template", "Desc");
+        var command = new UpdateSystemPromptCommand(SystemPromptId.Empty, "Name", "Template", "Desc");
 
         var result = validator.Validate(command);
 
@@ -76,7 +77,7 @@ public sealed class UpdateSystemPromptCommandTests
     public void Validator_EmptyName_ShouldFail()
     {
         var validator = new UpdateSystemPromptCommandValidator();
-        var command = new UpdateSystemPromptCommand(Guid.NewGuid(), "", "Template", "Desc");
+        var command = new UpdateSystemPromptCommand(SystemPromptId.New(), "", "Template", "Desc");
 
         var result = validator.Validate(command);
 
@@ -88,7 +89,7 @@ public sealed class UpdateSystemPromptCommandTests
     public void Validator_ValidCommand_ShouldPass()
     {
         var validator = new UpdateSystemPromptCommandValidator();
-        var command = new UpdateSystemPromptCommand(Guid.NewGuid(), "Name", "Template", "Desc");
+        var command = new UpdateSystemPromptCommand(SystemPromptId.New(), "Name", "Template", "Desc");
 
         var result = validator.Validate(command);
 
