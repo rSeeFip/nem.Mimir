@@ -1191,3 +1191,13 @@ Following existing pattern: request DTOs as `sealed record` at the bottom of the
 - Non-Docker tests: 531 passing (Domain 218 + Application 169 + Tui 44 + Telegram 39 + Sync 16 + Integration 45)
 - Infrastructure service tests: 11 passing (SystemPromptServiceTests)
 - Docker-dependent tests: 42 failures (pre-existing Testcontainers/Docker unavailability — same failures exist for all repo/DbContext tests)
+
+## P16: Built-in Plugins (CodeRunnerPlugin, WebSearchPlugin)
+
+- ISandboxService is registered as **scoped**, PluginManager as **singleton** → CodeRunnerPlugin uses `IServiceScopeFactory` to resolve ISandboxService per-execution
+- PluginResult.ErrorMessage is `string?` → tests must use `ErrorMessage!.ShouldContain()` to satisfy nullable analysis
+- InternalsVisibleTo for both `Mimir.Infrastructure.Tests` and `DynamicProxyGenAssembly2` already in `.csproj`
+- PluginManager.RegisterPlugin(IPlugin) is `internal void` — calls InitializeAsync().GetAwaiter().GetResult() synchronously
+- BuiltInPluginRegistrar casts IPluginService to PluginManager to access internal RegisterPlugin method
+- Test pattern: NSubstitute for IServiceScopeFactory chain → IServiceScope → IServiceProvider → ISandboxService
+- Global `<Using Include="Xunit" />` in test .csproj means no explicit `using Xunit;` needed

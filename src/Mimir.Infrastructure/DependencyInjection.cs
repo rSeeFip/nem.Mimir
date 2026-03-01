@@ -15,6 +15,7 @@ using Mimir.Application.Common.Sanitization;
 using Polly;
 using Docker.DotNet;
 using Mimir.Infrastructure.Plugins;
+using Mimir.Infrastructure.Plugins.BuiltIn;
 
 public static class DependencyInjection
 {
@@ -110,6 +111,11 @@ public static class DependencyInjection
 
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<IPluginService, PluginManager>();
+
+        // Built-in plugins
+        services.AddSingleton<CodeRunnerPlugin>();
+        services.AddSingleton<WebSearchPlugin>();
+        services.AddHostedService<BuiltInPluginRegistrar>();
 
         // System prompt service (singleton — stateless template rendering)
         services.AddSingleton<ISystemPromptService, SystemPromptService>();
