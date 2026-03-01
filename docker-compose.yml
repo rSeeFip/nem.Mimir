@@ -81,6 +81,8 @@ services:
         limits:
           memory: 1G
           cpus: '1.0'
+    pids_limit: 256
+        reservations:
         reservations:
           memory: 512M
           cpus: '0.5'
@@ -165,6 +167,7 @@ services:
         limits:
           memory: 256M
           cpus: '0.5'
+    pids_limit: 128
 
   mimir-sandbox:
     build:

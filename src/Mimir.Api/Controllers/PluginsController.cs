@@ -33,9 +33,12 @@ public sealed class PluginsController : ControllerBase
     /// <param name="request">The plugin load payload.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The metadata of the loaded plugin.</returns>
+    [Authorize(Policy = "RequireAdmin")]
+
     [HttpPost]
     [ProducesResponseType(typeof(PluginMetadata), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Load([FromBody] LoadPluginRequest request, CancellationToken ct)
     {
@@ -81,10 +84,13 @@ public sealed class PluginsController : ControllerBase
     /// </summary>
     /// <param name="id">The plugin identifier.</param>
     /// <param name="ct">Cancellation token.</param>
+    [Authorize(Policy = "RequireAdmin")]
+
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Unload(string id, CancellationToken ct)
     {
         await _sender.Send(new UnloadPluginCommand(id), ct);

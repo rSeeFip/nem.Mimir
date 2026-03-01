@@ -16,15 +16,15 @@ namespace Mimir.Telegram.Services;
 internal sealed class TelegramBotService : BackgroundService
 {
     private readonly TelegramSettings _settings;
-    private readonly CommandHandler _commandHandler;
-    private readonly MessageHandler _messageHandler;
+    private readonly ICommandHandler _commandHandler;
+    private readonly IMessageHandler _messageHandler;
     private readonly ILogger<TelegramBotService> _logger;
     private ITelegramBotClient? _botClient;
 
     public TelegramBotService(
         IOptions<TelegramSettings> settings,
-        CommandHandler commandHandler,
-        MessageHandler messageHandler,
+        ICommandHandler commandHandler,
+        IMessageHandler messageHandler,
         ILogger<TelegramBotService> logger)
     {
         _settings = settings.Value;
@@ -116,11 +116,11 @@ internal sealed class TelegramBotService : BackgroundService
         if (update.Message is not { Text: not null } message)
             return;
 
-        _logger.LogDebug("Received message from user {UserId} in chat {ChatId}: {TextPreview}",
-            message.From?.Id, message.Chat.Id,
-            message.Text.Length > 50 ? message.Text[..50] + "..." : message.Text);
+        _logger.LogDebug("Received message from user {UserId} in chat {ChatId}",
+            message.From?.Id, message.Chat.Id);
 
-        if (CommandHandler.IsCommand(message.Text))
+        // Call through the interface to use the instance method
+        if (((ICommandHandler)_commandHandler).IsCommand(message.Text))
         {
             await _commandHandler.HandleAsync(bot, message, ct);
         }

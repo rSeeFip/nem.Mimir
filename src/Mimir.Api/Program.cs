@@ -26,6 +26,12 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    // ── Kestrel Request Body Size Limits ────────────────────────────────────
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB global limit
+    });
+
     // ── Serilog ──────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
 
@@ -98,11 +104,14 @@ try
     });
 
     // ── CORS ─────────────────────────────────────────────────────────────────
+    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? ["http://localhost:3000"];
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowFrontend", policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:4200")
+            policy.WithOrigins(corsOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -186,7 +195,7 @@ try
     {
         options.KeepAliveInterval = TimeSpan.FromSeconds(30);
         options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
-        options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
+        options.MaximumReceiveMessageSize = 256 * 1024; // 256 KB — prevent DoS via large messages
     });
 
     var app = builder.Build();
@@ -194,7 +203,6 @@ try
     // ── Middleware Pipeline (order matters) ───────────────────────────────────
     app.UseSerilogRequestLogging();
     app.UseCorrelationId();
-    app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseMiddleware<OutputSanitizationMiddleware>();
 
@@ -211,6 +219,7 @@ try
     {
         // HSTS: Force HTTPS in production
         app.UseHsts();
+        app.UseHttpsRedirection();
     }
 
     // Add security headers middleware
@@ -221,14 +230,12 @@ try
         context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
         context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
         
-        // Content Security Policy - strict but allows our frontend and SignalR
+        // Content Security Policy — strict policy for API-only service
+        // No unsafe-inline/unsafe-eval needed since this is a REST/SSE/SignalR API, not serving HTML pages
         context.Response.Headers.Append(
             "Content-Security-Policy",
-            "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: https:; " +
-            "connect-src 'self' ws: wss: http: https:; " +
+            "default-src 'none'; " +
+            "connect-src 'self' ws: wss:; " +
             "frame-ancestors 'none'; " +
             "base-uri 'self'; " +
             "form-action 'self'"
@@ -238,12 +245,11 @@ try
     });
 
     app.UseAuthentication();
-    app.UseAuthentication();
     app.UseAuthorization();
     app.UseRateLimiter();
 
-    app.MapControllers();
-    app.MapHub<ChatHub>("/hubs/chat");
+    app.MapControllers().RequireRateLimiting("per-user");
+    app.MapHub<ChatHub>("/hubs/chat").RequireRateLimiting("per-user");
     app.MapHealthChecks("/health", new HealthCheckOptions
     {
         AllowCachingResponses = false

@@ -33,6 +33,12 @@ public sealed class GlobalExceptionHandlerMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // Client disconnected — not an error, don't log as warning/error
+            _logger.LogDebug("Request was cancelled by the client: {Path}", context.Request.Path);
+            context.Response.StatusCode = 499; // Client Closed Request (nginx convention)
+        }
         catch (Exception ex)
         {
             await HandleExceptionAsync(context, ex);
@@ -60,13 +66,22 @@ public sealed class GlobalExceptionHandlerMiddleware
                 exception.GetType().Name, exception.Message);
         }
 
+        // Never expose internal exception messages to clients — use generic messages
+        // for all error types to prevent information leakage
+        var detail = exception switch
+        {
+            ValidationException => "One or more validation errors occurred.",
+            NotFoundException notFound => notFound.Message, // NotFoundException messages are user-facing by design
+            ForbiddenAccessException => "You do not have permission to perform this action.",
+            ConflictException => "The request conflicts with the current state of the resource.",
+            _ => "An unexpected error occurred. Please try again later."
+        };
+
         var problemDetails = new ProblemDetails
         {
             Status = statusCode,
             Title = title,
-            Detail = statusCode == StatusCodes.Status500InternalServerError
-                ? "An unexpected error occurred. Please try again later."
-                : exception.Message,
+            Detail = detail,
             Instance = context.Request.Path
         };
 

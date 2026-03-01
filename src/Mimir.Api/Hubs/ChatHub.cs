@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Sanitization;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Enums;
 using Mimir.Infrastructure.LiteLlm;
@@ -18,23 +19,16 @@ namespace Mimir.Api.Hubs;
 [Authorize]
 public sealed class ChatHub : Hub
 {
-    private static readonly Dictionary<string, int> ModelTokenLimits = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["phi-4-mini"] = 16_384,
-        ["qwen-2.5-72b"] = 131_072,
-        ["qwen-2.5-coder-32b"] = 131_072,
-    };
-
-    private const int DefaultTokenLimit = 16_384;
     private const string DefaultModel = "phi-4-mini";
-    private const string SystemPrompt = "You are Mimir, a helpful AI assistant.";
 
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmService _llmService;
+    private readonly IContextWindowService _contextWindowService;
     private readonly LlmRequestQueue _requestQueue;
     private readonly ILogger<ChatHub> _logger;
+    private readonly ISanitizationService _sanitizationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ChatHub"/> class.
@@ -44,15 +38,19 @@ public sealed class ChatHub : Hub
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork,
         ILlmService llmService,
+        IContextWindowService contextWindowService,
         LlmRequestQueue requestQueue,
-        ILogger<ChatHub> logger)
+        ILogger<ChatHub> logger,
+        ISanitizationService sanitizationService)
     {
         _repository = repository;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
         _llmService = llmService;
+        _contextWindowService = contextWindowService;
         _requestQueue = requestQueue;
         _logger = logger;
+        _sanitizationService = sanitizationService;
     }
 
     /// <inheritdoc />
@@ -121,6 +119,9 @@ public sealed class ChatHub : Hub
             yield break;
         }
 
+        // Sanitize user input before any processing
+        content = _sanitizationService.SanitizeUserInput(content);
+
         // Add connection to conversation group for potential multi-tab scenarios
         await Groups.AddToGroupAsync(Context.ConnectionId, conversationId, cancellationToken);
 
@@ -132,10 +133,9 @@ public sealed class ChatHub : Hub
         }
 
         var selectedModel = model ?? DefaultModel;
-        var tokenLimit = GetTokenLimit(selectedModel);
 
         // Build LLM messages with context window management
-        var llmMessages = BuildLlmMessages(conversation, content, tokenLimit);
+        var llmMessages = await _contextWindowService.BuildLlmMessagesAsync(conversation, content, selectedModel, cancellationToken);
 
         // Persist user message
         conversation.AddMessage(MessageRole.User, content);
@@ -192,7 +192,7 @@ public sealed class ChatHub : Hub
             if (fullResponse.Length > 0)
             {
                 var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);
-                assistantMessage.SetTokenCount(EstimateTokenCount(fullResponse));
+                assistantMessage.SetTokenCount(_contextWindowService.EstimateTokenCount(fullResponse));
                 await _repository.UpdateAsync(conversation, CancellationToken.None);
                 await _unitOfWork.SaveChangesAsync(CancellationToken.None);
             }
@@ -212,10 +212,10 @@ public sealed class ChatHub : Hub
             // Persist partial response on error
             await PersistPartialResponse(conversation, responseBuilder, model);
 
-            // Write error token so the client knows something went wrong
+            // Write generic error token — never expose internal exception details to clients
             try
             {
-                await writer.WriteAsync(new ChatToken($"Error: {ex.Message}", true, null), CancellationToken.None);
+                await writer.WriteAsync(new ChatToken("An error occurred while generating the response. Please try again.", true, null), CancellationToken.None);
             }
             catch
             {
@@ -239,7 +239,7 @@ public sealed class ChatHub : Hub
             if (partialResponse.Length > 0)
             {
                 var assistantMessage = conversation.AddMessage(MessageRole.Assistant, partialResponse, model);
-                assistantMessage.SetTokenCount(EstimateTokenCount(partialResponse));
+                assistantMessage.SetTokenCount(_contextWindowService.EstimateTokenCount(partialResponse));
 
                 // Use a fresh CancellationToken for persistence — the original may be cancelled
                 await _repository.UpdateAsync(conversation, CancellationToken.None);
@@ -257,46 +257,4 @@ public sealed class ChatHub : Hub
         }
     }
 
-    private static List<LlmMessage> BuildLlmMessages(
-        Domain.Entities.Conversation conversation,
-        string newUserContent,
-        int tokenLimit)
-    {
-        var systemMessage = new LlmMessage("system", SystemPrompt);
-        var newUserMessage = new LlmMessage("user", newUserContent);
-
-        var historyMessages = conversation.Messages
-            .OrderBy(m => m.CreatedAt)
-            .Select(m => new LlmMessage(m.Role.ToString().ToLowerInvariant(), m.Content))
-            .ToList();
-
-        var systemTokens = EstimateTokenCount(systemMessage.Content);
-        var newUserTokens = EstimateTokenCount(newUserMessage.Content);
-        var baseTokens = systemTokens + newUserTokens;
-
-        var historyTokens = historyMessages
-            .Select(m => EstimateTokenCount(m.Content))
-            .ToList();
-
-        var totalTokens = baseTokens + historyTokens.Sum();
-
-        var startIndex = 0;
-        while (totalTokens > tokenLimit && startIndex < historyMessages.Count)
-        {
-            totalTokens -= historyTokens[startIndex];
-            startIndex++;
-        }
-
-        var result = new List<LlmMessage> { systemMessage };
-        result.AddRange(historyMessages.Skip(startIndex));
-        result.Add(newUserMessage);
-
-        return result;
-    }
-
-    private static int GetTokenLimit(string model) =>
-        ModelTokenLimits.TryGetValue(model, out var limit) ? limit : DefaultTokenLimit;
-
-    private static int EstimateTokenCount(string text) =>
-        string.IsNullOrEmpty(text) ? 0 : (text.Length + 3) / 4;
 }
