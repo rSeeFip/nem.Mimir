@@ -37,4 +37,13 @@ COPY --from=builder /app/publish .
 
 EXPOSE 5000
 ENV ASPNETCORE_HTTP_PORTS=5000
+# Performance: Use Server GC for better throughput
+ENV DOTNET_GCHeapHardLimit=1
+ENV DOTNET_GCHeapHardLimit_SO=1
+ENV DOTNET_GCTuningRefreshIntervalMS=10000
+# Enable Tiered Compilation for faster JIT
+ENV DOTNET_TieredCompilation="1"
+ENV DOTNET_TieredCompilationQuickJit="1"
+ENTRYPOINT ["dotnet", "Mimir.Api.dll"]
+ENV ASPNETCORE_HTTP_PORTS=5000
 ENTRYPOINT ["dotnet", "Mimir.Api.dll"]

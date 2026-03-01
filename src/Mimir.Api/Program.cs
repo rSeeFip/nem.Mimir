@@ -193,6 +193,8 @@ try
 
     // ── Middleware Pipeline (order matters) ───────────────────────────────────
     app.UseSerilogRequestLogging();
+    app.UseCorrelationId();
+    app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseMiddleware<OutputSanitizationMiddleware>();
 
@@ -203,6 +205,39 @@ try
     }
 
     app.UseCors("AllowFrontend");
+
+    // ── Security Headers (HSTS, CSP) ───────────────────────────────────────────
+    if (!app.Environment.IsDevelopment())
+    {
+        // HSTS: Force HTTPS in production
+        app.UseHsts();
+    }
+
+    // Add security headers middleware
+    app.Use(async (context, next) =>
+    {
+        context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+        context.Response.Headers.Append("X-Frame-Options", "DENY");
+        context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+        context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+        
+        // Content Security Policy - strict but allows our frontend and SignalR
+        context.Response.Headers.Append(
+            "Content-Security-Policy",
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https:; " +
+            "connect-src 'self' ws: wss: http: https:; " +
+            "frame-ancestors 'none'; " +
+            "base-uri 'self'; " +
+            "form-action 'self'"
+        );
+        
+        await next();
+    });
+
+    app.UseAuthentication();
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseRateLimiter();
