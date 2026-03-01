@@ -1064,3 +1064,130 @@ This ensures Wolverine can immediately connect to RabbitMQ in mimir-api on start
 - E2E tests: 15/15 passed (3 consecutive runs) ✅
 - Non-E2E tests: 585/585 passed ✅
 - Total: 600 tests passing ✅
+
+---
+
+# Plugin Architecture - P16 Task Completion
+
+## Completed Tasks
+
+### Files Created (17 new files)
+
+**Domain Layer** (`src/Mimir.Domain/Plugins/`):
+- `IPlugin.cs` — Plugin contract interface (Id, Name, Version, Description, ExecuteAsync, InitializeAsync, ShutdownAsync)
+- `PluginMetadata.cs` — Sealed record with `Create()` factory, Guard validation
+- `PluginStatus.cs` — Enum: Unloaded=0, Loaded=1, Running=2, Error=3
+- `PluginResult.cs` — Sealed record with `Success(data?)` and `Failure(errorMessage)` factories
+- `PluginContext.cs` — Sealed record with `Create(userId, parameters?)` factory
+
+**Application Layer** (`src/Mimir.Application/`):
+- `Common/Interfaces/IPluginService.cs` — LoadPluginAsync, UnloadPluginAsync, ListPluginsAsync, ExecutePluginAsync
+- `Plugins/Commands/LoadPlugin.cs` — Command + Validator + Handler
+- `Plugins/Commands/UnloadPlugin.cs` — Command + Validator + Handler
+- `Plugins/Commands/ExecutePlugin.cs` — Command + Validator + Handler
+- `Plugins/Queries/ListPlugins.cs` — Query + Handler
+
+**Infrastructure Layer** (`src/Mimir.Infrastructure/Plugins/`):
+- `PluginLoadContext.cs` — Custom AssemblyLoadContext with isCollectible: true
+- `PluginManager.cs` — Full IPluginService implementation with ConcurrentDictionary, exception-safe execution
+
+**API Layer** (`src/Mimir.Api/Controllers/`):
+- `PluginsController.cs` — POST (load), GET (list), POST {id}/execute, DELETE {id} (unload)
+
+**Tests** (4 domain + 4 application + 1 infrastructure = 9 test files, 48 tests):
+- `tests/Mimir.Domain.Tests/Plugins/` — PluginMetadataTests, PluginStatusTests, PluginResultTests, PluginContextTests
+- `tests/Mimir.Application.Tests/Plugins/` — LoadPluginCommandTests, UnloadPluginCommandTests, ExecutePluginCommandTests, ListPluginsQueryTests
+- `tests/Mimir.Infrastructure.Tests/Plugins/PluginManagerTests.cs`
+
+### Files Modified (1 file)
+- `src/Mimir.Infrastructure/DependencyInjection.cs` — Added AddSingleton IPluginService PluginManager
+
+### Key Design Decisions
+- PluginManager registered as Singleton (manages lifecycle across app)
+- RegisterPlugin(IPlugin) is internal method — testing seam for mocks without real DLLs
+- PluginLoadContext uses isCollectible: true for GC-able unloading
+- Plugin execution is exception-safe: catches and returns PluginResult.Failure(ex.Message)
+- ConcurrentDictionary for thread safety
+- TDD flow: wrote 48 tests FIRST, then implemented to pass
+
+### Learnings
+- string? properties cause CS8604 with Shouldly ShouldContain — use null-forgiving ! operator
+- ICommand (no generic) extends IRequest — for void commands like UnloadPlugin
+- ICommand T extends IRequest T — for result-returning commands
+- Controller request DTOs go as sealed record at bottom of same file
+- CreatedAtAction for POST create, NoContent for DELETE, Ok for GET/execute
+
+### Final Verified State
+- Build: 0 errors, 0 warnings
+- All tests: 648/648 passed
+- Domain: 185 tests (25 plugin)
+- Application: 142 tests (12 plugin)
+- Infrastructure: 162 tests (11 plugin)
+- Integration: 45 tests
+- E2E: 15 tests
+- Tui: 44 tests
+- Telegram: 39 tests
+- Sync: 16 tests
+
+---
+
+## P15: System Prompts and Conversation Configuration
+
+### Completed
+- `SystemPrompt` entity with `SystemPromptId` value object (readonly record struct)
+- `ConversationSettings` value object (MaxTokens, Temperature, Model, AutoArchiveAfterDays)
+- `ISystemPromptService` with `{{variable}}` template rendering via `GeneratedRegex`
+- `ISystemPromptRepository` interface + EF Core `SystemPromptRepository`
+- `IConversationArchiveService` + `ConversationArchiveService`
+- CQRS: CreateSystemPrompt, UpdateSystemPrompt, DeleteSystemPrompt, ListSystemPrompts, GetSystemPromptById, RenderSystemPrompt
+- `SystemPromptConfiguration` (EF Core) with snake_case columns, xmin row version
+- `SystemPromptsController` with full CRUD + Render endpoints
+- `SystemPromptDto` + AutoMapper mapping
+- 62 new tests total: 35 Domain + 27 Application (non-Docker)
+- 24 Infrastructure tests (11 service + 13 repo/archive — Docker-dependent)
+- Added `ConversationSettings? Settings` property to `Conversation` entity
+
+### Key Technical Learnings
+
+#### 1. GeneratedRegex for Template Variables
+Used `[GeneratedRegex(@"\{\{(\w+)\}\}")]` for `{{variable}}` pattern matching. The service iterates matches and replaces with dictionary lookups. Unknown variables are left as-is (not stripped). This is intentional — allows downstream detection of unresolved variables.
+
+#### 2. ValueObject Subclass for ConversationSettings
+`ConversationSettings` extends `ValueObject` (not a record struct like IDs) because it has multiple properties requiring structural equality. Override `GetEqualityComponents()` to yield each property. This gives free `Equals`/`GetHashCode` via the base class.
+
+#### 3. SystemPrompt Entity Design
+- Uses `BaseAuditableEntity<Guid>` with private parameterless ctor
+- `IsActive` soft-delete flag (no hard deletes)
+- `IsDefault` flag with business rule: only one default prompt allowed
+- `TemplateContent` stores raw template with `{{variable}}` placeholders
+- Static `Create()` factory validates all inputs via Guard clauses
+
+#### 4. Repository Pattern: Active-Only Queries
+`SystemPromptRepository.GetAllAsync()` filters `Where(sp => sp.IsActive)` by default — deleted prompts are excluded from all list queries. `GetByIdAsync` does NOT filter by IsActive, allowing retrieval of soft-deleted prompts for audit/recovery.
+
+#### 5. ConversationArchiveService Logic
+Archives conversations where: `IsArchived == false` AND `UpdatedAt < DateTime.UtcNow - threshold`. The threshold comes from `ConversationSettings.AutoArchiveAfterDays` (default 30). Service calls `conversation.Archive()` and persists via `IConversationRepository.UpdateAsync()`.
+
+#### 6. Controller Request/Response Records
+Following existing pattern: request DTOs as `sealed record` at the bottom of the controller file. Response uses `SystemPromptDto` from Application layer. Render endpoint accepts `Dictionary<string, string>` for template variables.
+
+### Files Created (15 new files this session)
+- `src/Mimir.Application/Common/Interfaces/IConversationArchiveService.cs`
+- `src/Mimir.Infrastructure/Services/SystemPromptService.cs`
+- `src/Mimir.Infrastructure/Services/ConversationArchiveService.cs`
+- `src/Mimir.Infrastructure/Persistence/Configurations/SystemPromptConfiguration.cs`
+- `src/Mimir.Infrastructure/Persistence/Repositories/SystemPromptRepository.cs`
+- `src/Mimir.Api/Controllers/SystemPromptsController.cs`
+- 6 Application test files in `tests/Mimir.Application.Tests/SystemPrompts/`
+- 3 Infrastructure test files (Services + Repositories)
+
+### Files Modified
+- `src/Mimir.Application/Common/Mappings/MappingProfile.cs` — Added SystemPrompt→SystemPromptDto mapping
+- `src/Mimir.Infrastructure/Persistence/MimirDbContext.cs` — Added DbSet<SystemPrompt>
+- `src/Mimir.Infrastructure/DependencyInjection.cs` — Registered ISystemPromptRepository (scoped), ISystemPromptService (singleton), IConversationArchiveService (scoped)
+
+### Build & Test Status
+- Build: 0 errors, 0 warnings ✅
+- Non-Docker tests: 531 passing (Domain 218 + Application 169 + Tui 44 + Telegram 39 + Sync 16 + Integration 45)
+- Infrastructure service tests: 11 passing (SystemPromptServiceTests)
+- Docker-dependent tests: 42 failures (pre-existing Testcontainers/Docker unavailability — same failures exist for all repo/DbContext tests)

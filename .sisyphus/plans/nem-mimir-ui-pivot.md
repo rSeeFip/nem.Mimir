@@ -35,8 +35,8 @@
 ## Wave 8-ADJUSTED: Plugin System + Full Docker (from original plan, adjusted)
 > These tasks carry forward from original Wave 6
 
-- [ ] P14: Plugin Architecture (IPlugin interface, AssemblyLoadContext isolation, PluginManager, nem.Plugins.SDK adapter — unchanged from T31)
-- [ ] P15: System Prompt + Conversation Configuration (ISystemPromptService, template variables, auto-archive — unchanged from T32)
+- [x] P14: Plugin Architecture (IPlugin interface, AssemblyLoadContext isolation, PluginManager, nem.Plugins.SDK adapter — unchanged from T31) ✅ COMMITTED 2acb44d
+- [x] P15: System Prompt + Conversation Configuration (ISystemPromptService, template variables, auto-archive — unchanged from T32) ✅ COMMITTED
 - [ ] P16: Built-in Plugins — CodeRunner via sandbox + WebSearch stub (unchanged from T33)
 - [ ] P17: Full Docker Compose — all services (8 total: db, keycloak, litellm, rabbitmq, sandbox, mimir-api, mimir-chat, telegram — adjusted from T34)
 

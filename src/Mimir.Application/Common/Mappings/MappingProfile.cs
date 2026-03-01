@@ -26,5 +26,7 @@ public sealed class MappingProfile : Profile
             .ForCtorParam(nameof(MessageDto.Role), opt => opt.MapFrom(src => src.Role.ToString()));
 
         CreateMap<AuditEntry, AuditEntryDto>();
+
+        CreateMap<SystemPrompt, SystemPromptDto>();
     }
 }

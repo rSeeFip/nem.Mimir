@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Mimir.Domain.Entities;
 using Mimir.Domain.Enums;
+using Mimir.Domain.ValueObjects;
 
 public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
 {
@@ -54,7 +55,34 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
         builder.HasIndex(c => c.UserId)
             .HasDatabaseName("ix_conversations_user_id");
 
+        builder.OwnsOne(c => c.Settings, s =>
+        {
+            s.Property(p => p.MaxTokens)
+                .HasColumnName("settings_max_tokens")
+                .HasDefaultValue(4096);
+
+            s.Property(p => p.Temperature)
+                .HasColumnName("settings_temperature")
+                .HasDefaultValue(0.7);
+
+            s.Property(p => p.Model)
+                .HasColumnName("settings_model")
+                .HasMaxLength(100);
+
+            s.Property(p => p.AutoArchiveAfterDays)
+                .HasColumnName("settings_auto_archive_days")
+                .HasDefaultValue(30);
+
+            s.Property(p => p.SystemPromptId)
+                .HasConversion<Guid?>(
+                    v => v.HasValue ? v.Value.Value : (Guid?)null,
+                    v => v.HasValue ? new SystemPromptId(v.Value) : null)
+                .HasColumnName("settings_system_prompt_id");
+
+        });
+
         // Navigation: Messages owned by Conversation
+
         builder.HasMany(c => c.Messages)
             .WithOne()
             .HasForeignKey(m => m.ConversationId)

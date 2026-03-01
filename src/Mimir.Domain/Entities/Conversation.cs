@@ -3,12 +3,14 @@ namespace Mimir.Domain.Entities;
 using Mimir.Domain.Common;
 using Mimir.Domain.Enums;
 using Mimir.Domain.Events;
+using Mimir.Domain.ValueObjects;
 
 public class Conversation : BaseAuditableEntity<Guid>
 {
     public Guid UserId { get; private set; }
     public string Title { get; private set; } = string.Empty;
     public ConversationStatus Status { get; private set; }
+    public ConversationSettings? Settings { get; private set; }
 
     private readonly List<Message> _messages = [];
     public IReadOnlyCollection<Message> Messages => _messages.AsReadOnly();
@@ -64,6 +66,12 @@ public class Conversation : BaseAuditableEntity<Guid>
             throw new ArgumentException("Title cannot be empty.", nameof(title));
 
         Title = title;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void UpdateSettings(ConversationSettings settings)
+    {
+        Settings = settings;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

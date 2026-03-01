@@ -10,6 +10,7 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<SystemPrompt> SystemPrompts => Set<SystemPrompt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
         services.AddScoped<IAuditRepository, AuditRepository>();
+        services.AddScoped<ISystemPromptRepository, SystemPromptRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
  // Audit service
@@ -109,6 +110,12 @@ public static class DependencyInjection
 
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<IPluginService, PluginManager>();
+
+        // System prompt service (singleton — stateless template rendering)
+        services.AddSingleton<ISystemPromptService, SystemPromptService>();
+
+        // Conversation archive service
+        services.AddScoped<IConversationArchiveService, ConversationArchiveService>();
 
         return services;
     }
