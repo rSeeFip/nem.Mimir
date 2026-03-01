@@ -48,6 +48,15 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
             .HasColumnName("updated_by")
             .HasMaxLength(256);
 
+        builder.Property(c => c.IsDeleted)
+            .HasColumnName("is_deleted")
+            .HasDefaultValue(false);
+
+        builder.Property(c => c.DeletedAt)
+            .HasColumnName("deleted_at");
+
+        builder.HasQueryFilter(c => !c.IsDeleted);
+
         // PostgreSQL optimistic concurrency via xmin
         builder.Property<uint>("xmin")
             .IsRowVersion();

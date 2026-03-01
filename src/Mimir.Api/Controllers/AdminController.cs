@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Mimir.Application.Auditing.Queries;
 using Mimir.Application.Common.Models;
+using Mimir.Application.Admin.Commands;
 using Mimir.Application.Users.Commands;
 using Mimir.Application.Users.Queries;
 using Mimir.Domain.Enums;
@@ -157,6 +158,34 @@ public sealed class AdminController : ControllerBase
         var query = new GetAuditLogQuery(userId, action, from, to, pageNumber, pageSize);
         var result = await _sender.Send(query, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Restores a soft-deleted entity.
+    /// </summary>
+    /// <param name="entityType">The type of entity to restore (conversation, user, systemprompt).</param>
+    /// <param name="id">The unique identifier of the entity to restore.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    /// <response code="204">The entity was restored successfully.</response>
+    /// <response code="400">The entity type is invalid or the entity is not soft-deleted.</response>
+    /// <response code="401">The request is not authenticated.</response>
+    /// <response code="403">The authenticated user does not have the Admin role.</response>
+    /// <response code="404">The entity was not found.</response>
+    [HttpPost("restore/{entityType}/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RestoreEntity(
+        string entityType,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new RestoreEntityCommand(entityType, id);
+        await _sender.Send(command, cancellationToken);
+        return NoContent();
     }
 }
 

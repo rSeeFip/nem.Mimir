@@ -56,6 +56,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("updated_by")
             .HasMaxLength(256);
 
+        builder.Property(u => u.IsDeleted)
+            .HasColumnName("is_deleted")
+            .HasDefaultValue(false);
+
+        builder.Property(u => u.DeletedAt)
+            .HasColumnName("deleted_at");
+
+        builder.HasQueryFilter(u => !u.IsDeleted);
+
         // PostgreSQL optimistic concurrency via xmin
         builder.Property<uint>("xmin")
             .IsRowVersion();

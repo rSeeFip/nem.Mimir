@@ -53,6 +53,15 @@ public class SystemPromptConfiguration : IEntityTypeConfiguration<SystemPrompt>
             .HasColumnName("updated_by")
             .HasMaxLength(256);
 
+        builder.Property(sp => sp.IsDeleted)
+            .HasColumnName("is_deleted")
+            .HasDefaultValue(false);
+
+        builder.Property(sp => sp.DeletedAt)
+            .HasColumnName("deleted_at");
+
+        builder.HasQueryFilter(sp => !sp.IsDeleted);
+
         // PostgreSQL optimistic concurrency via xmin
         builder.Property<uint>("xmin")
             .IsRowVersion();
