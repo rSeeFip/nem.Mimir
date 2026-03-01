@@ -31,7 +31,6 @@ public class Conversation : BaseAuditableEntity<Guid>
             UserId = userId,
             Title = title,
             Status = ConversationStatus.Active,
-            CreatedAt = DateTimeOffset.UtcNow
         };
 
         conversation.AddDomainEvent(new ConversationCreatedEvent(conversation.Id, userId));
@@ -49,7 +48,6 @@ public class Conversation : BaseAuditableEntity<Guid>
 
         AddDomainEvent(new Events.MessageSentEvent(message.Id, Id, role));
 
-        UpdatedAt = DateTimeOffset.UtcNow;
 
         return message;
     }
@@ -57,7 +55,6 @@ public class Conversation : BaseAuditableEntity<Guid>
     public void Archive()
     {
         Status = ConversationStatus.Archived;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void UpdateTitle(string title)
@@ -66,12 +63,10 @@ public class Conversation : BaseAuditableEntity<Guid>
             throw new ArgumentException("Title cannot be empty.", nameof(title));
 
         Title = title;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void UpdateSettings(ConversationSettings settings)
     {
         Settings = settings;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

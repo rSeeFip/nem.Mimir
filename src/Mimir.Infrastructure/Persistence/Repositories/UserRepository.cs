@@ -14,14 +14,6 @@ internal sealed class UserRepository(MimirDbContext context) : IUserRepository
             .ConfigureAwait(false);
     }
 
-    public async Task<User?> GetByExternalIdAsync(string externalId, CancellationToken cancellationToken = default)
-    {
-        return await context.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == externalId, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
     {
         await context.Users
@@ -47,6 +39,7 @@ internal sealed class UserRepository(MimirDbContext context) : IUserRepository
     public async Task<(IReadOnlyList<User> Items, int TotalCount)> GetAllAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         var totalCount = await context.Users
+            .AsNoTracking()
             .CountAsync(cancellationToken)
             .ConfigureAwait(false);
 

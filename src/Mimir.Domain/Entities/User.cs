@@ -29,7 +29,6 @@ public class User : BaseAuditableEntity<Guid>
             Email = email,
             Role = role,
             IsActive = true,
-            CreatedAt = DateTimeOffset.UtcNow
         };
 
         user.AddDomainEvent(new UserCreatedEvent(user.Id, username));
@@ -45,12 +44,10 @@ public class User : BaseAuditableEntity<Guid>
     public void ChangeRole(UserRole newRole)
     {
         Role = newRole;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void Deactivate()
     {
         IsActive = false;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

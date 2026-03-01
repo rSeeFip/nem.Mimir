@@ -86,7 +86,7 @@ public sealed class SystemPromptRepositoryTests : RepositoryTestBase
     }
 
     [Fact]
-    public async Task DeleteAsync_RemovesPrompt()
+    public async Task DeleteAsync_SoftDeletesPrompt()
     {
         // Arrange
         var prompt = SystemPrompt.Create("ToDelete", "Template", "Desc");
@@ -100,10 +100,19 @@ public sealed class SystemPromptRepositoryTests : RepositoryTestBase
         await repository.DeleteAsync(prompt.Id);
         await deleteContext.SaveChangesAsync();
 
-        // Assert
+        // Assert — query filter excludes soft-deleted prompts
         await using var verifyContext = CreateContext();
-        var result = await verifyContext.SystemPrompts.FindAsync(prompt.Id);
-        result.ShouldBeNull();
+        var filtered = await verifyContext.SystemPrompts
+            .FirstOrDefaultAsync(sp => sp.Id == prompt.Id);
+        filtered.ShouldBeNull();
+
+        // But the row still exists with IsDeleted = true
+        var raw = await verifyContext.SystemPrompts
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(sp => sp.Id == prompt.Id);
+        raw.ShouldNotBeNull();
+        raw.IsDeleted.ShouldBeTrue();
+        raw.DeletedAt.ShouldNotBeNull();
     }
 
     [Fact]

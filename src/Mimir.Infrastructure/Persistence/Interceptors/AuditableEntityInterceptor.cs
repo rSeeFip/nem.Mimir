@@ -36,16 +36,23 @@ public class AuditableEntityInterceptor(
 
         foreach (var entry in context.ChangeTracker.Entries<BaseAuditableEntity<Guid>>())
         {
+            if (entry.State == EntityState.Deleted)
+            {
+                entry.State = EntityState.Modified;
+                entry.Property(nameof(BaseAuditableEntity<Guid>.IsDeleted)).CurrentValue = true;
+                entry.Property(nameof(BaseAuditableEntity<Guid>.DeletedAt)).CurrentValue = utcNow;
+            }
+
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.CreatedAt = utcNow;
-                entry.Entity.CreatedBy = userId;
+                entry.Property(nameof(BaseAuditableEntity<Guid>.CreatedAt)).CurrentValue = utcNow;
+                entry.Property(nameof(BaseAuditableEntity<Guid>.CreatedBy)).CurrentValue = userId;
             }
 
             if (entry.State is EntityState.Added or EntityState.Modified)
             {
-                entry.Entity.UpdatedAt = utcNow;
-                entry.Entity.UpdatedBy = userId;
+                entry.Property(nameof(BaseAuditableEntity<Guid>.UpdatedAt)).CurrentValue = utcNow;
+                entry.Property(nameof(BaseAuditableEntity<Guid>.UpdatedBy)).CurrentValue = userId;
             }
         }
     }

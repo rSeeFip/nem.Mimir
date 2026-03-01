@@ -22,7 +22,7 @@ public class MimirDbContextTests : IAsyncLifetime
     private ICurrentUserService _currentUserService = null!;
     private IDateTimeService _dateTimeService = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _postgres.StartAsync();
 
@@ -37,7 +37,7 @@ public class MimirDbContextTests : IAsyncLifetime
         await _context.Database.EnsureCreatedAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _context.DisposeAsync();
         await _postgres.DisposeAsync();
@@ -295,7 +295,7 @@ public class MimirDbContextTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Conversation_cascade_deletes_messages()
+    public async Task Conversation_soft_delete_marks_as_deleted()
     {
         // Arrange
         var user = User.Create("cascadeuser", "cascade@example.com", UserRole.User);
@@ -317,11 +317,24 @@ public class MimirDbContextTests : IAsyncLifetime
         deleteContext.Conversations.Remove(toDelete);
         await deleteContext.SaveChangesAsync();
 
-        // Assert
+        // Assert — soft-deleted conversation is filtered out by global query filter
         await using var readContext = CreateContext();
+        var filtered = await readContext.Conversations
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+        filtered.ShouldBeNull();
+
+        // But the row still exists in the database with IsDeleted = true
+        var raw = await readContext.Conversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+        raw.ShouldNotBeNull();
+        raw.IsDeleted.ShouldBeTrue();
+        raw.DeletedAt.ShouldNotBeNull();
+
+        // Messages are still present (soft delete doesn't cascade physical delete)
         var messages = await readContext.Messages
             .Where(m => m.ConversationId == conversationId)
             .ToListAsync();
-        messages.ShouldBeEmpty();
+        messages.Count.ShouldBe(2);
     }
 }

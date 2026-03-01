@@ -28,7 +28,6 @@ public sealed class SystemPrompt : BaseAuditableEntity<Guid>
             Description = description ?? string.Empty,
             IsDefault = false,
             IsActive = true,
-            CreatedAt = DateTimeOffset.UtcNow
         };
     }
 
@@ -38,7 +37,6 @@ public sealed class SystemPrompt : BaseAuditableEntity<Guid>
             throw new ArgumentException("Name cannot be empty.", nameof(name));
 
         Name = name;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void UpdateTemplate(string template)
@@ -47,36 +45,30 @@ public sealed class SystemPrompt : BaseAuditableEntity<Guid>
             throw new ArgumentException("Template cannot be empty.", nameof(template));
 
         Template = template;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void UpdateDescription(string description)
     {
         Description = description ?? string.Empty;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void SetAsDefault()
     {
         IsDefault = true;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void UnsetDefault()
     {
         IsDefault = false;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void Deactivate()
     {
         IsActive = false;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void Activate()
     {
         IsActive = true;
-        UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

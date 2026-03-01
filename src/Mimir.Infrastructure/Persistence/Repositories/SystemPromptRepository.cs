@@ -10,6 +10,7 @@ internal sealed class SystemPromptRepository(MimirDbContext context) : ISystemPr
     public async Task<SystemPrompt?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.SystemPrompts
+            .AsNoTracking()
             .FirstOrDefaultAsync(sp => sp.Id == id, cancellationToken)
             .ConfigureAwait(false);
     }

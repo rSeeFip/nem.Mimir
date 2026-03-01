@@ -15,13 +15,6 @@ public interface IUserRepository
     /// <returns>The user if found; otherwise, null.</returns>
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets a user by their external identity provider identifier.
-    /// </summary>
-    /// <param name="externalId">The external identity provider identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The user if found; otherwise, null.</returns>
-    Task<User?> GetByExternalIdAsync(string externalId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a new user in the repository.

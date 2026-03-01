@@ -68,39 +68,6 @@ public class UserRepositoryTests : RepositoryTestBase
     }
 
     [Fact]
-    public async Task GetByExternalIdAsync_returns_user_by_email()
-    {
-        // Arrange
-        var user = User.Create("extuser", "ext@example.com", UserRole.User);
-        Context.Users.Add(user);
-        await Context.SaveChangesAsync();
-
-        await using var readContext = CreateContext();
-        var repo = CreateRepository(readContext);
-
-        // Act
-        var result = await repo.GetByExternalIdAsync("ext@example.com");
-
-        // Assert
-        result.ShouldNotBeNull();
-        result.Username.ShouldBe("extuser");
-    }
-
-    [Fact]
-    public async Task GetByExternalIdAsync_returns_null_when_not_found()
-    {
-        // Arrange
-        await using var readContext = CreateContext();
-        var repo = CreateRepository(readContext);
-
-        // Act
-        var result = await repo.GetByExternalIdAsync("nonexistent@example.com");
-
-        // Assert
-        result.ShouldBeNull();
-    }
-
-    [Fact]
     public async Task UpdateAsync_modifies_existing_user()
     {
         // Arrange

@@ -189,7 +189,7 @@ public class ConversationRepositoryTests : RepositoryTestBase
     }
 
     [Fact]
-    public async Task DeleteAsync_removes_conversation_and_cascades_messages()
+    public async Task DeleteAsync_soft_deletes_conversation()
     {
         // Arrange
         var user = await SeedUserAsync("deluser");
@@ -208,15 +208,27 @@ public class ConversationRepositoryTests : RepositoryTestBase
         await repo.DeleteAsync(conversationId);
         await deleteContext.SaveChangesAsync();
 
-        // Assert
+        // Assert — conversation is soft-deleted (filtered out by query filter)
         await using var readContext = CreateContext();
-        var retrieved = await readContext.Conversations.FindAsync(conversationId);
-        retrieved.ShouldBeNull();
 
+        // LINQ queries respect the global query filter — soft-deleted conversation is not returned
+        var filtered = await readContext.Conversations
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+        filtered.ShouldBeNull();
+
+        // FindAsync bypasses query filters — we can still see the soft-deleted row
+        var raw = await readContext.Conversations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+        raw.ShouldNotBeNull();
+        raw.IsDeleted.ShouldBeTrue();
+        raw.DeletedAt.ShouldNotBeNull();
+
+        // Messages are still present (soft delete doesn't cascade)
         var messages = await readContext.Messages
             .Where(m => m.ConversationId == conversationId)
             .ToListAsync();
-        messages.ShouldBeEmpty();
+        messages.Count.ShouldBe(2);
     }
 
     [Fact]

@@ -25,7 +25,6 @@ public class SystemPromptTests
         prompt.Description.ShouldBe(description);
         prompt.IsDefault.ShouldBeFalse();
         prompt.IsActive.ShouldBeTrue();
-        prompt.CreatedAt.ShouldNotBe(DateTimeOffset.MinValue);
     }
 
     [Fact]
@@ -80,7 +79,6 @@ public class SystemPromptTests
 
         // Assert
         prompt.Name.ShouldBe(newName);
-        prompt.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -105,7 +103,6 @@ public class SystemPromptTests
 
         // Assert
         prompt.Template.ShouldBe(newTemplate);
-        prompt.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -130,7 +127,6 @@ public class SystemPromptTests
 
         // Assert
         prompt.Description.ShouldBe(newDescription);
-        prompt.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -144,7 +140,6 @@ public class SystemPromptTests
 
         // Assert
         prompt.IsDefault.ShouldBeTrue();
-        prompt.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -172,7 +167,6 @@ public class SystemPromptTests
 
         // Assert
         prompt.IsActive.ShouldBeFalse();
-        prompt.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -187,6 +181,5 @@ public class SystemPromptTests
 
         // Assert
         prompt.IsActive.ShouldBeTrue();
-        prompt.UpdatedAt.ShouldNotBeNull();
     }
 }

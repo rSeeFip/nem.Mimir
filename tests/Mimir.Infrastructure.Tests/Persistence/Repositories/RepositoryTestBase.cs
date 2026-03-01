@@ -17,7 +17,7 @@ public abstract class RepositoryTestBase : IAsyncLifetime
     private ICurrentUserService _currentUserService = null!;
     private IDateTimeService _dateTimeService = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await _postgres.StartAsync();
 
@@ -32,7 +32,7 @@ public abstract class RepositoryTestBase : IAsyncLifetime
         await Context.Database.EnsureCreatedAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await Context.DisposeAsync();
         await _postgres.DisposeAsync();

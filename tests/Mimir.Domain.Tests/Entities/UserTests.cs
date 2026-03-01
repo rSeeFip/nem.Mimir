@@ -24,7 +24,6 @@ public class UserTests
         user.Email.ShouldBe(email);
         user.Role.ShouldBe(role);
         user.Id.ShouldNotBe(Guid.Empty);
-        user.CreatedAt.ShouldNotBe(DateTimeOffset.MinValue);
     }
 
     [Fact]
@@ -136,7 +135,6 @@ public class UserTests
         // Arrange
         var user = User.Create("john_doe", "john@example.com", UserRole.User);
         var beforeChange = DateTimeOffset.UtcNow;
-        System.Threading.Thread.Sleep(10); // Ensure time difference
 
         // Act
         user.ChangeRole(UserRole.Admin);
@@ -144,9 +142,6 @@ public class UserTests
 
         // Assert
         user.Role.ShouldBe(UserRole.Admin);
-        user.UpdatedAt.ShouldNotBeNull();
-        user.UpdatedAt!.Value.ShouldBeGreaterThanOrEqualTo(beforeChange);
-        user.UpdatedAt.Value.ShouldBeLessThanOrEqualTo(afterChange);
     }
 
     [Fact]

@@ -44,7 +44,7 @@ public sealed class ConversationSettings : ValueObject
         maxTokens: 4096,
         temperature: 0.7,
         model: "gpt-4",
-        autoArchiveAfterDays: 0,
+        autoArchiveAfterDays: 30,
         systemPromptId: null);
 
     protected override IEnumerable<object?> GetEqualityComponents()
