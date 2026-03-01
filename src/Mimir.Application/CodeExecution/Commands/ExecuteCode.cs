@@ -9,11 +9,25 @@ using Mimir.Domain.Events;
 
 namespace Mimir.Application.CodeExecution.Commands;
 
+/// <summary>
+/// Command to execute code in a sandboxed environment within a conversation context.
+/// </summary>
+/// <param name="Language">The programming language of the code (e.g. python, javascript).</param>
+/// <param name="Code">The source code to execute.</param>
+/// <param name="ConversationId">The conversation in which the code execution takes place.</param>
 public sealed record ExecuteCodeCommand(
     string Language,
     string Code,
     Guid ConversationId) : ICommand<CodeExecutionResultDto>;
 
+/// <summary>
+/// Represents the result of a sandboxed code execution.
+/// </summary>
+/// <param name="Stdout">The standard output produced by the executed code.</param>
+/// <param name="Stderr">The standard error output produced by the executed code.</param>
+/// <param name="ExitCode">The process exit code.</param>
+/// <param name="ExecutionTimeMs">The execution duration in milliseconds.</param>
+/// <param name="TimedOut">A value indicating whether the execution exceeded the time limit.</param>
 public sealed record CodeExecutionResultDto(
     string Stdout,
     string Stderr,
@@ -21,6 +35,9 @@ public sealed record CodeExecutionResultDto(
     long ExecutionTimeMs,
     bool TimedOut);
 
+/// <summary>
+/// Validates the <see cref="ExecuteCodeCommand"/> ensuring language, code, and conversation ID are valid.
+/// </summary>
 public sealed class ExecuteCodeCommandValidator : AbstractValidator<ExecuteCodeCommand>
 {
     private static readonly string[] AllowedLanguages = ["python", "javascript"];
