@@ -11,7 +11,6 @@ namespace Mimir.Sync.Configuration;
 /// </summary>
 public static class WolverineConfiguration
 {
-    private const string DefaultRabbitMqConnectionString = "amqp://guest:guest@localhost:5672";
 
     /// <summary>
     /// Configures Wolverine messaging with RabbitMQ transport, durable messaging, and Mimir handler discovery.
@@ -21,7 +20,8 @@ public static class WolverineConfiguration
     /// <returns>The configured <see cref="WolverineOptions"/> for chaining.</returns>
     public static WolverineOptions AddMimirMessaging(this WolverineOptions opts, IConfiguration configuration)
     {
-        var connectionString = configuration["RabbitMQ:ConnectionString"] ?? DefaultRabbitMqConnectionString;
+        var connectionString = configuration["RabbitMQ:ConnectionString"]
+            ?? throw new InvalidOperationException("RabbitMQ:ConnectionString configuration is required.");
 
         opts.UseRabbitMq(new Uri(connectionString))
             .AutoProvision()

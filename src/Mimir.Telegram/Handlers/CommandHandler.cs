@@ -8,7 +8,7 @@ namespace Mimir.Telegram.Handlers;
 /// <summary>
 /// Handles Telegram bot commands: /start, /new, /list, /model, /help.
 /// </summary>
-internal sealed class CommandHandler
+internal sealed class CommandHandler : ICommandHandler
 {
     private readonly MimirApiClient _apiClient;
     private readonly UserStateManager _stateManager;
@@ -33,6 +33,14 @@ internal sealed class CommandHandler
     public static bool IsCommand(string? text)
     {
         return text is not null && text.StartsWith('/');
+    }
+
+    /// <summary>
+    /// Instance implementation of IsCommand from ICommandHandler interface.
+    /// </summary>
+    bool ICommandHandler.IsCommand(string? text)
+    {
+        return IsCommand(text);
     }
 
     /// <summary>

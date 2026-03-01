@@ -24,6 +24,7 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services.AddSingleton<IDateTimeService, DateTimeService>();
+        services.AddSingleton(TimeProvider.System);
 
         services.AddScoped<ISaveChangesInterceptor, AuditableEntityInterceptor>();
 
@@ -45,6 +46,10 @@ public static class DependencyInjection
         services.AddScoped<IAuditRepository, AuditRepository>();
         services.AddScoped<ISystemPromptRepository, SystemPromptRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
+
+        // Context window service (scoped — depends on scoped ISystemPromptRepository)
+        services.AddScoped<IContextWindowService, ContextWindowService>();
 
  // Audit service
  services.AddScoped<IAuditService, AuditService>();
@@ -106,6 +111,8 @@ public static class DependencyInjection
         services.AddScoped<ILlmService, LiteLlmClient>();
 
         // Docker sandbox service
+        // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.
+        // See: https://github.com/dotnet/Docker.DotNet
         services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
         services.AddScoped<ISandboxService, SandboxService>();
 

@@ -1,8 +1,8 @@
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
-using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
+using Mimir.Application.Models.Queries;
 
 namespace Mimir.Api.Controllers;
 
@@ -15,23 +15,17 @@ namespace Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class ModelsController : ControllerBase
 {
-    private readonly ILlmService _llmService;
-    private readonly IMemoryCache _cache;
+    private readonly ISender _sender;
     private readonly ILogger<ModelsController> _logger;
-
-    private const string ModelsListCacheKey = "available-models";
-    private const int CacheExpirationSeconds = 60;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModelsController"/> class.
     /// </summary>
-    /// <param name="llmService">Service for LLM operations.</param>
-    /// <param name="cache">Memory cache for storing model lists.</param>
+    /// <param name="sender">MediatR sender for dispatching commands and queries.</param>
     /// <param name="logger">Logger instance.</param>
-    public ModelsController(ILlmService llmService, IMemoryCache cache, ILogger<ModelsController> logger)
+    public ModelsController(ISender sender, ILogger<ModelsController> logger)
     {
-        _llmService = llmService;
-        _cache = cache;
+        _sender = sender;
         _logger = logger;
     }
 
@@ -48,17 +42,7 @@ public sealed class ModelsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetModels(CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Retrieving available models (cached)");
-
-        var models = await _cache.GetOrCreateAsync(
-            ModelsListCacheKey,
-            async entry =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(CacheExpirationSeconds);
-                _logger.LogDebug("Cache miss for models list, fetching from LLM service");
-                return await _llmService.GetAvailableModelsAsync(cancellationToken);
-            });
-
+        var models = await _sender.Send(new GetModelsQuery(), cancellationToken);
         return Ok(models);
     }
 
@@ -78,22 +62,10 @@ public sealed class ModelsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetModelStatus(string modelId, CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Retrieving status for model: {ModelId}", modelId);
-
-        var models = await _cache.GetOrCreateAsync(
-            ModelsListCacheKey,
-            async entry =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(CacheExpirationSeconds);
-                _logger.LogDebug("Cache miss for models list, fetching from LLM service");
-                return await _llmService.GetAvailableModelsAsync(cancellationToken);
-            });
-
-        var model = models?.FirstOrDefault(m => string.Equals(m.Id, modelId, StringComparison.OrdinalIgnoreCase));
+        var model = await _sender.Send(new GetModelStatusQuery(modelId), cancellationToken);
 
         if (model is null)
         {
-            _logger.LogDebug("Model not found: {ModelId}", modelId);
             return NotFound();
         }
 

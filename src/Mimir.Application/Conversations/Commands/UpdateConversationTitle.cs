@@ -1,4 +1,4 @@
-using AutoMapper;
+using Mimir.Application.Common.Mappings;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
@@ -8,10 +8,18 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Conversations.Commands;
 
+/// <summary>
+/// Command to update the title of an existing conversation.
+/// </summary>
+/// <param name="ConversationId">The unique identifier of the conversation to update.</param>
+/// <param name="NewTitle">The new title for the conversation.</param>
 public sealed record UpdateConversationTitleCommand(
     Guid ConversationId,
     string NewTitle) : ICommand<ConversationDto>;
 
+/// <summary>
+/// Validates the <see cref="UpdateConversationTitleCommand"/> ensuring the conversation ID and new title are valid.
+/// </summary>
 public sealed class UpdateConversationTitleCommandValidator : AbstractValidator<UpdateConversationTitleCommand>
 {
     public UpdateConversationTitleCommandValidator()
@@ -30,13 +38,13 @@ internal sealed class UpdateConversationTitleCommandHandler : IRequestHandler<Up
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public UpdateConversationTitleCommandHandler(
         IConversationRepository repository,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -56,7 +64,7 @@ internal sealed class UpdateConversationTitleCommandHandler : IRequestHandler<Up
         await _repository.UpdateAsync(conversation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<ConversationDto>(conversation);
+        return _mapper.MapToConversationDto(conversation);
     }
 
     private void EnsureOwnership(Conversation conversation)

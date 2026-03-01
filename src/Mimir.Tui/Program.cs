@@ -1,5 +1,7 @@
 using System.Text;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Mimir.Tui.Commands;
 using Mimir.Tui.Models;
 using Mimir.Tui.Rendering;
@@ -15,21 +17,55 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-            .Build();
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory,
+        });
 
-        var settings = new TuiSettings();
-        configuration.GetSection(TuiSettings.SectionName).Bind(settings);
+        // Bind settings
+        builder.Services.Configure<TuiSettings>(
+            builder.Configuration.GetSection(TuiSettings.SectionName));
 
-        using var httpClient = new HttpClient { BaseAddress = new Uri(settings.ApiBaseUrl) };
-        using var authHttpClient = new HttpClient();
+        // Register named HttpClients via IHttpClientFactory
+        builder.Services.AddHttpClient("Api", (sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<TuiSettings>>();
+            client.BaseAddress = new Uri(options.Value.ApiBaseUrl);
+        });
+        builder.Services.AddHttpClient("Auth");
 
-        var authService = new AuthenticationService(authHttpClient, settings);
-        var conversationService = new ConversationApiService(httpClient, authService);
-        var modelService = new ModelService(httpClient, authService, settings);
-        var chatStreamService = new ChatStreamService(settings, authService);
+        // Register services as singletons (they hold state: tokens, current model)
+        builder.Services.AddSingleton<AuthenticationService>(sp =>
+        {
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            var options = sp.GetRequiredService<IOptions<TuiSettings>>();
+            return new AuthenticationService(factory.CreateClient("Auth"), options);
+        });
+
+        builder.Services.AddSingleton<ConversationApiService>(sp =>
+        {
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            var authService = sp.GetRequiredService<AuthenticationService>();
+            return new ConversationApiService(factory.CreateClient("Api"), authService);
+        });
+
+        builder.Services.AddSingleton<ModelService>(sp =>
+        {
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            var authService = sp.GetRequiredService<AuthenticationService>();
+            var options = sp.GetRequiredService<IOptions<TuiSettings>>();
+            return new ModelService(factory.CreateClient("Api"), authService, options);
+        });
+
+        builder.Services.AddSingleton<ChatStreamService>();
+
+        using var host = builder.Build();
+
+        var authService = host.Services.GetRequiredService<AuthenticationService>();
+        var conversationService = host.Services.GetRequiredService<ConversationApiService>();
+        var modelService = host.Services.GetRequiredService<ModelService>();
+        var chatStreamService = host.Services.GetRequiredService<ChatStreamService>();
 
         try
         {

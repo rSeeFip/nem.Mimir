@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
 using Mimir.Tui.Models;
 
 namespace Mimir.Tui.Services;
@@ -21,10 +22,10 @@ internal sealed class AuthenticationService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public AuthenticationService(HttpClient httpClient, TuiSettings settings)
+    public AuthenticationService(HttpClient httpClient, IOptions<TuiSettings> options)
     {
         _httpClient = httpClient;
-        _settings = settings;
+        _settings = options.Value;
     }
 
     /// <summary>

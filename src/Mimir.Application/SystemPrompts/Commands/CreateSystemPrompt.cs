@@ -1,17 +1,26 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
 
 namespace Mimir.Application.SystemPrompts.Commands;
 
+/// <summary>
+/// Command to create a new system prompt template.
+/// </summary>
+/// <param name="Name">The display name of the system prompt.</param>
+/// <param name="Template">The template content, which may contain variable placeholders.</param>
+/// <param name="Description">A brief description of the system prompt's purpose.</param>
 public sealed record CreateSystemPromptCommand(
     string Name,
     string Template,
     string Description) : ICommand<SystemPromptDto>;
 
+/// <summary>
+/// Validates the <see cref="CreateSystemPromptCommand"/> ensuring name, template, and description are valid.
+/// </summary>
 public sealed class CreateSystemPromptCommandValidator : AbstractValidator<CreateSystemPromptCommand>
 {
     public CreateSystemPromptCommandValidator()
@@ -33,12 +42,12 @@ internal sealed class CreateSystemPromptCommandHandler : IRequestHandler<CreateS
 {
     private readonly ISystemPromptRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public CreateSystemPromptCommandHandler(
         ISystemPromptRepository repository,
         IUnitOfWork unitOfWork,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
@@ -52,6 +61,6 @@ internal sealed class CreateSystemPromptCommandHandler : IRequestHandler<CreateS
         await _repository.CreateAsync(prompt, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<SystemPromptDto>(prompt);
+        return _mapper.MapToSystemPromptDto(prompt);
     }
 }

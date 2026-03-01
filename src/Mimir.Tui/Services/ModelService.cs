@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.Extensions.Options;
 using Mimir.Tui.Models;
 
 namespace Mimir.Tui.Services;
@@ -13,11 +14,11 @@ internal sealed class ModelService
     private readonly AuthenticationService _authService;
     private string _currentModel;
 
-    public ModelService(HttpClient httpClient, AuthenticationService authService, TuiSettings settings)
+    public ModelService(HttpClient httpClient, AuthenticationService authService, IOptions<TuiSettings> options)
     {
         _httpClient = httpClient;
         _authService = authService;
-        _currentModel = settings.DefaultModel;
+        _currentModel = options.Value.DefaultModel;
     }
 
     /// <summary>

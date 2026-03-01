@@ -1,10 +1,15 @@
 using System.Diagnostics;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Mimir.Api.Models.OpenAi;
+using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
+using Mimir.Application.OpenAiCompat.Commands;
+using Mimir.Application.OpenAiCompat.Models;
+using Mimir.Application.OpenAiCompat.Queries;
 using Mimir.Sync.Messages;
 using Mimir.Sync.Publishers;
 
@@ -25,6 +30,7 @@ public sealed class OpenAiCompatController : ControllerBase
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
+    private readonly ISender _sender;
     private readonly ILlmService _llmService;
     private readonly IMimirEventPublisher _eventPublisher;
     private readonly ICurrentUserService _currentUserService;
@@ -33,16 +39,19 @@ public sealed class OpenAiCompatController : ControllerBase
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenAiCompatController"/> class.
     /// </summary>
-    /// <param name="llmService">Service for LLM operations.</param>
+    /// <param name="sender">MediatR sender for dispatching queries and commands.</param>
+    /// <param name="llmService">Service for LLM operations (used by the streaming path).</param>
     /// <param name="eventPublisher">Publisher for Wolverine events.</param>
     /// <param name="currentUserService">Service to retrieve the current authenticated user.</param>
     /// <param name="logger">Logger instance.</param>
     public OpenAiCompatController(
+        ISender sender,
         ILlmService llmService,
         IMimirEventPublisher eventPublisher,
         ICurrentUserService currentUserService,
         ILogger<OpenAiCompatController> logger)
     {
+        _sender = sender;
         _llmService = llmService;
         _eventPublisher = eventPublisher;
         _currentUserService = currentUserService;
@@ -77,10 +86,6 @@ public sealed class OpenAiCompatController : ControllerBase
         var userId = GetUserId();
         var conversationId = Guid.NewGuid();
 
-        var messages = request.Messages
-            .Select(m => new LlmMessage(m.Role, m.Content))
-            .ToList();
-
         var userContent = request.Messages.LastOrDefault(m =>
             string.Equals(m.Role, "user", StringComparison.OrdinalIgnoreCase))?.Content ?? string.Empty;
 
@@ -91,11 +96,15 @@ public sealed class OpenAiCompatController : ControllerBase
 
         if (request.Stream)
         {
+            var messages = request.Messages
+                .Select(m => new LlmMessage(m.Role, m.Content))
+                .ToList();
+
             await HandleStreamingResponse(request, messages, completionId, created, conversationId, userId, cancellationToken);
         }
         else
         {
-            await HandleNonStreamingResponse(request, messages, completionId, created, conversationId, cancellationToken);
+            await HandleNonStreamingResponse(request, completionId, created, conversationId, cancellationToken);
         }
     }
 
@@ -111,17 +120,16 @@ public sealed class OpenAiCompatController : ControllerBase
     {
         _logger.LogDebug("Listing models in OpenAI-compatible format");
 
-        var models = await _llmService.GetAvailableModelsAsync(cancellationToken);
+        var models = await _sender.Send(new ListOpenAiModelsQuery(), cancellationToken);
 
         var response = new OpenAiModelsResponse
         {
             Data = models
-                .Where(m => m.IsAvailable)
                 .Select(m => new OpenAiModel
                 {
                     Id = m.Id,
                     Created = 0,
-                    OwnedBy = "mimir",
+                    OwnedBy = m.OwnedBy,
                 })
                 .ToList(),
         };
@@ -218,23 +226,22 @@ public sealed class OpenAiCompatController : ControllerBase
 
     private async Task HandleNonStreamingResponse(
         ChatCompletionRequest request,
-        List<LlmMessage> messages,
         string completionId,
         long created,
         Guid conversationId,
         CancellationToken cancellationToken)
     {
-        var stopwatch = Stopwatch.StartNew();
+        var command = new CreateChatCompletionCommand(
+            request.Model,
+            request.Messages.Select(m => new ChatMessageDto(m.Role, m.Content)).ToList());
 
-        var llmResponse = await _llmService.SendMessageAsync(request.Model, messages, cancellationToken);
-
-        stopwatch.Stop();
+        var dto = await _sender.Send(command, cancellationToken);
 
         var result = new ChatCompletionResult
         {
             Id = completionId,
             Created = created,
-            Model = llmResponse.Model,
+            Model = dto.Model,
             Choices =
             [
                 new ResultChoice
@@ -242,16 +249,16 @@ public sealed class OpenAiCompatController : ControllerBase
                     Index = 0,
                     Message = new ResultMessage
                     {
-                        Content = llmResponse.Content,
+                        Content = dto.Content,
                     },
-                    FinishReason = llmResponse.FinishReason ?? "stop",
+                    FinishReason = dto.FinishReason,
                 },
             ],
             Usage = new UsageInfo
             {
-                PromptTokens = llmResponse.PromptTokens,
-                CompletionTokens = llmResponse.CompletionTokens,
-                TotalTokens = llmResponse.TotalTokens,
+                PromptTokens = dto.PromptTokens,
+                CompletionTokens = dto.CompletionTokens,
+                TotalTokens = dto.TotalTokens,
             },
         };
 
@@ -260,10 +267,10 @@ public sealed class OpenAiCompatController : ControllerBase
             new ChatCompleted(
                 conversationId,
                 Guid.NewGuid(),
-                llmResponse.Model,
-                PromptTokens: llmResponse.PromptTokens,
-                CompletionTokens: llmResponse.CompletionTokens,
-                Duration: stopwatch.Elapsed,
+                dto.Model,
+                PromptTokens: dto.PromptTokens,
+                CompletionTokens: dto.CompletionTokens,
+                Duration: dto.Duration,
                 Timestamp: DateTimeOffset.UtcNow),
             cancellationToken);
 
@@ -278,7 +285,8 @@ public sealed class OpenAiCompatController : ControllerBase
             return userId;
         }
 
-        return Guid.Empty;
+        _logger.LogWarning("Failed to parse user ID from claims. UserId claim: {UserId}", _currentUserService.UserId);
+        throw new ForbiddenAccessException("User identity could not be determined.");
     }
 
     private static int EstimatePromptTokens(List<LlmMessage> messages)

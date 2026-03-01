@@ -14,8 +14,8 @@ builder.Services.Configure<TelegramSettings>(
 // Services
 builder.Services.AddSingleton<UserStateManager>();
 builder.Services.AddSingleton<AuthenticationService>();
-builder.Services.AddSingleton<CommandHandler>();
-builder.Services.AddSingleton<MessageHandler>();
+builder.Services.AddSingleton<ICommandHandler, CommandHandler>();
+builder.Services.AddSingleton<IMessageHandler, MessageHandler>();
 
 // HTTP clients
 var apiBaseUrl = builder.Configuration.GetSection(TelegramSettings.SectionName)

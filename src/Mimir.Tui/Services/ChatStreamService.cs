@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Options;
 using Mimir.Tui.Models;
 
 namespace Mimir.Tui.Services;
@@ -12,9 +13,9 @@ internal sealed class ChatStreamService : IAsyncDisposable
     private readonly AuthenticationService _authService;
     private HubConnection? _connection;
 
-    public ChatStreamService(TuiSettings settings, AuthenticationService authService)
+    public ChatStreamService(IOptions<TuiSettings> options, AuthenticationService authService)
     {
-        _settings = settings;
+        _settings = options.Value;
         _authService = authService;
     }
 

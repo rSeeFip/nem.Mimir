@@ -1,5 +1,5 @@
 using System.Text;
-using AutoMapper;
+using Mimir.Application.Common.Mappings;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
@@ -9,11 +9,20 @@ using Mimir.Domain.Enums;
 
 namespace Mimir.Application.Conversations.Commands;
 
+/// <summary>
+/// Command to send a user message to a conversation and receive an LLM-generated response.
+/// </summary>
+/// <param name="ConversationId">The conversation to send the message to.</param>
+/// <param name="Content">The message content.</param>
+/// <param name="Model">An optional LLM model identifier to use; defaults to the system default if not specified.</param>
 public sealed record SendMessageCommand(
     Guid ConversationId,
     string Content,
     string? Model) : ICommand<MessageDto>;
 
+/// <summary>
+/// Validates the <see cref="SendMessageCommand"/> ensuring the conversation ID and content are valid.
+/// </summary>
 public sealed class SendMessageCommandValidator : AbstractValidator<SendMessageCommand>
 {
     public SendMessageCommandValidator()
@@ -29,34 +38,28 @@ public sealed class SendMessageCommandValidator : AbstractValidator<SendMessageC
 
 internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, MessageDto>
 {
-    private static readonly Dictionary<string, int> ModelTokenLimits = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["phi-4-mini"] = 16_384,
-        ["qwen-2.5-72b"] = 131_072,
-        ["qwen-2.5-coder-32b"] = 131_072,
-    };
-
-    private const int DefaultTokenLimit = 16_384;
     private const string DefaultModel = "phi-4-mini";
-    private const string SystemPrompt = "You are Mimir, a helpful AI assistant.";
 
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmService _llmService;
-    private readonly IMapper _mapper;
+    private readonly IContextWindowService _contextWindowService;
+    private readonly MimirMapper _mapper;
 
     public SendMessageCommandHandler(
         IConversationRepository repository,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork,
         ILlmService llmService,
-        IMapper mapper)
+        IContextWindowService contextWindowService,
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
         _llmService = llmService;
+        _contextWindowService = contextWindowService;
         _mapper = mapper;
     }
 
@@ -74,10 +77,9 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
             throw new NotFoundException(nameof(Domain.Entities.Conversation), request.ConversationId);
 
         var model = request.Model ?? DefaultModel;
-        var tokenLimit = GetTokenLimit(model);
 
         // Build LLM messages with context window management (before adding to entity)
-        var llmMessages = BuildLlmMessages(conversation, request.Content, tokenLimit);
+        var llmMessages = await _contextWindowService.BuildLlmMessagesAsync(conversation, request.Content, model, cancellationToken);
 
         // Add user message to conversation (persisted later)
         conversation.AddMessage(MessageRole.User, request.Content);
@@ -94,61 +96,13 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);
 
         // Estimate and set token count on assistant message
-        var tokenCount = EstimateTokenCount(fullResponse);
+        var tokenCount = _contextWindowService.EstimateTokenCount(fullResponse);
         assistantMessage.SetTokenCount(tokenCount);
 
         // Persist changes
         await _repository.UpdateAsync(conversation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<MessageDto>(assistantMessage);
+        return _mapper.MapToMessageDto(assistantMessage);
     }
-
-    internal static List<LlmMessage> BuildLlmMessages(
-        Domain.Entities.Conversation conversation,
-        string newUserContent,
-        int tokenLimit)
-    {
-        var systemMessage = new LlmMessage("system", SystemPrompt);
-        var newUserMessage = new LlmMessage("user", newUserContent);
-
-        // Map existing history messages (ordered by creation time)
-        var historyMessages = conversation.Messages
-            .OrderBy(m => m.CreatedAt)
-            .Select(m => new LlmMessage(m.Role.ToString().ToLowerInvariant(), m.Content))
-            .ToList();
-
-        // Calculate base token usage: system prompt + new user message
-        var systemTokens = EstimateTokenCount(systemMessage.Content);
-        var newUserTokens = EstimateTokenCount(newUserMessage.Content);
-        var baseTokens = systemTokens + newUserTokens;
-
-        // Calculate total history tokens
-        var historyTokens = historyMessages
-            .Select(m => EstimateTokenCount(m.Content))
-            .ToList();
-
-        var totalTokens = baseTokens + historyTokens.Sum();
-
-        // Remove oldest non-system messages (from the front) until within limit
-        var startIndex = 0;
-        while (totalTokens > tokenLimit && startIndex < historyMessages.Count)
-        {
-            totalTokens -= historyTokens[startIndex];
-            startIndex++;
-        }
-
-        // Build final message list
-        var result = new List<LlmMessage> { systemMessage };
-        result.AddRange(historyMessages.Skip(startIndex));
-        result.Add(newUserMessage);
-
-        return result;
-    }
-
-    private static int GetTokenLimit(string model) =>
-        ModelTokenLimits.TryGetValue(model, out var limit) ? limit : DefaultTokenLimit;
-
-    internal static int EstimateTokenCount(string text) =>
-        string.IsNullOrEmpty(text) ? 0 : (text.Length + 3) / 4;
 }

@@ -13,7 +13,7 @@ namespace Mimir.Telegram.Handlers;
 /// Handles regular (non-command) text messages by sending them to the Mimir API
 /// and streaming the response back to the Telegram user.
 /// </summary>
-internal sealed class MessageHandler
+internal sealed class MessageHandler : IMessageHandler
 {
     private readonly MimirApiClient _apiClient;
     private readonly UserStateManager _stateManager;

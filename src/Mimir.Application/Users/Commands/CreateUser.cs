@@ -1,18 +1,27 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
 using Mimir.Domain.Enums;
 
 namespace Mimir.Application.Users.Commands;
 
+/// <summary>
+/// Command to create a new user account.
+/// </summary>
+/// <param name="Email">The email address for the new user.</param>
+/// <param name="DisplayName">The display name for the new user.</param>
+/// <param name="Role">The role to assign to the new user (defaults to User).</param>
 public sealed record CreateUserCommand(
     string Email,
     string DisplayName,
     UserRole Role = UserRole.User) : ICommand<UserDto>;
 
+/// <summary>
+/// Validates the <see cref="CreateUserCommand"/> ensuring email and display name are valid.
+/// </summary>
 public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
 {
     public CreateUserCommandValidator()
@@ -31,12 +40,12 @@ internal sealed class CreateUserCommandHandler : IRequestHandler<CreateUserComma
 {
     private readonly IUserRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public CreateUserCommandHandler(
         IUserRepository repository,
         IUnitOfWork unitOfWork,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
@@ -50,6 +59,6 @@ internal sealed class CreateUserCommandHandler : IRequestHandler<CreateUserComma
         await _repository.CreateAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<UserDto>(user);
+        return _mapper.MapToUserDto(user);
     }
 }

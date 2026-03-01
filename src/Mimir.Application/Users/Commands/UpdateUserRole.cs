@@ -1,18 +1,26 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
 using Mimir.Domain.Enums;
 
 namespace Mimir.Application.Users.Commands;
 
+/// <summary>
+/// Command to update a user's role. Requires administrator privileges.
+/// </summary>
+/// <param name="UserId">The unique identifier of the user whose role will be updated.</param>
+/// <param name="NewRole">The new role to assign to the user.</param>
 public sealed record UpdateUserRoleCommand(
     Guid UserId,
     UserRole NewRole) : ICommand<UserDto>;
 
+/// <summary>
+/// Validates the <see cref="UpdateUserRoleCommand"/> ensuring user ID is provided and role is valid.
+/// </summary>
 public sealed class UpdateUserRoleCommandValidator : AbstractValidator<UpdateUserRoleCommand>
 {
     public UpdateUserRoleCommandValidator()
@@ -30,13 +38,13 @@ internal sealed class UpdateUserRoleCommandHandler : IRequestHandler<UpdateUserR
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public UpdateUserRoleCommandHandler(
         IUserRepository repository,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -56,7 +64,7 @@ internal sealed class UpdateUserRoleCommandHandler : IRequestHandler<UpdateUserR
         await _repository.UpdateAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<UserDto>(user);
+        return _mapper.MapToUserDto(user);
     }
 
     private void EnsureAdminRole()
