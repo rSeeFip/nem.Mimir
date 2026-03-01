@@ -7,9 +7,10 @@
 
   <ItemGroup>
     <PackageReference Include="MediatR" />
-    <PackageReference Include="AutoMapper" />
+    <PackageReference Include="Riok.Mapperly" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>

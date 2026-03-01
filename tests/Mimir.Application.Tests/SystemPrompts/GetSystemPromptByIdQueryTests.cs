@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
@@ -12,15 +11,14 @@ namespace Mimir.Application.Tests.SystemPrompts;
 public sealed class GetSystemPromptByIdQueryTests
 {
     private readonly ISystemPromptRepository _repository;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly GetSystemPromptByIdQueryHandler _handler;
 
     public GetSystemPromptByIdQueryTests()
     {
         _repository = Substitute.For<ISystemPromptRepository>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new GetSystemPromptByIdQueryHandler(_repository, _mapper);
     }

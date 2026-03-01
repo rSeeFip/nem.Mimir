@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
@@ -15,7 +14,7 @@ public sealed class GetAllUsersQueryTests
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly GetAllUsersQueryHandler _handler;
 
     public GetAllUsersQueryTests()
@@ -23,8 +22,7 @@ public sealed class GetAllUsersQueryTests
         _repository = Substitute.For<IUserRepository>();
         _currentUserService = Substitute.For<ICurrentUserService>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new GetAllUsersQueryHandler(_repository, _currentUserService, _mapper);
     }

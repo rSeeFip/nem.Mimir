@@ -1,4 +1,4 @@
-using AutoMapper;
+using Mimir.Application.Common.Mappings;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
@@ -7,18 +7,22 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Conversations.Queries;
 
+/// <summary>
+/// Query to retrieve a single conversation by its unique identifier, including its messages.
+/// </summary>
+/// <param name="ConversationId">The unique identifier of the conversation to retrieve.</param>
 public sealed record GetConversationByIdQuery(Guid ConversationId) : IQuery<ConversationDto>;
 
 internal sealed class GetConversationByIdQueryHandler : IRequestHandler<GetConversationByIdQuery, ConversationDto>
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetConversationByIdQueryHandler(
         IConversationRepository repository,
         ICurrentUserService currentUserService,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -32,7 +36,7 @@ internal sealed class GetConversationByIdQueryHandler : IRequestHandler<GetConve
 
         EnsureOwnership(conversation);
 
-        return _mapper.Map<ConversationDto>(conversation);
+        return _mapper.MapToConversationDto(conversation);
     }
 
     private void EnsureOwnership(Conversation conversation)

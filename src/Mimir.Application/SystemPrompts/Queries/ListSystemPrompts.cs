@@ -1,15 +1,23 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 
 namespace Mimir.Application.SystemPrompts.Queries;
 
+/// <summary>
+/// Query to retrieve a paginated list of all system prompts.
+/// </summary>
+/// <param name="PageNumber">The page number to retrieve (1-based).</param>
+/// <param name="PageSize">The number of system prompts per page.</param>
 public sealed record ListSystemPromptsQuery(
     int PageNumber,
     int PageSize) : IQuery<PaginatedList<SystemPromptDto>>;
 
+/// <summary>
+/// Validates the <see cref="ListSystemPromptsQuery"/> ensuring pagination parameters are within acceptable ranges.
+/// </summary>
 public sealed class ListSystemPromptsQueryValidator : AbstractValidator<ListSystemPromptsQuery>
 {
     public ListSystemPromptsQueryValidator()
@@ -25,11 +33,11 @@ public sealed class ListSystemPromptsQueryValidator : AbstractValidator<ListSyst
 internal sealed class ListSystemPromptsQueryHandler : IRequestHandler<ListSystemPromptsQuery, PaginatedList<SystemPromptDto>>
 {
     private readonly ISystemPromptRepository _repository;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public ListSystemPromptsQueryHandler(
         ISystemPromptRepository repository,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _mapper = mapper;
@@ -39,7 +47,7 @@ internal sealed class ListSystemPromptsQueryHandler : IRequestHandler<ListSystem
     {
         var result = await _repository.GetAllAsync(request.PageNumber, request.PageSize, cancellationToken);
 
-        var dtoItems = _mapper.Map<IReadOnlyCollection<SystemPromptDto>>(result.Items);
+        var dtoItems = result.Items.Select(_mapper.MapToSystemPromptDto).ToList();
 
         return new PaginatedList<SystemPromptDto>(dtoItems, result.PageNumber, result.TotalPages, result.TotalCount);
     }

@@ -1,4 +1,4 @@
-using AutoMapper;
+using Mimir.Application.Common.Mappings;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
@@ -8,11 +8,20 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Conversations.Queries;
 
+/// <summary>
+/// Query to retrieve a paginated list of messages for a specific conversation.
+/// </summary>
+/// <param name="ConversationId">The unique identifier of the conversation.</param>
+/// <param name="PageNumber">The page number to retrieve (1-based).</param>
+/// <param name="PageSize">The number of messages per page.</param>
 public sealed record GetConversationMessagesQuery(
     Guid ConversationId,
     int PageNumber,
     int PageSize) : IQuery<PaginatedList<MessageDto>>;
 
+/// <summary>
+/// Validates the <see cref="GetConversationMessagesQuery"/> ensuring pagination parameters are within acceptable ranges.
+/// </summary>
 public sealed class GetConversationMessagesQueryValidator : AbstractValidator<GetConversationMessagesQuery>
 {
     public GetConversationMessagesQueryValidator()
@@ -32,12 +41,12 @@ internal sealed class GetConversationMessagesQueryHandler : IRequestHandler<GetC
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetConversationMessagesQueryHandler(
         IConversationRepository repository,
         ICurrentUserService currentUserService,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -53,7 +62,7 @@ internal sealed class GetConversationMessagesQueryHandler : IRequestHandler<GetC
 
         var result = await _repository.GetMessagesAsync(request.ConversationId, request.PageNumber, request.PageSize, cancellationToken);
 
-        var dtoItems = _mapper.Map<IReadOnlyCollection<MessageDto>>(result.Items);
+        var dtoItems = result.Items.Select(_mapper.MapToMessageDto).ToList();
 
         return new PaginatedList<MessageDto>(dtoItems, result.PageNumber, result.TotalPages, result.TotalCount);
     }

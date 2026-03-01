@@ -6,8 +6,15 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Conversations.Commands;
 
+/// <summary>
+/// Command to soft-delete a conversation by its identifier.
+/// </summary>
+/// <param name="ConversationId">The unique identifier of the conversation to delete.</param>
 public sealed record DeleteConversationCommand(Guid ConversationId) : ICommand;
 
+/// <summary>
+/// Validates the <see cref="DeleteConversationCommand"/> ensuring the conversation ID is provided.
+/// </summary>
 public sealed class DeleteConversationCommandValidator : AbstractValidator<DeleteConversationCommand>
 {
     public DeleteConversationCommandValidator()

@@ -1,4 +1,4 @@
-using AutoMapper;
+using Mimir.Application.Common.Mappings;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
@@ -7,6 +7,15 @@ using Mimir.Application.Common.Models;
 
 namespace Mimir.Application.Auditing.Queries;
 
+/// <summary>
+/// Query to retrieve paginated audit log entries with optional filtering.
+/// </summary>
+/// <param name="UserId">Optional user identifier to filter audit entries by.</param>
+/// <param name="Action">Optional action name to filter audit entries by.</param>
+/// <param name="From">Optional start date for the audit log date range filter.</param>
+/// <param name="To">Optional end date for the audit log date range filter.</param>
+/// <param name="PageNumber">The page number to retrieve (default 1).</param>
+/// <param name="PageSize">The number of entries per page (default 20).</param>
 public sealed record GetAuditLogQuery(
     Guid? UserId = null,
     string? Action = null,
@@ -15,6 +24,9 @@ public sealed record GetAuditLogQuery(
     int PageNumber = 1,
     int PageSize = 20) : IQuery<PaginatedList<AuditEntryDto>>;
 
+/// <summary>
+/// Validates the <see cref="GetAuditLogQuery"/> ensuring pagination parameters are within acceptable ranges.
+/// </summary>
 public sealed class GetAuditLogQueryValidator : AbstractValidator<GetAuditLogQuery>
 {
     public GetAuditLogQueryValidator()
@@ -31,12 +43,12 @@ internal sealed class GetAuditLogQueryHandler : IRequestHandler<GetAuditLogQuery
 {
     private readonly IAuditRepository _auditRepository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetAuditLogQueryHandler(
         IAuditRepository auditRepository,
         ICurrentUserService currentUserService,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _auditRepository = auditRepository;
         _currentUserService = currentUserService;
@@ -51,7 +63,7 @@ internal sealed class GetAuditLogQueryHandler : IRequestHandler<GetAuditLogQuery
             ? await _auditRepository.GetByUserIdAsync(request.UserId.Value, request.PageNumber, request.PageSize, cancellationToken)
             : await _auditRepository.GetAllAsync(request.PageNumber, request.PageSize, cancellationToken);
 
-        var dtoItems = _mapper.Map<IReadOnlyCollection<AuditEntryDto>>(result.Items);
+        var dtoItems = result.Items.Select(_mapper.MapToAuditEntryDto).ToList();
 
         return new PaginatedList<AuditEntryDto>(dtoItems, result.PageNumber, result.TotalPages, result.TotalCount);
     }

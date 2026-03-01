@@ -1,32 +1,45 @@
-using AutoMapper;
 using Mimir.Application.Common.Mappings;
+using Mimir.Application.Common.Models;
+using Mimir.Domain.Entities;
+using Mimir.Domain.Enums;
 using Shouldly;
 
 namespace Mimir.Application.Tests;
 
 public sealed class MappingProfileTests
 {
-    private readonly MapperConfiguration _configuration;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper = new();
 
-    public MappingProfileTests()
+    [Fact]
+    public void MapToUserDto_ShouldMapAllProperties()
     {
-        _configuration = new MapperConfiguration(cfg =>
-            cfg.AddProfile<MappingProfile>());
+        // Arrange
+        var user = User.Create("testuser", "test@example.com", UserRole.Admin);
 
-        _mapper = _configuration.CreateMapper();
+        // Act
+        var dto = _mapper.MapToUserDto(user);
+
+        // Assert
+        dto.ShouldNotBeNull();
+        dto.Id.ShouldBe(user.Id);
+        dto.Username.ShouldBe("testuser");
+        dto.Email.ShouldBe("test@example.com");
+        dto.Role.ShouldBe("Admin");
     }
 
     [Fact]
-    public void MappingProfile_ShouldHaveValidConfiguration()
+    public void MapToSystemPromptDto_ShouldMapAllProperties()
     {
-        // Assert that all mappings are properly configured
-        _configuration.AssertConfigurationIsValid();
-    }
+        // Arrange
+        var prompt = SystemPrompt.Create("Test Prompt", "You are a helper.", "A test prompt");
 
-    [Fact]
-    public void Mapper_ShouldBeCreatable()
-    {
-        _mapper.ShouldNotBeNull();
+        // Act
+        var dto = _mapper.MapToSystemPromptDto(prompt);
+
+        // Assert
+        dto.ShouldNotBeNull();
+        dto.Id.ShouldBe(prompt.Id);
+        dto.Name.ShouldBe("Test Prompt");
+        dto.Template.ShouldBe("You are a helper.");
     }
 }

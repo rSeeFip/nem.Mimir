@@ -1,16 +1,24 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 
 namespace Mimir.Application.Users.Queries;
 
+/// <summary>
+/// Query to retrieve a paginated list of all users. Requires administrator privileges.
+/// </summary>
+/// <param name="PageNumber">The page number to retrieve (default 1).</param>
+/// <param name="PageSize">The number of users per page (default 20).</param>
 public sealed record GetAllUsersQuery(
     int PageNumber = 1,
     int PageSize = 20) : IQuery<PaginatedList<UserDto>>;
 
+/// <summary>
+/// Validates the <see cref="GetAllUsersQuery"/> ensuring pagination parameters are within acceptable ranges.
+/// </summary>
 public sealed class GetAllUsersQueryValidator : AbstractValidator<GetAllUsersQuery>
 {
     public GetAllUsersQueryValidator()
@@ -27,12 +35,12 @@ internal sealed class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetAllUsersQueryHandler(
         IUserRepository repository,
         ICurrentUserService currentUserService,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -45,7 +53,7 @@ internal sealed class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery
 
         var (items, totalCount) = await _repository.GetAllAsync(request.PageNumber, request.PageSize, cancellationToken);
 
-        var dtoItems = _mapper.Map<IReadOnlyCollection<UserDto>>(items);
+        var dtoItems = items.Select(_mapper.MapToUserDto).ToList();
         var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
 
         return new PaginatedList<UserDto>(dtoItems, request.PageNumber, totalPages, totalCount);

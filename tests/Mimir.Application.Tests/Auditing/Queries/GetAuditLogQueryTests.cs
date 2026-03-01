@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Auditing.Queries;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
@@ -14,7 +13,7 @@ public sealed class GetAuditLogQueryTests
 {
     private readonly IAuditRepository _auditRepository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly GetAuditLogQueryHandler _handler;
 
     public GetAuditLogQueryTests()
@@ -22,8 +21,7 @@ public sealed class GetAuditLogQueryTests
         _auditRepository = Substitute.For<IAuditRepository>();
         _currentUserService = Substitute.For<ICurrentUserService>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new GetAuditLogQueryHandler(_auditRepository, _currentUserService, _mapper);
     }

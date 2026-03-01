@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
@@ -13,7 +12,7 @@ public sealed class CreateSystemPromptCommandTests
 {
     private readonly ISystemPromptRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly CreateSystemPromptCommandHandler _handler;
 
     public CreateSystemPromptCommandTests()
@@ -21,8 +20,7 @@ public sealed class CreateSystemPromptCommandTests
         _repository = Substitute.For<ISystemPromptRepository>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new CreateSystemPromptCommandHandler(_repository, _unitOfWork, _mapper);
     }

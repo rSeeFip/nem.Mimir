@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using Mimir.Tui.Models;
 using Mimir.Tui.Services;
 using NSubstitute;
@@ -27,7 +28,7 @@ public sealed class AuthenticationServiceTests
         });
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, tokenJson);
         using var httpClient = new HttpClient(handler);
-        var service = new AuthenticationService(httpClient, DefaultSettings);
+        var service = new AuthenticationService(httpClient, Options.Create(DefaultSettings));
 
         // Act
         var result = await service.LoginAsync("admin", "admin");
@@ -44,7 +45,7 @@ public sealed class AuthenticationServiceTests
         // Arrange
         var handler = new FakeHttpMessageHandler(HttpStatusCode.Unauthorized, "{}");
         using var httpClient = new HttpClient(handler);
-        var service = new AuthenticationService(httpClient, DefaultSettings);
+        var service = new AuthenticationService(httpClient, Options.Create(DefaultSettings));
 
         // Act
         var result = await service.LoginAsync("wrong", "credentials");
@@ -67,7 +68,7 @@ public sealed class AuthenticationServiceTests
         });
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, tokenJson);
         using var httpClient = new HttpClient(handler);
-        var service = new AuthenticationService(httpClient, DefaultSettings);
+        var service = new AuthenticationService(httpClient, Options.Create(DefaultSettings));
 
         // Act
         var result = await service.LoginAsync("admin", "admin");
@@ -83,7 +84,7 @@ public sealed class AuthenticationServiceTests
         // Arrange
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, "{}");
         using var httpClient = new HttpClient(handler);
-        var service = new AuthenticationService(httpClient, DefaultSettings);
+        var service = new AuthenticationService(httpClient, Options.Create(DefaultSettings));
 
         // Act & Assert
         service.IsAuthenticated.ShouldBeFalse();
@@ -102,7 +103,7 @@ public sealed class AuthenticationServiceTests
         });
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, tokenJson);
         using var httpClient = new HttpClient(handler);
-        var service = new AuthenticationService(httpClient, DefaultSettings);
+        var service = new AuthenticationService(httpClient, Options.Create(DefaultSettings));
         await service.LoginAsync("admin", "admin");
 
         // Act
@@ -124,7 +125,7 @@ public sealed class AuthenticationServiceTests
             token_type = "Bearer",
         }));
         using var httpClient = new HttpClient(handler);
-        var service = new AuthenticationService(httpClient, DefaultSettings);
+        var service = new AuthenticationService(httpClient, Options.Create(DefaultSettings));
 
         // Act
         await service.LoginAsync("testuser", "testpass");

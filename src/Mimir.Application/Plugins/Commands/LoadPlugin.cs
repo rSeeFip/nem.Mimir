@@ -5,8 +5,15 @@ using Mimir.Domain.Plugins;
 
 namespace Mimir.Application.Plugins.Commands;
 
+/// <summary>
+/// Command to load a plugin from the specified assembly path.
+/// </summary>
+/// <param name="AssemblyPath">The file system path to the plugin assembly.</param>
 public sealed record LoadPluginCommand(string AssemblyPath) : ICommand<PluginMetadata>;
 
+/// <summary>
+/// Validates the <see cref="LoadPluginCommand"/> ensuring the assembly path is provided.
+/// </summary>
 public sealed class LoadPluginCommandValidator : AbstractValidator<LoadPluginCommand>
 {
     public LoadPluginCommandValidator()

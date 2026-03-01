@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
@@ -16,7 +15,7 @@ public sealed class UpdateUserRoleCommandTests
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly UpdateUserRoleCommandHandler _handler;
 
     public UpdateUserRoleCommandTests()
@@ -25,8 +24,7 @@ public sealed class UpdateUserRoleCommandTests
         _currentUserService = Substitute.For<ICurrentUserService>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new UpdateUserRoleCommandHandler(_repository, _currentUserService, _unitOfWork, _mapper);
     }

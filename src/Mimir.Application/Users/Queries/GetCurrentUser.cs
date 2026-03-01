@@ -1,24 +1,27 @@
-using AutoMapper;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Users.Queries;
 
+/// <summary>
+/// Query to retrieve the profile of the currently authenticated user.
+/// </summary>
 public sealed record GetCurrentUserQuery : IQuery<UserDto>;
 
 internal sealed class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, UserDto>
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetCurrentUserQueryHandler(
         IUserRepository repository,
         ICurrentUserService currentUserService,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -35,6 +38,6 @@ internal sealed class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUse
         var user = await _repository.GetByIdAsync(userGuid, cancellationToken)
             ?? throw new NotFoundException(nameof(User), userGuid);
 
-        return _mapper.Map<UserDto>(user);
+        return _mapper.MapToUserDto(user);
     }
 }

@@ -1,22 +1,26 @@
-using AutoMapper;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Users.Queries;
 
+/// <summary>
+/// Query to retrieve a user by their unique identifier.
+/// </summary>
+/// <param name="UserId">The unique identifier of the user to retrieve.</param>
 public sealed record GetUserByIdQuery(Guid UserId) : IQuery<UserDto>;
 
 internal sealed class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto>
 {
     private readonly IUserRepository _repository;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetUserByIdQueryHandler(
         IUserRepository repository,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _mapper = mapper;
@@ -27,6 +31,6 @@ internal sealed class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery
         var user = await _repository.GetByIdAsync(request.UserId, cancellationToken)
             ?? throw new NotFoundException(nameof(User), request.UserId);
 
-        return _mapper.Map<UserDto>(user);
+        return _mapper.MapToUserDto(user);
     }
 }

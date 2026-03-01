@@ -1,16 +1,24 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 
 namespace Mimir.Application.Conversations.Queries;
 
+/// <summary>
+/// Query to retrieve a paginated list of conversations for the currently authenticated user.
+/// </summary>
+/// <param name="PageNumber">The page number to retrieve (1-based).</param>
+/// <param name="PageSize">The number of conversations per page.</param>
 public sealed record GetConversationsByUserQuery(
     int PageNumber,
     int PageSize) : IQuery<PaginatedList<ConversationListDto>>;
 
+/// <summary>
+/// Validates the <see cref="GetConversationsByUserQuery"/> ensuring pagination parameters are within acceptable ranges.
+/// </summary>
 public sealed class GetConversationsByUserQueryValidator : AbstractValidator<GetConversationsByUserQuery>
 {
     public GetConversationsByUserQueryValidator()
@@ -27,12 +35,12 @@ internal sealed class GetConversationsByUserQueryHandler : IRequestHandler<GetCo
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
 
     public GetConversationsByUserQueryHandler(
         IConversationRepository repository,
         ICurrentUserService currentUserService,
-        IMapper mapper)
+        MimirMapper mapper)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -48,7 +56,7 @@ internal sealed class GetConversationsByUserQueryHandler : IRequestHandler<GetCo
 
         var result = await _repository.GetByUserIdAsync(userGuid, request.PageNumber, request.PageSize, cancellationToken);
 
-        var dtoItems = _mapper.Map<IReadOnlyCollection<ConversationListDto>>(result.Items);
+        var dtoItems = result.Items.Select(_mapper.MapToConversationListDto).ToList();
 
         return new PaginatedList<ConversationListDto>(dtoItems, result.PageNumber, result.TotalPages, result.TotalCount);
     }

@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Options;
 using Mimir.Tui.Models;
 using Mimir.Tui.Services;
 using Shouldly;
@@ -16,7 +17,7 @@ public sealed class ModelServiceTests
     {
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, "{}");
         var httpClient = new HttpClient(handler);
-        return new AuthenticationService(httpClient, new TuiSettings());
+        return new AuthenticationService(httpClient, Options.Create(new TuiSettings()));
     }
 
     [Fact]
@@ -26,7 +27,7 @@ public sealed class ModelServiceTests
         var settings = CreateSettings("qwen-2.5-72b");
         var authService = CreateAuthService();
         using var httpClient = new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "[]"));
-        var service = new ModelService(httpClient, authService, settings);
+        var service = new ModelService(httpClient, authService, Options.Create(settings));
 
         // Act & Assert
         service.CurrentModel.ShouldBe("qwen-2.5-72b");
@@ -50,7 +51,7 @@ public sealed class ModelServiceTests
         // Arrange
         var authService = CreateAuthService();
         using var httpClient = new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "[]"));
-        var service = new ModelService(httpClient, authService, CreateSettings());
+        var service = new ModelService(httpClient, authService, Options.Create(CreateSettings()));
 
         // Act
         var result = service.TrySetModel("qwen-2.5-72b");
@@ -66,7 +67,7 @@ public sealed class ModelServiceTests
         // Arrange
         var authService = CreateAuthService();
         using var httpClient = new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "[]"));
-        var service = new ModelService(httpClient, authService, CreateSettings());
+        var service = new ModelService(httpClient, authService, Options.Create(CreateSettings()));
 
         // Act
         var result = service.TrySetModel("nonexistent");
@@ -82,7 +83,7 @@ public sealed class ModelServiceTests
         // Arrange
         var authService = CreateAuthService();
         using var httpClient = new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "[]"));
-        var service = new ModelService(httpClient, authService, CreateSettings());
+        var service = new ModelService(httpClient, authService, Options.Create(CreateSettings()));
 
         // Act
         var result = service.TrySetModel("PHI-4-MINI");
@@ -98,7 +99,7 @@ public sealed class ModelServiceTests
         // Arrange
         var authService = CreateAuthService();
         using var httpClient = new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "[]"));
-        var service = new ModelService(httpClient, authService, CreateSettings());
+        var service = new ModelService(httpClient, authService, Options.Create(CreateSettings()));
 
         // Act
         var result = service.TrySetModel("  phi-4-mini  ");
@@ -114,7 +115,7 @@ public sealed class ModelServiceTests
         // Arrange
         var authService = CreateAuthService();
         using var httpClient = new HttpClient(new FakeHttpMessageHandler(HttpStatusCode.OK, "[]"));
-        var service = new ModelService(httpClient, authService, CreateSettings());
+        var service = new ModelService(httpClient, authService, Options.Create(CreateSettings()));
 
         // Act
         service.CurrentModel = "custom-model";

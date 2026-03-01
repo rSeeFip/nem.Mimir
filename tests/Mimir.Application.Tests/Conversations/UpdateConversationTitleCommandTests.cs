@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
@@ -15,7 +14,7 @@ public sealed class UpdateConversationTitleCommandTests
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly UpdateConversationTitleCommandHandler _handler;
 
     public UpdateConversationTitleCommandTests()
@@ -24,8 +23,7 @@ public sealed class UpdateConversationTitleCommandTests
         _currentUserService = Substitute.For<ICurrentUserService>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new UpdateConversationTitleCommandHandler(_repository, _currentUserService, _unitOfWork, _mapper);
     }

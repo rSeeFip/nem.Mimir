@@ -6,12 +6,22 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.SystemPrompts.Commands;
 
+/// <summary>
+/// Command to update an existing system prompt's name, template, and description.
+/// </summary>
+/// <param name="Id">The unique identifier of the system prompt to update.</param>
+/// <param name="Name">The updated display name.</param>
+/// <param name="Template">The updated template content.</param>
+/// <param name="Description">The updated description.</param>
 public sealed record UpdateSystemPromptCommand(
     Guid Id,
     string Name,
     string Template,
     string Description) : ICommand;
 
+/// <summary>
+/// Validates the <see cref="UpdateSystemPromptCommand"/> ensuring all fields are valid and within length limits.
+/// </summary>
 public sealed class UpdateSystemPromptCommandValidator : AbstractValidator<UpdateSystemPromptCommand>
 {
     public UpdateSystemPromptCommandValidator()

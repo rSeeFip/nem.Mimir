@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
@@ -14,7 +13,7 @@ public sealed class CreateUserCommandTests
 {
     private readonly IUserRepository _repository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly CreateUserCommandHandler _handler;
 
     public CreateUserCommandTests()
@@ -22,8 +21,7 @@ public sealed class CreateUserCommandTests
         _repository = Substitute.For<IUserRepository>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new CreateUserCommandHandler(_repository, _unitOfWork, _mapper);
     }

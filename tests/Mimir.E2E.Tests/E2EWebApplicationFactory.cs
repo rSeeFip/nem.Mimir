@@ -48,7 +48,7 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
     /// </summary>
     public string PostgresConnectionString => _postgres.GetConnectionString();
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         // 1. Start infrastructure containers
         await _postgres.StartAsync();
@@ -68,7 +68,7 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
         _ = Server;
     }
 
-    public new async Task DisposeAsync()
+    public new async ValueTask DisposeAsync()
     {
         _wireMock?.Stop();
         _wireMock?.Dispose();

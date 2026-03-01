@@ -4,6 +4,9 @@ using Mimir.Domain.Plugins;
 
 namespace Mimir.Application.Plugins.Queries;
 
+/// <summary>
+/// Query to retrieve the list of all currently loaded plugins and their metadata.
+/// </summary>
 public sealed record ListPluginsQuery() : IQuery<IReadOnlyList<PluginMetadata>>;
 
 internal sealed class ListPluginsQueryHandler : IRequestHandler<ListPluginsQuery, IReadOnlyList<PluginMetadata>>

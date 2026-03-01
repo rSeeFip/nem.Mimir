@@ -6,8 +6,15 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Conversations.Commands;
 
+/// <summary>
+/// Command to archive a conversation by its identifier.
+/// </summary>
+/// <param name="ConversationId">The unique identifier of the conversation to archive.</param>
 public sealed record ArchiveConversationCommand(Guid ConversationId) : ICommand;
 
+/// <summary>
+/// Validates the <see cref="ArchiveConversationCommand"/> ensuring the conversation ID is provided.
+/// </summary>
 public sealed class ArchiveConversationCommandValidator : AbstractValidator<ArchiveConversationCommand>
 {
     public ArchiveConversationCommandValidator()

@@ -6,8 +6,15 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.Users.Commands;
 
+/// <summary>
+/// Command to deactivate an existing user account. Requires administrator privileges.
+/// </summary>
+/// <param name="UserId">The unique identifier of the user to deactivate.</param>
 public sealed record DeactivateUserCommand(Guid UserId) : ICommand;
 
+/// <summary>
+/// Validates the <see cref="DeactivateUserCommand"/> ensuring the user ID is provided.
+/// </summary>
 public sealed class DeactivateUserCommandValidator : AbstractValidator<DeactivateUserCommand>
 {
     public DeactivateUserCommandValidator()

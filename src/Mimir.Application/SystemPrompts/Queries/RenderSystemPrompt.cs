@@ -5,6 +5,11 @@ using Mimir.Domain.Entities;
 
 namespace Mimir.Application.SystemPrompts.Queries;
 
+/// <summary>
+/// Query to render a system prompt template by substituting the provided variables.
+/// </summary>
+/// <param name="Id">The unique identifier of the system prompt to render.</param>
+/// <param name="Variables">A dictionary of variable names and their replacement values.</param>
 public sealed record RenderSystemPromptQuery(
     Guid Id,
     IDictionary<string, string> Variables) : IQuery<string>;

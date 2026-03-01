@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Mimir.Application.Common.Behaviours;
+using Mimir.Application.Common.Mappings;
 
 namespace Mimir.Application;
 
@@ -12,7 +13,7 @@ namespace Mimir.Application;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Adds Application layer services including MediatR, FluentValidation, and AutoMapper.
+    /// Adds Application layer services including MediatR, FluentValidation, and Mapperly.
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -20,7 +21,7 @@ public static class DependencyInjection
     {
         var assembly = Assembly.GetExecutingAssembly();
 
-        services.AddAutoMapper(assembly);
+        services.AddSingleton<MimirMapper>();
 
         services.AddValidatorsFromAssembly(assembly);
 

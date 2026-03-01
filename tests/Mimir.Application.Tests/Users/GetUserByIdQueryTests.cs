@@ -1,4 +1,3 @@
-using AutoMapper;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
@@ -14,15 +13,14 @@ namespace Mimir.Application.Tests.Users;
 public sealed class GetUserByIdQueryTests
 {
     private readonly IUserRepository _repository;
-    private readonly IMapper _mapper;
+    private readonly MimirMapper _mapper;
     private readonly GetUserByIdQueryHandler _handler;
 
     public GetUserByIdQueryTests()
     {
         _repository = Substitute.For<IUserRepository>();
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        _mapper = mapperConfig.CreateMapper();
+        _mapper = new MimirMapper();
 
         _handler = new GetUserByIdQueryHandler(_repository, _mapper);
     }
