@@ -95,7 +95,7 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
         builder.HasMany(c => c.Messages)
             .WithOne()
             .HasForeignKey(m => m.ConversationId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Ignore domain events collection
         builder.Ignore(c => c.DomainEvents);

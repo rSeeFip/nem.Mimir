@@ -105,7 +105,8 @@ public sealed class ChatHub : Hub
         var userId = _currentUserService.UserId
             ?? throw new ForbiddenAccessException("User is not authenticated.");
 
-        var userGuid = Guid.Parse(userId);
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new ForbiddenAccessException("User identity could not be determined.");
 
         if (!Guid.TryParse(conversationId, out var conversationGuid))
         {
@@ -122,15 +123,16 @@ public sealed class ChatHub : Hub
         // Sanitize user input before any processing
         content = _sanitizationService.SanitizeUserInput(content);
 
-        // Add connection to conversation group for potential multi-tab scenarios
-        await Groups.AddToGroupAsync(Context.ConnectionId, conversationId, cancellationToken);
-
+        // Load conversation and verify ownership BEFORE adding to group
         var conversation = await _repository.GetWithMessagesAsync(conversationGuid, cancellationToken);
         if (conversation is null || conversation.UserId != userGuid)
         {
             yield return new ChatToken("Conversation not found.", true, null);
             yield break;
         }
+
+        // Add connection to conversation group only after ownership is verified
+        await Groups.AddToGroupAsync(Context.ConnectionId, conversationId, cancellationToken);
 
         var selectedModel = model ?? DefaultModel;
 

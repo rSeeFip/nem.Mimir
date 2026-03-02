@@ -63,7 +63,10 @@ internal sealed class SystemPromptRepository(MimirDbContext context) : ISystemPr
 
         if (prompt is not null)
         {
-            context.SystemPrompts.Remove(prompt);
+            // Explicit soft-delete instead of Remove() to avoid reliance on interceptor
+            prompt.Deactivate();
+            context.Entry(prompt).Property("IsDeleted").CurrentValue = true;
+            context.Entry(prompt).Property("DeletedAt").CurrentValue = DateTimeOffset.UtcNow;
         }
     }
 

@@ -52,9 +52,27 @@ internal sealed class CreateConversationCommandHandler(
 
         var conversation = Conversation.Create(userGuid, request.Title);
 
+        // Wire optional settings if provided
+        if (request.Model is not null || request.SystemPrompt is not null)
+        {
+            var defaults = ConversationSettings.Default;
+            var systemPromptId = request.SystemPrompt is not null && Guid.TryParse(request.SystemPrompt, out var spGuid)
+                ? new SystemPromptId(spGuid)
+                : defaults.SystemPromptId;
+
+            var settings = new ConversationSettings(
+                maxTokens: defaults.MaxTokens,
+                temperature: defaults.Temperature,
+                model: request.Model ?? defaults.Model,
+                autoArchiveAfterDays: defaults.AutoArchiveAfterDays,
+                systemPromptId: systemPromptId);
+
+            conversation.UpdateSettings(settings);
+        }
+
         await repository.CreateAsync(conversation, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return mapper.MapToConversationDto(conversation);
-    }
+}
 }

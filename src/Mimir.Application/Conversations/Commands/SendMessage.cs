@@ -68,7 +68,8 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         var userId = _currentUserService.UserId
             ?? throw new ForbiddenAccessException("User is not authenticated.");
 
-        var userGuid = Guid.Parse(userId);
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new ForbiddenAccessException("User identity could not be determined.");
 
         var conversation = await _repository.GetWithMessagesAsync(request.ConversationId, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Conversation), request.ConversationId);

@@ -47,7 +47,8 @@ try
     builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection(DatabaseSettings.SectionName));
 
     var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
-        ?? new JwtSettings();
+        ?? throw new InvalidOperationException($"'{JwtSettings.SectionName}' configuration section is missing.");
+    jwtSettings.Validate();
     var liteLlmSettings = builder.Configuration.GetSection(LiteLlmSettings.SectionName).Get<LiteLlmSettings>()
         ?? new LiteLlmSettings();
 

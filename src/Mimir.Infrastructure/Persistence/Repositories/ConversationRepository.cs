@@ -73,7 +73,11 @@ internal sealed class ConversationRepository(MimirDbContext context) : IConversa
 
         if (conversation is not null)
         {
-            context.Conversations.Remove(conversation);
+            // Explicit soft-delete: set flags directly instead of relying on interceptor
+            // to convert a Remove() call. This is clearer and safer against bypass scenarios.
+            conversation.Archive();
+            context.Entry(conversation).Property("IsDeleted").CurrentValue = true;
+            context.Entry(conversation).Property("DeletedAt").CurrentValue = DateTimeOffset.UtcNow;
         }
     }
 

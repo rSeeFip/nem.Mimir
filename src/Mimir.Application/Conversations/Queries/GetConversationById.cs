@@ -44,9 +44,12 @@ internal sealed class GetConversationByIdQueryHandler : IRequestHandler<GetConve
         var userId = _currentUserService.UserId
             ?? throw new ForbiddenAccessException("User is not authenticated.");
 
-        if (conversation.UserId != Guid.Parse(userId))
+        if (!Guid.TryParse(userId, out var userGuid))
+            throw new ForbiddenAccessException("User identity could not be determined.");
+
+        if (conversation.UserId != userGuid)
         {
             throw new ForbiddenAccessException();
         }
-    }
+}
 }

@@ -313,13 +313,13 @@ public sealed class ChatHubTests : IDisposable
     // ── SendMessage: User ID from service is not a valid GUID ──────────────
 
     [Fact]
-    public async Task SendMessage_UserIdNotValidGuid_ThrowsFormatException()
+    public async Task SendMessage_UserIdNotValidGuid_ThrowsForbiddenAccessException()
     {
         // Arrange — UserId is non-null but not a parseable GUID
         _currentUserService.UserId.Returns("not-a-guid-user-id");
 
-        // Act & Assert — Guid.Parse will throw
-        await Should.ThrowAsync<FormatException>(async () =>
+        // Act & Assert — Guid.TryParse will fail, throwing ForbiddenAccessException
+        await Should.ThrowAsync<ForbiddenAccessException>(async () =>
         {
             await foreach (var _ in _hub.SendMessage(
                 Guid.NewGuid().ToString(), "hello", null, CancellationToken.None))
