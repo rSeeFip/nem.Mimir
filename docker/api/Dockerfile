@@ -14,17 +14,16 @@ COPY src/Mimir.Sync/Mimir.Sync.csproj src/Mimir.Sync/
 COPY src/Mimir.Api/Mimir.Api.csproj src/Mimir.Api/
 
 # Restore dependencies
-RUN dotnet restore
+RUN dotnet restore src/Mimir.Api/Mimir.Api.csproj
 
 # Copy remaining source code
 COPY src/ src/
-COPY tests/ tests/
 
 # Build
-RUN dotnet build --no-restore -c Release
+RUN dotnet build src/Mimir.Api/Mimir.Api.csproj -c Release
 
 # Publish
-RUN dotnet publish src/Mimir.Api/Mimir.Api.csproj --no-restore -c Release -o /app/publish
+RUN dotnet publish src/Mimir.Api/Mimir.Api.csproj -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
@@ -44,6 +43,4 @@ ENV DOTNET_GCTuningRefreshIntervalMS=10000
 # Enable Tiered Compilation for faster JIT
 ENV DOTNET_TieredCompilation="1"
 ENV DOTNET_TieredCompilationQuickJit="1"
-ENTRYPOINT ["dotnet", "Mimir.Api.dll"]
-ENV ASPNETCORE_HTTP_PORTS=5000
 ENTRYPOINT ["dotnet", "Mimir.Api.dll"]
