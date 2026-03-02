@@ -4,6 +4,7 @@ using MediatR;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.Auditing.Queries;
 
@@ -17,7 +18,7 @@ namespace Mimir.Application.Auditing.Queries;
 /// <param name="PageNumber">The page number to retrieve (default 1).</param>
 /// <param name="PageSize">The number of entries per page (default 20).</param>
 public sealed record GetAuditLogQuery(
-    Guid? UserId = null,
+    UserId? UserId = null,
     string? Action = null,
     DateTimeOffset? From = null,
     DateTimeOffset? To = null,

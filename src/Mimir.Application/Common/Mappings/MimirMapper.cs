@@ -26,6 +26,10 @@ public sealed partial class MimirMapper
 
     private Guid MapSystemPromptId(SystemPromptId id) => id.Value;
 
+    private Guid MapAuditEntryId(AuditEntryId id) => id.Value;
+
+    private Guid MapUserId(UserId id) => id.Value;
+
     public UserDto MapToUserDto(User entity) =>
         new(
             entity.Id,

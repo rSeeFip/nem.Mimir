@@ -1,6 +1,7 @@
 using MediatR;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Events;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.Auditing.EventHandlers;
 
@@ -16,7 +17,7 @@ internal sealed class ConversationCreatedEventHandler : INotificationHandler<Con
     public async Task Handle(ConversationCreatedEvent notification, CancellationToken cancellationToken)
     {
         await _auditService.LogAsync(
-            notification.UserId,
+            UserId.From(notification.UserId),
             "ConversationCreated",
             "Conversation",
             notification.ConversationId.ToString(),

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Infrastructure.Services;
 
@@ -21,7 +22,7 @@ internal sealed class AuditService : IAuditService
     }
 
     public async Task LogAsync(
-        Guid userId,
+        UserId userId,
         string action,
         string entityType,
         string? entityId = null,

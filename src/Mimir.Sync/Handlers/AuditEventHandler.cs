@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Sync.Messages;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Sync.Handlers;
 
@@ -30,7 +31,7 @@ internal sealed class AuditEventHandler
             message.UserId);
 
         await auditService.LogAsync(
-            message.UserId,
+            UserId.From(message.UserId),
             message.Action,
             message.ResourceType,
             message.ResourceId.ToString(),

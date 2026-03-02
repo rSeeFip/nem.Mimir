@@ -7,6 +7,7 @@ using Mimir.Application.Admin.Commands;
 using Mimir.Application.Users.Commands;
 using Mimir.Application.Users.Queries;
 using Mimir.Domain.Enums;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Api.Controllers;
 
@@ -155,7 +156,7 @@ public sealed class AdminController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetAuditLogQuery(userId, action, from, to, pageNumber, pageSize);
+        var query = new GetAuditLogQuery(userId.HasValue ? UserId.From(userId.Value) : null, action, from, to, pageNumber, pageSize);
         var result = await _sender.Send(query, cancellationToken);
         return Ok(result);
     }

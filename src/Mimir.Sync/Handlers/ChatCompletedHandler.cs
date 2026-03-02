@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Sync.Messages;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Sync.Handlers;
 
@@ -40,7 +41,7 @@ internal sealed class ChatCompletedHandler
         });
 
         await auditService.LogAsync(
-            Guid.Empty,
+            UserId.Empty,
             "ChatCompleted",
             "Conversation",
             message.ConversationId.ToString(),

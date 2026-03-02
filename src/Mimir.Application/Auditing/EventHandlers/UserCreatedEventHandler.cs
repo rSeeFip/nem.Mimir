@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Events;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.Auditing.EventHandlers;
 
@@ -19,7 +20,7 @@ internal sealed class UserCreatedEventHandler : INotificationHandler<UserCreated
         var details = JsonSerializer.Serialize(new { Username = notification.Username });
 
         await _auditService.LogAsync(
-            notification.UserId,
+            UserId.From(notification.UserId),
             "UserCreated",
             "User",
             notification.UserId.ToString(),

@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Events;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.Auditing.EventHandlers;
 
@@ -19,8 +20,8 @@ internal sealed class MessageSentEventHandler : INotificationHandler<MessageSent
     public async Task Handle(MessageSentEvent notification, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.UserId is not null
-            ? Guid.Parse(_currentUserService.UserId)
-            : Guid.Empty;
+            ? UserId.From(Guid.Parse(_currentUserService.UserId))
+            : UserId.Empty;
 
         var details = JsonSerializer.Serialize(new { Role = notification.Role.ToString() });
 

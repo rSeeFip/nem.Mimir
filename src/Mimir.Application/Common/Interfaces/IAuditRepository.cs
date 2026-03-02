@@ -1,5 +1,6 @@
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 namespace Mimir.Application.Common.Interfaces;
 
@@ -25,7 +26,7 @@ public interface IAuditRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A paginated list of audit entries.</returns>
     Task<PaginatedList<AuditEntry>> GetByUserIdAsync(
-        Guid userId,
+        UserId userId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
@@ -46,15 +47,15 @@ public interface IAuditRepository
         int pageSize,
         CancellationToken cancellationToken = default);
 
- /// <summary>
- /// Gets a paginated list of all audit entries.
- /// </summary>
- /// <param name="pageNumber">The page number (1-based).</param>
- /// <param name="pageSize">The number of items per page.</param>
- /// <param name="cancellationToken">Cancellation token.</param>
- /// <returns>A paginated list of all audit entries.</returns>
- Task<PaginatedList<AuditEntry>> GetAllAsync(
- int pageNumber,
- int pageSize,
- CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Gets a paginated list of all audit entries.
+    /// </summary>
+    /// <param name="pageNumber">The page number (1-based).</param>
+    /// <param name="pageSize">The number of items per page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A paginated list of all audit entries.</returns>
+    Task<PaginatedList<AuditEntry>> GetAllAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

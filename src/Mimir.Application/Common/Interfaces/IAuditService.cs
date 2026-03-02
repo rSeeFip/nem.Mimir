@@ -1,3 +1,5 @@
+using Mimir.Domain.ValueObjects;
+
 namespace Mimir.Application.Common.Interfaces;
 
 /// <summary>
@@ -15,7 +17,7 @@ public interface IAuditService
     /// <param name="details">Additional details about the action, if any.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task LogAsync(
-        Guid userId,
+        UserId userId,
         string action,
         string entityType,
         string? entityId = null,

@@ -1,10 +1,11 @@
 namespace Mimir.Domain.Entities;
 
 using Mimir.Domain.Common;
+using Mimir.Domain.ValueObjects;
 
-public class AuditEntry : BaseEntity<Guid>
+public sealed class AuditEntry : BaseEntity<AuditEntryId>
 {
-    public Guid UserId { get; private set; }
+    public UserId UserId { get; private set; }
     public string Action { get; private set; } = string.Empty;
     public string EntityType { get; private set; } = string.Empty;
     public string? EntityId { get; private set; }
@@ -15,14 +16,14 @@ public class AuditEntry : BaseEntity<Guid>
     private AuditEntry() { }
 
     public static AuditEntry Create(
-        Guid userId,
+        UserId userId,
         string action,
         string entityType,
         string? entityId = null,
         string? details = null,
         string? ipAddress = null)
     {
-        if (userId == Guid.Empty)
+        if (userId.IsEmpty)
             throw new ArgumentException("User ID cannot be empty.", nameof(userId));
 
         if (string.IsNullOrWhiteSpace(action))
@@ -33,7 +34,7 @@ public class AuditEntry : BaseEntity<Guid>
 
         var auditEntry = new AuditEntry
         {
-            Id = Guid.NewGuid(),
+            Id = AuditEntryId.New(),
             UserId = userId,
             Action = action,
             EntityType = entityType,

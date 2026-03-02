@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 
 internal sealed class AuditRepository(MimirDbContext context) : IAuditRepository
 {
@@ -17,7 +18,7 @@ internal sealed class AuditRepository(MimirDbContext context) : IAuditRepository
     }
 
     public async Task<PaginatedList<AuditEntry>> GetByUserIdAsync(
-        Guid userId,
+        UserId userId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
