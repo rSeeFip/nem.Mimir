@@ -63,3 +63,12 @@ Thumbs.db
 src/mimir-chat/node_modules/
 src/mimir-chat/.next/
 src/mimir-chat/.env.local
+
+# Agent working directories
+.serena/
+.sisyphus/
+
+# Test results & reports
+test-results/
+playwright-report/
+coverage/
