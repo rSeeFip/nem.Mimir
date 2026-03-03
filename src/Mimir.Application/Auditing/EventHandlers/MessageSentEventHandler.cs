@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediatR;
+using Mimir.Application.Common;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Events;
 
@@ -22,7 +23,7 @@ internal sealed class MessageSentEventHandler : INotificationHandler<MessageSent
             ? Guid.Parse(_currentUserService.UserId)
             : Guid.Empty;
 
-        var details = JsonSerializer.Serialize(new { Role = notification.Role.ToString() });
+        var details = JsonSerializer.Serialize(new { Role = notification.Role.ToString() }, JsonDefaults.Options);
 
         await _auditService.LogAsync(
             userId,

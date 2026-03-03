@@ -102,7 +102,7 @@ internal sealed class MessageHandler : IMessageHandler
                     responseBuilder + "\n\n⚠️ _Response interrupted._", CancellationToken.None);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: Telegram message processing errors must not crash the handler; user gets error message
         {
             _logger.LogError(ex, "Error processing message for user {UserId}", userId);
             await TryEditMessageAsync(bot, chatId, thinkingMessage.Id,
@@ -122,7 +122,7 @@ internal sealed class MessageHandler : IMessageHandler
 
             await bot.EditMessageText(chatId, messageId, text, cancellationToken: ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: Telegram API edit failures are non-critical; message may have been deleted
         {
             _logger.LogDebug(ex, "Failed to edit message {MessageId} in chat {ChatId}", messageId, chatId);
         }

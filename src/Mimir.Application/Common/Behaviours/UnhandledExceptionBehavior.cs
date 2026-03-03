@@ -27,7 +27,7 @@ public sealed class UnhandledExceptionBehavior<TRequest, TResponse> : IPipelineB
         {
             return await next();
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: MediatR pipeline behavior must log any unhandled exception before re-throwing
         {
             var requestName = typeof(TRequest).Name;
 

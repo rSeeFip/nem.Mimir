@@ -60,7 +60,7 @@ public sealed class LlmRequestQueue : IDisposable
                 {
                     tcs.TrySetCanceled(ct);
                 }
-                catch (Exception ex)
+                catch (Exception ex) // Intentional catch-all: all exceptions must be captured to propagate through TaskCompletionSource to the caller
                 {
                     tcs.TrySetException(ex);
                 }
@@ -73,6 +73,11 @@ public sealed class LlmRequestQueue : IDisposable
 
         var result = await tcs.Task.ConfigureAwait(false);
 
+        // BIZ-LOGIC: The TCS stores object? because it's a type-erased wrapper around the
+        // generic TResult. The null-forgiving operator is safe here because:
+        // (1) executeAsync ran to completion (otherwise TCS would have faulted/cancelled above)
+        // (2) If TResult is a value type, result will be boxed — never null
+        // For reference types, a null result IS valid and the cast preserves it correctly.
         return new QueueResult<TResult>((TResult)result!, position);
     }
 
@@ -103,7 +108,7 @@ public sealed class LlmRequestQueue : IDisposable
                 {
                     break;
                 }
-                catch (Exception ex)
+                catch (Exception ex) // Intentional catch-all: queue loop must continue running even if a single item fails
                 {
                     _logger.LogError(ex, "Error processing queued LLM request");
                 }

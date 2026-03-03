@@ -38,10 +38,15 @@ internal sealed class TelegramBotHealthCheck : IHealthCheck
                 ? HealthCheckResult.Healthy($"Bot @{me.Username} is connected.")
                 : HealthCheckResult.Degraded("Bot connected but could not retrieve info.");
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             _logger.LogWarning(ex, "Telegram bot health check failed");
             return HealthCheckResult.Unhealthy("Failed to connect to Telegram API.", ex);
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Telegram bot health check timed out");
+            return HealthCheckResult.Unhealthy("Telegram API health check timed out.", ex);
         }
     }
 }

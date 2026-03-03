@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mimir.Domain\Mimir.Domain.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.Agents\nem.Cognitive.Agents.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.Abstractions\nem.Cognitive.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

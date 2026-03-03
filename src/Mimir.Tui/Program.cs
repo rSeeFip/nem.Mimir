@@ -85,7 +85,7 @@ internal static class Program
             return await RunMainLoopAsync(
                 authService, conversationService, modelService, chatStreamService);
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: top-level TUI entry point; any fatal error should be displayed to the user
         {
             MessageRenderer.RenderError($"Fatal error: {ex.Message}");
             return 1;
@@ -361,12 +361,13 @@ internal static class Program
                 if (!string.IsNullOrEmpty(token.Token))
                 {
                     responseBuilder.Append(token.Token);
-                    // Write raw token for real-time streaming display
+                    // Intentional: pre-logger Console output - raw token for real-time TUI streaming display
                     Console.Write(token.Token);
                 }
 
                 if (token.IsComplete)
                 {
+                    // Intentional: pre-logger Console output - newline after streaming completes
                     Console.WriteLine();
                     break;
                 }
@@ -379,7 +380,7 @@ internal static class Program
             AnsiConsole.WriteLine();
             MessageRenderer.RenderSystemMessage("Streaming cancelled.");
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: TUI streaming errors should display a user-friendly message regardless of exception type
         {
             AnsiConsole.WriteLine();
             MessageRenderer.RenderError($"Streaming error: {ex.Message}");

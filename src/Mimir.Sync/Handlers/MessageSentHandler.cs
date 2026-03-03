@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Mimir.Application.Common;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Sync.Messages;
 
@@ -33,7 +34,7 @@ internal sealed class MessageSentHandler
         {
             message.Role,
             message.ConversationId
-        });
+        }, JsonDefaults.Options);
 
         await auditService.LogAsync(
             message.UserId,

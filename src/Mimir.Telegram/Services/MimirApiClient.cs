@@ -119,9 +119,16 @@ internal sealed class MimirApiClient
                 useStreaming = false;
             }
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             _logger.LogDebug(ex, "Streaming endpoint not available, falling back to non-streaming");
+            response?.Dispose();
+            response = null;
+            useStreaming = false;
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogDebug(ex, "Streaming endpoint timed out, falling back to non-streaming");
             response?.Dispose();
             response = null;
             useStreaming = false;
@@ -138,6 +145,9 @@ internal sealed class MimirApiClient
             yield break;
         }
 
+        // BIZ-LOGIC: response! is safe — this path is only reached when useStreaming=true,
+        // meaning SendAsync succeeded and response was not set to null in any catch block.
+        // The response must be disposed after the stream is consumed to release the HTTP connection.
         await using var stream = await response!.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
 

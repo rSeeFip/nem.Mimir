@@ -94,16 +94,13 @@ internal sealed class PluginManager : IPluginService
         {
             return await entry.Plugin.ExecuteAsync(context, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: plugins are third-party and can throw any exception type
         {
             _logger.LogError(ex, "Plugin '{PluginId}' execution failed", pluginId);
             return PluginResult.Failure(ex.Message);
         }
     }
 
-    /// <summary>
-    /// Registers a pre-instantiated plugin (for testing or in-process plugins).
-    /// </summary>
     internal void RegisterPlugin(IPlugin plugin)
     {
         var metadata = PluginMetadata.Create(plugin.Id, plugin.Name, plugin.Version, plugin.Description);
@@ -114,6 +111,8 @@ internal sealed class PluginManager : IPluginService
             throw new InvalidOperationException($"A plugin with ID '{plugin.Id}' is already loaded.");
         }
 
+        // Intentional sync-over-async: internal registration helper used from BuiltInPluginRegistrar and test setup.
+        // Cannot propagate async without modifying test files (which is out of scope).
         plugin.InitializeAsync().GetAwaiter().GetResult();
         _logger.LogInformation("Plugin registered: {PluginId} v{Version}", plugin.Id, plugin.Version);
     }

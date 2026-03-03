@@ -125,7 +125,7 @@ internal sealed class SandboxService : ISandboxService
             stopwatch.Stop();
             throw;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException and not ArgumentException)
+        catch (Exception ex) when (ex is not OperationCanceledException and not ArgumentException) // Intentional catch-all: Docker API can throw various exception types; logs and re-throws for caller handling
         {
             stopwatch.Stop();
             _logger.LogError(ex, "Error executing code in sandbox container {ContainerId}", containerId);
@@ -247,7 +247,7 @@ internal sealed class SandboxService : ISandboxService
 
             _logger.LogDebug("Removed sandbox container {ContainerId}", containerId);
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: container cleanup must suppress all errors to avoid leaking resources
         {
             _logger.LogWarning(ex, "Failed to remove sandbox container {ContainerId}", containerId);
         }

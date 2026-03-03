@@ -9,7 +9,13 @@ namespace Mimir.Telegram.Services;
 /// <summary>
 /// Manages authentication with Keycloak and one-time auth code generation.
 /// </summary>
-internal sealed class AuthenticationService
+/// <remarks>
+/// BIZ-LOGIC: Auth codes are 8-character hex strings with a configurable expiry window.
+/// A background timer cleans up expired codes every 60 seconds. The class implements
+/// <see cref="IDisposable"/> to ensure the timer is stopped when the service is
+/// removed from the DI container.
+/// </remarks>
+internal sealed class AuthenticationService : IDisposable
 {
     private readonly ConcurrentDictionary<string, AuthCodeEntry> _authCodes = new();
     private readonly IHttpClientFactory _httpClientFactory;
@@ -22,6 +28,10 @@ internal sealed class AuthenticationService
         IOptions<TelegramSettings> settings,
         ILogger<AuthenticationService> logger)
     {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _httpClientFactory = httpClientFactory;
         _settings = settings.Value;
         _logger = logger;
@@ -100,9 +110,14 @@ internal sealed class AuthenticationService
             var tokenResponse = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(ct);
             return tokenResponse?.AccessToken;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error authenticating with Keycloak");
+            return null;
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError(ex, "Keycloak authentication request timed out");
             return null;
         }
     }
@@ -124,6 +139,14 @@ internal sealed class AuthenticationService
         {
             _logger.LogDebug("Cleaned up {Count} expired auth codes", expiredKeys.Count);
         }
+    }
+
+    /// <summary>
+    /// Disposes the cleanup timer to prevent it from firing after the service is removed from DI.
+    /// </summary>
+    public void Dispose()
+    {
+        _cleanupTimer.Dispose();
     }
 }
 

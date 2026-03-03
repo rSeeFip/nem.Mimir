@@ -50,9 +50,14 @@ internal sealed class TelegramBotService : BackgroundService
             var me = await _botClient.GetMe(stoppingToken);
             _logger.LogInformation("Telegram bot @{Username} (ID: {BotId}) started successfully", me.Username, me.Id);
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Failed to connect to Telegram API");
+            return;
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError(ex, "Timed out connecting to Telegram API");
             return;
         }
 
@@ -81,7 +86,7 @@ internal sealed class TelegramBotService : BackgroundService
                     {
                         await ProcessUpdateAsync(_botClient, update, stoppingToken);
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) // Intentional catch-all: individual update failures must not stop the bot loop
                     {
                         _logger.LogError(ex, "Error processing update {UpdateId}", update.Id);
                     }
@@ -94,7 +99,7 @@ internal sealed class TelegramBotService : BackgroundService
                 _logger.LogInformation("Telegram bot shutting down gracefully");
                 break;
             }
-            catch (Exception ex)
+            catch (Exception ex) // Intentional catch-all: long-polling loop must survive any transient error and retry
             {
                 _logger.LogError(ex, "Error in long-polling loop. Retrying in 5 seconds...");
                 try

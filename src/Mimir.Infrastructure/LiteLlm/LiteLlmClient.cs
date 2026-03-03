@@ -28,6 +28,10 @@ internal sealed class LiteLlmClient : ILlmService
         IOptions<LiteLlmOptions> options,
         ILogger<LiteLlmClient> logger)
     {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
         _logger = logger;

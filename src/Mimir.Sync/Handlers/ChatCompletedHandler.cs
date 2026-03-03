@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Mimir.Application.Common;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Sync.Messages;
 
@@ -37,7 +38,7 @@ internal sealed class ChatCompletedHandler
             message.PromptTokens,
             message.CompletionTokens,
             DurationMs = message.Duration.TotalMilliseconds
-        });
+        }, JsonDefaults.Options);
 
         await auditService.LogAsync(
             Guid.Empty,

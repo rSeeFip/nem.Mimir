@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediatR;
+using Mimir.Application.Common;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Events;
 
@@ -16,7 +17,7 @@ internal sealed class UserCreatedEventHandler : INotificationHandler<UserCreated
 
     public async Task Handle(UserCreatedEvent notification, CancellationToken cancellationToken)
     {
-        var details = JsonSerializer.Serialize(new { Username = notification.Username });
+        var details = JsonSerializer.Serialize(new { Username = notification.Username }, JsonDefaults.Options);
 
         await _auditService.LogAsync(
             notification.UserId,
