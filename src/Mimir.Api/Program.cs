@@ -1,8 +1,7 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Mimir.Api.Configuration;
 using Mimir.Api.Middleware;
@@ -14,6 +13,8 @@ using Serilog;
 using Mimir.Api.Hubs;
 using Mimir.Sync.Configuration;
 using Wolverine;
+using nem.Contracts.AspNetCore.Auth;
+using nem.Contracts.AspNetCore.Secrets;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -42,60 +43,17 @@ try
     });
 
     // ── Settings Binding ─────────────────────────────────────────────────────
-    builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
     builder.Services.Configure<LiteLlmSettings>(builder.Configuration.GetSection(LiteLlmSettings.SectionName));
     builder.Services.Configure<DatabaseSettings>(builder.Configuration.GetSection(DatabaseSettings.SectionName));
 
-    var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
-        ?? throw new InvalidOperationException($"'{JwtSettings.SectionName}' configuration section is missing.");
-    jwtSettings.Validate();
     var liteLlmSettings = builder.Configuration.GetSection(LiteLlmSettings.SectionName).Get<LiteLlmSettings>()
         ?? new LiteLlmSettings();
 
-    // ── Authentication (JWT Bearer via Keycloak) ─────────────────────────────
-    builder.Services.AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-        .AddJwtBearer(options =>
-        {
-            options.Authority = jwtSettings.Authority;
-            options.Audience = jwtSettings.Audience;
-            options.RequireHttpsMetadata = jwtSettings.RequireHttpsMetadata;
+    // ── Authentication (Keycloak OIDC via shared nem.Contracts.AspNetCore) ───
+    builder.Services.AddNemKeycloakAuth(builder.Configuration);
 
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                NameClaimType = ClaimTypes.NameIdentifier,
-                RoleClaimType = ClaimTypes.Role
-            };
-
-            // Map Keycloak realm_access.roles to standard role claims
-            options.Events = new JwtBearerEvents
-            {
-                OnTokenValidated = context =>
-                {
-                    MapKeycloakRoleClaims(context);
-                    return Task.CompletedTask;
-                },
-                OnMessageReceived = context =>
-                {
-                    var accessToken = context.Request.Query["access_token"];
-                    var path = context.HttpContext.Request.Path;
-
-                    if (!string.IsNullOrEmpty(accessToken) &&
-                        path.StartsWithSegments("/hubs"))
-                    {
-                        context.Token = accessToken;
-                    }
-
-                    return Task.CompletedTask;
-                }
-            };
-        });
+    // ── Secrets Management (OpenBao via shared nem.Contracts.AspNetCore) ──────
+    builder.Services.AddNemSecrets(builder.Configuration);
 
     // ── Authorization ────────────────────────────────────────────────────────
     builder.Services.AddAuthorization(options =>
@@ -187,10 +145,15 @@ try
     builder.Services.AddApplicationServices();
     builder.Services.AddInfrastructureServices(builder.Configuration);
 
+    // ── ProblemDetails (RFC 7807) ─────────────────────────────────────────────
+    builder.Services.AddProblemDetails();
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
     // ── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
     builder.Services.AddMemoryCache();
+    builder.Services.AddValidatorsFromAssemblyContaining<Program>();
     builder.Services.AddControllers();
     builder.Services.AddSignalR(options =>
     {
@@ -204,7 +167,8 @@ try
     // ── Middleware Pipeline (order matters) ───────────────────────────────────
     app.UseSerilogRequestLogging();
     app.UseCorrelationId();
-    app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+    app.UseExceptionHandler();
+    app.UseStatusCodePages();
     app.UseMiddleware<OutputSanitizationMiddleware>();
 
     if (app.Environment.IsDevelopment())
@@ -258,7 +222,7 @@ try
 
     app.Run();
 }
-catch (Exception ex)
+catch (Exception ex) // Intentional catch-all: top-level application entry point; logs fatal startup/runtime errors
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
 }
@@ -267,42 +231,6 @@ finally
     Log.CloseAndFlush();
 }
 
-/// <summary>
-/// Maps Keycloak realm_access.roles claim to standard ClaimTypes.Role claims.
-/// </summary>
-static void MapKeycloakRoleClaims(TokenValidatedContext context)
-{
-    if (context.Principal is null)
-        return;
-
-    var realmAccessClaim = context.Principal.FindFirst("realm_access");
-    if (realmAccessClaim is null)
-        return;
-
-    try
-    {
-        using var doc = System.Text.Json.JsonDocument.Parse(realmAccessClaim.Value);
-        if (doc.RootElement.TryGetProperty("roles", out var roles) &&
-            roles.ValueKind == System.Text.Json.JsonValueKind.Array)
-        {
-            var identity = context.Principal.Identity as ClaimsIdentity;
-            foreach (var role in roles.EnumerateArray())
-            {
-                var roleValue = role.GetString();
-                if (!string.IsNullOrWhiteSpace(roleValue))
-                {
-                    identity?.AddClaim(new Claim(ClaimTypes.Role, roleValue));
-                }
-            }
-        }
-    }
-    catch (System.Text.Json.JsonException)
-    {
-        // Malformed realm_access claim — skip
-    }
-}
-
-// Make the implicit Program class public so test projects can access it via WebApplicationFactory
 /// <summary>
 /// Entry point class for the Mimir API. Made partial and public for integration testing.
 /// </summary>

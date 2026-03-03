@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Mimir.Application.Common;
 using Mimir.Application.Common.Exceptions;
 
 namespace Mimir.Api.Middleware;
@@ -13,11 +13,6 @@ public sealed class GlobalExceptionHandlerMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<GlobalExceptionHandlerMiddleware> _logger;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
 
     public GlobalExceptionHandlerMiddleware(
         RequestDelegate next,
@@ -39,7 +34,7 @@ public sealed class GlobalExceptionHandlerMiddleware
             _logger.LogDebug("Request was cancelled by the client: {Path}", context.Request.Path);
             context.Response.StatusCode = 499; // Client Closed Request (nginx convention)
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: global exception middleware must handle all unhandled exceptions from the request pipeline
         {
             await HandleExceptionAsync(context, ex);
         }
@@ -97,6 +92,6 @@ public sealed class GlobalExceptionHandlerMiddleware
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";
 
-        await context.Response.WriteAsJsonAsync(problemDetails, JsonOptions, context.RequestAborted);
+        await context.Response.WriteAsJsonAsync(problemDetails, JsonDefaults.Options, context.RequestAborted);
     }
 }
