@@ -43,6 +43,15 @@ public sealed class ChatHub : Hub
         ILogger<ChatHub> logger,
         ISanitizationService sanitizationService)
     {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(currentUserService);
+        ArgumentNullException.ThrowIfNull(unitOfWork);
+        ArgumentNullException.ThrowIfNull(llmService);
+        ArgumentNullException.ThrowIfNull(contextWindowService);
+        ArgumentNullException.ThrowIfNull(requestQueue);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(sanitizationService);
+
         _repository = repository;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
@@ -206,7 +215,7 @@ public sealed class ChatHub : Hub
                 conversation.Id);
             await PersistPartialResponse(conversation, responseBuilder, model);
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: streaming error boundary must catch all to send generic error to client and persist partial response
         {
             _logger.LogError(ex, "Error streaming LLM response for conversation {ConversationId}",
                 conversation.Id);
@@ -252,7 +261,7 @@ public sealed class ChatHub : Hub
                     partialResponse.Length, conversation.Id);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: persistence errors must not propagate, already in error-handling path
         {
             _logger.LogError(ex, "Failed to persist partial response for conversation {ConversationId}",
                 conversation.Id);

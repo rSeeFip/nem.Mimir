@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Mimir.Api.Models.OpenAi;
+using Mimir.Application.Common;
 using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
@@ -25,11 +26,6 @@ namespace Mimir.Api.Controllers;
 [Authorize]
 public sealed class OpenAiCompatController : ControllerBase
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-    };
-
     private readonly ISender _sender;
     private readonly ILlmService _llmService;
     private readonly IMimirEventPublisher _eventPublisher;
@@ -51,6 +47,12 @@ public sealed class OpenAiCompatController : ControllerBase
         ICurrentUserService currentUserService,
         ILogger<OpenAiCompatController> logger)
     {
+        ArgumentNullException.ThrowIfNull(sender);
+        ArgumentNullException.ThrowIfNull(llmService);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
+        ArgumentNullException.ThrowIfNull(currentUserService);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _sender = sender;
         _llmService = llmService;
         _eventPublisher = eventPublisher;
@@ -191,7 +193,7 @@ public sealed class OpenAiCompatController : ControllerBase
                 isFirstChunk = false;
                 completionTokens++;
 
-                var json = JsonSerializer.Serialize(sseChunk, JsonOptions);
+                var json = JsonSerializer.Serialize(sseChunk, JsonDefaults.Options);
                 await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
                 await Response.Body.FlushAsync(cancellationToken);
             }
@@ -218,7 +220,7 @@ public sealed class OpenAiCompatController : ControllerBase
         {
             _logger.LogDebug("Streaming chat completion was cancelled");
         }
-        catch (Exception ex)
+        catch (Exception ex) // Intentional catch-all: SSE streaming error boundary; any unhandled exception must be silently absorbed to avoid SSE protocol corruption
         {
             _logger.LogError(ex, "Error during streaming chat completion");
         }
@@ -275,7 +277,7 @@ public sealed class OpenAiCompatController : ControllerBase
             cancellationToken);
 
         Response.ContentType = "application/json";
-        await Response.WriteAsJsonAsync(result, JsonOptions, cancellationToken);
+        await Response.WriteAsJsonAsync(result, JsonDefaults.Options, cancellationToken);
     }
 
     private Guid GetUserId()
@@ -291,7 +293,9 @@ public sealed class OpenAiCompatController : ControllerBase
 
     private static int EstimatePromptTokens(List<LlmMessage> messages)
     {
-        // Rough estimation: ~4 characters per token
-        return messages.Sum(m => (m.Content.Length + m.Role.Length) / 4);
+        // BIZ-LOGIC: Rough estimation at ~4 characters per token. Used only for the
+        // streaming path where exact token counts aren't available from LiteLLM.
+        // Null-safe: LlmMessage Content/Role may be null when mapped from external input.
+        return messages.Sum(m => ((m.Content?.Length ?? 0) + (m.Role?.Length ?? 0)) / 4);
     }
 }
