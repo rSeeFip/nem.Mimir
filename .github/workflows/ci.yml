@@ -1,0 +1,160 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_VERSION: "10.0.x"
+
+jobs:
+  build:
+    name: Build (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore nem.Mimir.sln
+
+      - name: Build solution
+        run: dotnet build nem.Mimir.sln --no-restore --warnaserrors
+
+  unit-tests:
+    name: Unit Tests (.NET)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore nem.Mimir.sln
+
+      - name: Run Domain Tests
+        run: dotnet run --project tests/Mimir.Domain.Tests/Mimir.Domain.Tests.csproj
+
+      - name: Run Application Tests
+        run: dotnet run --project tests/Mimir.Application.Tests/Mimir.Application.Tests.csproj
+
+      - name: Run Infrastructure Tests
+        run: dotnet run --project tests/Mimir.Infrastructure.Tests/Mimir.Infrastructure.Tests.csproj
+
+      - name: Run API Tests
+        run: dotnet run --project tests/Mimir.Api.Tests/Mimir.Api.Tests.csproj
+
+      - name: Run TUI Tests
+        run: dotnet run --project tests/Mimir.Tui.Tests/Mimir.Tui.Tests.csproj
+
+      - name: Run Telegram Tests
+        run: dotnet run --project tests/Mimir.Telegram.Tests/Mimir.Telegram.Tests.csproj
+
+      - name: Run Sync Tests
+        run: dotnet run --project tests/Mimir.Sync.Tests/Mimir.Sync.Tests.csproj
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: TestResults/
+          retention-days: 7
+
+  integration-tests:
+    name: Integration & E2E Tests (.NET)
+    runs-on: ubuntu-latest
+    needs: build
+    if: false  # Skip — Docker/external services unavailable in CI
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore nem.Mimir.sln
+
+      - name: Run E2E Tests
+        run: dotnet run --project tests/Mimir.E2E.Tests/Mimir.E2E.Tests.csproj
+
+      - name: Run API Integration Tests
+        run: dotnet run --project tests/Mimir.Api.IntegrationTests/Mimir.Api.IntegrationTests.csproj
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: TestResults/
+          retention-days: 7
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore nem.Mimir.sln
+
+      - name: Check NuGet vulnerabilities
+        run: dotnet list nem.Mimir.sln package --vulnerable --include-transitive
