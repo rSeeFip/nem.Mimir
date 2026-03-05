@@ -30,6 +30,13 @@ public sealed class CorrelationIdMiddleware
     {
         var correlationId = GetOrCreateCorrelationId(context);
 
+        // Set correlation ID as Activity baggage for distributed tracing
+        var activity = Activity.Current;
+        if (activity != null)
+        {
+            activity.SetBaggage("nem.correlation_id", correlationId);
+        }
+
         // Add correlation ID to the response headers
         context.Response.OnStarting(() =>
         {
@@ -41,7 +48,6 @@ public sealed class CorrelationIdMiddleware
         using (LogContext.PushProperty("CorrelationId", correlationId))
         {
             // Also add the trace ID for distributed tracing compatibility
-            var activity = Activity.Current;
             if (activity != null)
             {
                 using (LogContext.PushProperty("TraceId", activity.TraceId.ToString()))

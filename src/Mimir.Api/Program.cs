@@ -7,6 +7,7 @@ using Microsoft.OpenApi;
 using Mimir.Api.Configuration;
 using Mimir.Api.Middleware;
 using Mimir.Api.Services;
+using Mimir.Api.Telemetry;
 using Mimir.Application;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Infrastructure;
@@ -187,6 +188,7 @@ try
     });
 
     // ── Application & Infrastructure Services ────────────────────────────────
+    builder.Services.AddNemTelemetry();
     builder.Services.AddApplicationServices();
     builder.Services.AddInfrastructureServices(builder.Configuration);
 
