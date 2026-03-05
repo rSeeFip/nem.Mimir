@@ -4,6 +4,7 @@ using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Mappings;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 using NSubstitute;
 using Shouldly;
 
@@ -32,8 +33,8 @@ public sealed class GetAuditLogQueryTests
         // Arrange
         var entries = new List<AuditEntry>
         {
-            AuditEntry.Create(Guid.NewGuid(), "UserCreated", "User", Guid.NewGuid().ToString()),
-            AuditEntry.Create(Guid.NewGuid(), "ConversationCreated", "Conversation", Guid.NewGuid().ToString())
+            AuditEntry.Create(UserId.New(), "UserCreated", "User", Guid.NewGuid().ToString()),
+            AuditEntry.Create(UserId.New(), "ConversationCreated", "Conversation", Guid.NewGuid().ToString())
         };
 
         _currentUserService.IsAuthenticated.Returns(true);
@@ -57,7 +58,7 @@ public sealed class GetAuditLogQueryTests
     public async Task Handle_AdminWithUserIdFilter_ShouldReturnFilteredEntries()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entries = new List<AuditEntry>
         {
             AuditEntry.Create(userId, "UserCreated", "User", userId.ToString())
@@ -115,7 +116,7 @@ public sealed class GetAuditLogQueryTests
         // Arrange
         var entries = new List<AuditEntry>
         {
-            AuditEntry.Create(Guid.NewGuid(), "MessageSent", "Message", Guid.NewGuid().ToString())
+            AuditEntry.Create(UserId.New(), "MessageSent", "Message", Guid.NewGuid().ToString())
         };
 
         _currentUserService.IsAuthenticated.Returns(true);

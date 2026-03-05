@@ -2,6 +2,7 @@ using Mimir.Application.Auditing.EventHandlers;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Enums;
 using Mimir.Domain.Events;
+using Mimir.Domain.ValueObjects;
 using NSubstitute;
 using Shouldly;
 
@@ -36,7 +37,7 @@ public sealed class MessageSentEventHandlerTests
 
         // Assert
         await _auditService.Received(1).LogAsync(
-            userId,
+            UserId.From(userId),
             "MessageSent",
             "Message",
             messageId.ToString(),
@@ -59,7 +60,7 @@ public sealed class MessageSentEventHandlerTests
 
         // Assert
         await _auditService.Received(1).LogAsync(
-            Guid.Empty,
+            UserId.Empty,
             "MessageSent",
             "Message",
             messageId.ToString(),
@@ -79,7 +80,7 @@ public sealed class MessageSentEventHandlerTests
 
         // Assert
         await _auditService.Received(1).LogAsync(
-            Arg.Any<Guid>(),
+            Arg.Any<UserId>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string>(),

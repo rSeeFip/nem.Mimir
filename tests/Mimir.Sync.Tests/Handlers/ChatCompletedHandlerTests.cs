@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Domain.ValueObjects;
 using Mimir.Sync.Handlers;
 using Mimir.Sync.Messages;
 using NSubstitute;
@@ -37,7 +38,7 @@ public sealed class ChatCompletedHandlerTests
         await ChatCompletedHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            Guid.Empty,
+            UserId.Empty,
             "ChatCompleted",
             "Conversation",
             message.ConversationId.ToString(),
@@ -54,7 +55,7 @@ public sealed class ChatCompletedHandlerTests
         await ChatCompletedHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            Arg.Any<Guid>(),
+            Arg.Any<UserId>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string?>(),
@@ -89,7 +90,7 @@ public sealed class ChatCompletedHandlerTests
         await ChatCompletedHandler.Handle(message, _auditService, logger, token);
 
         await _auditService.Received(1).LogAsync(
-            Arg.Any<Guid>(),
+            Arg.Any<UserId>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string?>(),

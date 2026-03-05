@@ -108,7 +108,7 @@ public class MimirDbContextTests : IAsyncLifetime
     public async Task Can_create_and_retrieve_audit_entry()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var auditEntry = AuditEntry.Create(
             userId,
             "Login",

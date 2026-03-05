@@ -1,9 +1,14 @@
 namespace Mimir.Infrastructure.Persistence.Configurations;
 
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Mimir.Domain.Entities;
 using Mimir.Domain.Enums;
+using nem.Contracts.Content;
+using nem.Contracts.Versioning;
 
 public class MessageConfiguration : IEntityTypeConfiguration<Message>
 {
@@ -43,10 +48,31 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasColumnName("created_at")
             .IsRequired();
 
+        var jsonOptions = NemJsonSerializerOptions.CreateOptions();
+
+        builder.Property(m => m.ContentPayload)
+            .HasColumnName("content_payload")
+            .HasColumnType("jsonb")
+            .HasConversion(
+                new ValueConverter<IContentPayload?, string?>(
+                    v => v == null ? null : JsonSerializer.Serialize(v, jsonOptions),
+                    v => v == null ? null : JsonSerializer.Deserialize<IContentPayload>(v, jsonOptions)),
+                new ValueComparer<IContentPayload?>(
+                    (a, b) => JsonSerializer.Serialize(a, jsonOptions) == JsonSerializer.Serialize(b, jsonOptions),
+                    v => v == null ? 0 : JsonSerializer.Serialize(v, jsonOptions).GetHashCode(),
+                    v => v));
+
+        builder.Property(m => m.ContentType)
+            .HasColumnName("content_type")
+            .HasMaxLength(50);
+
         builder.HasIndex(m => m.ConversationId)
             .HasDatabaseName("ix_messages_conversation_id");
 
-        // Ignore domain events collection
+        builder.HasIndex(m => m.ContentType)
+            .HasDatabaseName("ix_messages_content_type");
+
         builder.Ignore(m => m.DomainEvents);
+        builder.Ignore(m => m.ResolvedPayload);
     }
 }

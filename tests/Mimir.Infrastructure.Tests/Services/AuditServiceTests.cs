@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 using Mimir.Infrastructure.Services;
 using NSubstitute;
 using Shouldly;
@@ -24,7 +25,7 @@ public sealed class AuditServiceTests
     public async Task LogAsync_ValidInput_CreatesAuditEntryAndSaves()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         _auditRepository
             .CreateAsync(Arg.Any<AuditEntry>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => callInfo.Arg<AuditEntry>());
@@ -60,7 +61,7 @@ public sealed class AuditServiceTests
         var service = CreateService();
 
         // Act & Assert — should not throw
-        await service.LogAsync(Guid.NewGuid(), "Action", "Entity");
+        await service.LogAsync(UserId.New(), "Action", "Entity");
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public sealed class AuditServiceTests
         var service = CreateService();
 
         // Act
-        await service.LogAsync(Guid.NewGuid(), "TestAction", "TestEntity");
+        await service.LogAsync(UserId.New(), "TestAction", "TestEntity");
 
         // Assert
         capturedEntry.ShouldNotBeNull();
@@ -98,7 +99,7 @@ public sealed class AuditServiceTests
 
         // Act & Assert — AuditEntry.Create validates that userId != Guid.Empty
         await Should.ThrowAsync<ArgumentException>(
-            () => service.LogAsync(Guid.Empty, "Action", "Entity"));
+            () => service.LogAsync(UserId.Empty, "Action", "Entity"));
     }
 
     // ── Null/empty action → AuditEntry.Create throws ────────────────────────
@@ -114,7 +115,7 @@ public sealed class AuditServiceTests
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentException>(
-            () => service.LogAsync(Guid.NewGuid(), action!, "Entity"));
+            () => service.LogAsync(UserId.New(), action!, "Entity"));
     }
 
     // ── Null/empty entityType → AuditEntry.Create throws ────────────────────
@@ -130,7 +131,7 @@ public sealed class AuditServiceTests
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentException>(
-            () => service.LogAsync(Guid.NewGuid(), "Action", entityType!));
+            () => service.LogAsync(UserId.New(), "Action", entityType!));
     }
 
     // ── Optional parameters (entityId, details) can be null ─────────────────
@@ -147,7 +148,7 @@ public sealed class AuditServiceTests
         var service = CreateService();
 
         // Act & Assert
-        await service.LogAsync(Guid.NewGuid(), "Delete", "Conversation", entityId: null, details: null);
+        await service.LogAsync(UserId.New(), "Delete", "Conversation", entityId: null, details: null);
     }
 
     // ── Cancellation token is propagated ────────────────────────────────────
@@ -165,7 +166,7 @@ public sealed class AuditServiceTests
         var service = CreateService();
 
         // Act
-        await service.LogAsync(Guid.NewGuid(), "Action", "Entity", cancellationToken: cts.Token);
+        await service.LogAsync(UserId.New(), "Action", "Entity", cancellationToken: cts.Token);
 
         // Assert
         await _auditRepository.Received(1).CreateAsync(Arg.Any<AuditEntry>(), cts.Token);
@@ -195,7 +196,7 @@ public sealed class AuditServiceTests
         var service = CreateService();
 
         // Act
-        await service.LogAsync(Guid.NewGuid(), "Login", "User");
+        await service.LogAsync(UserId.New(), "Login", "User");
 
         // Assert
         capturedEntry.ShouldNotBeNull();
@@ -225,7 +226,7 @@ public sealed class AuditServiceTests
         var service = CreateService();
 
         // Act
-        await service.LogAsync(Guid.NewGuid(), "Action", "Entity");
+        await service.LogAsync(UserId.New(), "Action", "Entity");
 
         // Assert
         capturedEntry.ShouldNotBeNull();

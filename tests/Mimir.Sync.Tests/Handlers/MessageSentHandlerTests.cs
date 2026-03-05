@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Domain.ValueObjects;
 using Mimir.Sync.Handlers;
 using Mimir.Sync.Messages;
 using NSubstitute;
@@ -34,7 +35,7 @@ public sealed class MessageSentHandlerTests
         await MessageSentHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            message.UserId,
+            UserId.From(message.UserId),
             "MessageSent",
             "Message",
             message.MessageId.ToString(),
@@ -52,7 +53,7 @@ public sealed class MessageSentHandlerTests
         await MessageSentHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            Arg.Any<Guid>(),
+            Arg.Any<UserId>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string?>(),
@@ -73,7 +74,7 @@ public sealed class MessageSentHandlerTests
         await MessageSentHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            userId,
+            UserId.From(userId),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string?>(),

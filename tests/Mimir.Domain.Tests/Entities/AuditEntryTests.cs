@@ -1,4 +1,5 @@
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 using Shouldly;
 using Xunit;
 
@@ -10,7 +11,7 @@ public class AuditEntryTests
     public void Create_With_Valid_Parameters_Should_Create_AuditEntry()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var action = "Login";
         var entityType = "User";
 
@@ -21,7 +22,7 @@ public class AuditEntryTests
         auditEntry.UserId.ShouldBe(userId);
         auditEntry.Action.ShouldBe(action);
         auditEntry.EntityType.ShouldBe(entityType);
-        auditEntry.Id.ShouldNotBe(Guid.Empty);
+        auditEntry.Id.ShouldNotBe(AuditEntryId.Empty);
         auditEntry.Timestamp.ShouldNotBe(DateTimeOffset.MinValue);
         auditEntry.EntityId.ShouldBeNull();
         auditEntry.Details.ShouldBeNull();
@@ -32,7 +33,7 @@ public class AuditEntryTests
     public void Create_With_Optional_Fields_Should_Store_All_Values()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var action = "Create";
         var entityType = "Conversation";
         var entityId = Guid.NewGuid().ToString();
@@ -59,14 +60,14 @@ public class AuditEntryTests
         var entityType = "User";
 
         // Act & Assert
-        Should.Throw<ArgumentException>(() => AuditEntry.Create(Guid.Empty, action, entityType));
+        Should.Throw<ArgumentException>(() => AuditEntry.Create(UserId.Empty, action, entityType));
     }
 
     [Fact]
     public void Create_With_Empty_Action_Should_Throw()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entityType = "User";
 
         // Act & Assert
@@ -77,7 +78,7 @@ public class AuditEntryTests
     public void Create_With_Whitespace_Action_Should_Throw()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entityType = "User";
 
         // Act & Assert
@@ -88,7 +89,7 @@ public class AuditEntryTests
     public void Create_With_Null_Action_Should_Throw()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entityType = "User";
 
         // Act & Assert
@@ -99,7 +100,7 @@ public class AuditEntryTests
     public void Create_With_Empty_EntityType_Should_Throw()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var action = "Login";
 
         // Act & Assert
@@ -110,7 +111,7 @@ public class AuditEntryTests
     public void Create_With_Whitespace_EntityType_Should_Throw()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var action = "Login";
 
         // Act & Assert
@@ -121,7 +122,7 @@ public class AuditEntryTests
     public void Create_With_Null_EntityType_Should_Throw()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var action = "Login";
 
         // Act & Assert
@@ -132,10 +133,10 @@ public class AuditEntryTests
     public void Create_With_Various_Actions_Should_Work()
     {
         // Arrange & Act
-        var createEntry = AuditEntry.Create(Guid.NewGuid(), "Create", "Conversation");
-        var updateEntry = AuditEntry.Create(Guid.NewGuid(), "Update", "Message");
-        var deleteEntry = AuditEntry.Create(Guid.NewGuid(), "Delete", "User");
-        var loginEntry = AuditEntry.Create(Guid.NewGuid(), "Login", "User");
+        var createEntry = AuditEntry.Create(UserId.New(), "Create", "Conversation");
+        var updateEntry = AuditEntry.Create(UserId.New(), "Update", "Message");
+        var deleteEntry = AuditEntry.Create(UserId.New(), "Delete", "User");
+        var loginEntry = AuditEntry.Create(UserId.New(), "Login", "User");
 
         // Assert
         createEntry.Action.ShouldBe("Create");
@@ -148,9 +149,9 @@ public class AuditEntryTests
     public void Create_With_Various_EntityTypes_Should_Work()
     {
         // Arrange & Act
-        var userEntry = AuditEntry.Create(Guid.NewGuid(), "Login", "User");
-        var conversationEntry = AuditEntry.Create(Guid.NewGuid(), "Create", "Conversation");
-        var messageEntry = AuditEntry.Create(Guid.NewGuid(), "Create", "Message");
+        var userEntry = AuditEntry.Create(UserId.New(), "Login", "User");
+        var conversationEntry = AuditEntry.Create(UserId.New(), "Create", "Conversation");
+        var messageEntry = AuditEntry.Create(UserId.New(), "Create", "Message");
 
         // Assert
         userEntry.EntityType.ShouldBe("User");
@@ -162,7 +163,7 @@ public class AuditEntryTests
     public void Timestamp_Should_Be_Current_Time()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var beforeCreation = DateTimeOffset.UtcNow;
 
         // Act
@@ -178,7 +179,7 @@ public class AuditEntryTests
     public void Create_With_Null_EntityId_Should_Work()
     {
         // Arrange & Act
-        var auditEntry = AuditEntry.Create(Guid.NewGuid(), "Login", "User", null);
+        var auditEntry = AuditEntry.Create(UserId.New(), "Login", "User", null);
 
         // Assert
         auditEntry.EntityId.ShouldBeNull();
@@ -188,7 +189,7 @@ public class AuditEntryTests
     public void Create_With_Null_Details_Should_Work()
     {
         // Arrange & Act
-        var auditEntry = AuditEntry.Create(Guid.NewGuid(), "Login", "User", details: null);
+        var auditEntry = AuditEntry.Create(UserId.New(), "Login", "User", details: null);
 
         // Assert
         auditEntry.Details.ShouldBeNull();
@@ -198,7 +199,7 @@ public class AuditEntryTests
     public void Create_With_Null_IpAddress_Should_Work()
     {
         // Arrange & Act
-        var auditEntry = AuditEntry.Create(Guid.NewGuid(), "Login", "User", ipAddress: null);
+        var auditEntry = AuditEntry.Create(UserId.New(), "Login", "User", ipAddress: null);
 
         // Assert
         auditEntry.IpAddress.ShouldBeNull();
@@ -208,7 +209,7 @@ public class AuditEntryTests
     public void AuditEntries_With_Same_Id_Should_Be_Equal()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entry1 = AuditEntry.Create(userId, "Login", "User");
         var entry2 = AuditEntry.Create(userId, "Logout", "User");
         entry2.GetType()
@@ -223,7 +224,7 @@ public class AuditEntryTests
     public void AuditEntries_With_Different_Ids_Should_Not_Be_Equal()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entry1 = AuditEntry.Create(userId, "Login", "User");
         var entry2 = AuditEntry.Create(userId, "Login", "User");
 
@@ -235,7 +236,7 @@ public class AuditEntryTests
     public void Create_With_Complex_Details_Should_Store_Json()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var details = "{\"conversationTitle\": \"Test Conversation\", \"messageCount\": 5}";
 
         // Act
@@ -249,8 +250,8 @@ public class AuditEntryTests
     public void Create_Should_Generate_Unique_Ids()
     {
         // Arrange & Act
-        var entry1 = AuditEntry.Create(Guid.NewGuid(), "Login", "User");
-        var entry2 = AuditEntry.Create(Guid.NewGuid(), "Login", "User");
+        var entry1 = AuditEntry.Create(UserId.New(), "Login", "User");
+        var entry2 = AuditEntry.Create(UserId.New(), "Login", "User");
 
         // Assert
         entry1.Id.ShouldNotBe(entry2.Id);

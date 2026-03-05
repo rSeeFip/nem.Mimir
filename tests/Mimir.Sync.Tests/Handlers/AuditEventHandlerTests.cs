@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Domain.ValueObjects;
 using Mimir.Sync.Handlers;
 using Mimir.Sync.Messages;
 using NSubstitute;
@@ -40,7 +41,7 @@ public sealed class AuditEventHandlerTests
         await AuditEventHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            message.UserId,
+            UserId.From(message.UserId),
             "UserLoggedIn",
             "Session",
             message.ResourceId.ToString(),
@@ -57,7 +58,7 @@ public sealed class AuditEventHandlerTests
         await AuditEventHandler.Handle(message, _auditService, logger, CancellationToken.None);
 
         await _auditService.Received(1).LogAsync(
-            message.UserId,
+            UserId.From(message.UserId),
             message.Action,
             message.ResourceType,
             message.ResourceId.ToString(),

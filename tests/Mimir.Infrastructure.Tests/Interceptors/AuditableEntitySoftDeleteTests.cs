@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Entities;
 using Mimir.Domain.Enums;
+using Mimir.Domain.ValueObjects;
 using Mimir.Infrastructure.Persistence;
 using Mimir.Infrastructure.Persistence.Interceptors;
 using NSubstitute;
@@ -294,7 +295,7 @@ public sealed class AuditableEntitySoftDeleteTests : IAsyncLifetime
     {
         // Arrange — AuditEntry extends BaseEntity, not BaseAuditableEntity
         var auditEntry = AuditEntry.Create(
-            Guid.NewGuid(),
+            UserId.New(),
             "TestAction",
             "TestEntity",
             entityId: Guid.NewGuid().ToString(),

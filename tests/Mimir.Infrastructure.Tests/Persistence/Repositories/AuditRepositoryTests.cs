@@ -1,6 +1,7 @@
 namespace Mimir.Infrastructure.Tests.Persistence.Repositories;
 
 using Mimir.Domain.Entities;
+using Mimir.Domain.ValueObjects;
 using Mimir.Infrastructure.Persistence;
 using Mimir.Infrastructure.Persistence.Repositories;
 using Shouldly;
@@ -15,7 +16,7 @@ public class AuditRepositoryTests : RepositoryTestBase
     public async Task CreateAsync_adds_audit_entry_to_context()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var auditEntry = AuditEntry.Create(userId, "Login", "User", userId.ToString(), "User logged in", "127.0.0.1");
         var repo = CreateRepository();
 
@@ -40,7 +41,7 @@ public class AuditRepositoryTests : RepositoryTestBase
     public async Task GetByUserIdAsync_returns_paginated_entries_ordered_by_timestamp_desc()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
 
         for (var i = 1; i <= 5; i++)
         {
@@ -68,7 +69,7 @@ public class AuditRepositoryTests : RepositoryTestBase
     public async Task GetByUserIdAsync_returns_second_page()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
 
         for (var i = 1; i <= 5; i++)
         {
@@ -100,7 +101,7 @@ public class AuditRepositoryTests : RepositoryTestBase
         var repo = CreateRepository(readContext);
 
         // Act
-        var result = await repo.GetByUserIdAsync(Guid.NewGuid(), 1, 10);
+        var result = await repo.GetByUserIdAsync(UserId.New(), 1, 10);
 
         // Assert
         result.Items.ShouldBeEmpty();
@@ -111,7 +112,7 @@ public class AuditRepositoryTests : RepositoryTestBase
     public async Task GetByEntityAsync_returns_filtered_entries()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var targetEntityId = Guid.NewGuid().ToString();
 
         Context.AuditEntries.Add(AuditEntry.Create(userId, "Create", "Conversation", targetEntityId));
@@ -152,7 +153,7 @@ public class AuditRepositoryTests : RepositoryTestBase
     public async Task GetByEntityAsync_returns_paginated_results()
     {
         // Arrange
-        var userId = Guid.NewGuid();
+        var userId = UserId.New();
         var entityId = Guid.NewGuid().ToString();
 
         for (var i = 1; i <= 5; i++)

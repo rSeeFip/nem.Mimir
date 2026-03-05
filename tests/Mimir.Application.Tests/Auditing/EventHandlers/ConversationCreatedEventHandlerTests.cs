@@ -1,6 +1,7 @@
 using Mimir.Application.Auditing.EventHandlers;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.Events;
+using Mimir.Domain.ValueObjects;
 using NSubstitute;
 using Shouldly;
 
@@ -30,7 +31,7 @@ public sealed class ConversationCreatedEventHandlerTests
 
         // Assert
         await _auditService.Received(1).LogAsync(
-            userId,
+            UserId.From(userId),
             "ConversationCreated",
             "Conversation",
             conversationId.ToString(),
@@ -50,7 +51,7 @@ public sealed class ConversationCreatedEventHandlerTests
 
         // Assert
         await _auditService.Received(1).LogAsync(
-            Arg.Any<Guid>(),
+            Arg.Any<UserId>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
