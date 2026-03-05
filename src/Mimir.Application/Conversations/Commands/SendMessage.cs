@@ -6,6 +6,7 @@ using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Enums;
+using Mimir.Domain.Tools;
 
 namespace Mimir.Application.Conversations.Commands;
 
@@ -39,6 +40,7 @@ public sealed class SendMessageCommandValidator : AbstractValidator<SendMessageC
 internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, MessageDto>
 {
     private const string DefaultModel = "phi-4-mini";
+    private const int MaxToolIterations = 5;
 
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
@@ -46,6 +48,7 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
     private readonly MimirMapper _mapper;
+    private readonly IToolProvider _toolProvider;
 
     public SendMessageCommandHandler(
         IConversationRepository repository,
@@ -53,7 +56,8 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         IUnitOfWork unitOfWork,
         ILlmService llmService,
         IContextWindowService contextWindowService,
-        MimirMapper mapper)
+        MimirMapper mapper,
+        IToolProvider toolProvider)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -61,6 +65,7 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         _llmService = llmService;
         _contextWindowService = contextWindowService;
         _mapper = mapper;
+        _toolProvider = toolProvider;
     }
 
     public async Task<MessageDto> Handle(SendMessageCommand request, CancellationToken cancellationToken)
@@ -79,31 +84,96 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
 
         var model = request.Model ?? DefaultModel;
 
-        // Build LLM messages with context window management (before adding to entity)
         var llmMessages = await _contextWindowService.BuildLlmMessagesAsync(conversation, request.Content, model, cancellationToken);
 
-        // Add user message to conversation (persisted later)
         conversation.AddMessage(MessageRole.User, request.Content);
-        // Stream the LLM response
+
+        var tools = await _toolProvider.GetAvailableToolsAsync(cancellationToken);
+
+        string fullResponse;
+        if (tools.Count == 0)
+        {
+            fullResponse = await StreamResponseAsync(model, llmMessages, cancellationToken);
+        }
+        else
+        {
+            fullResponse = await ExecuteToolLoopAsync(model, llmMessages, tools, cancellationToken);
+        }
+
+        var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);
+
+        var tokenCount = _contextWindowService.EstimateTokenCount(fullResponse);
+        assistantMessage.SetTokenCount(tokenCount);
+
+        await _repository.UpdateAsync(conversation, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return _mapper.MapToMessageDto(assistantMessage);
+    }
+
+    private async Task<string> StreamResponseAsync(
+        string model,
+        IReadOnlyList<LlmMessage> llmMessages,
+        CancellationToken cancellationToken)
+    {
         var responseBuilder = new StringBuilder();
         await foreach (var chunk in _llmService.StreamMessageAsync(model, llmMessages, cancellationToken))
         {
             responseBuilder.Append(chunk.Content);
         }
 
-        var fullResponse = responseBuilder.ToString();
+        return responseBuilder.ToString();
+    }
 
-        // Add assistant message to conversation
-        var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);
+    private async Task<string> ExecuteToolLoopAsync(
+        string model,
+        IReadOnlyList<LlmMessage> llmMessages,
+        IReadOnlyList<ToolDefinition> tools,
+        CancellationToken cancellationToken)
+    {
+        var messages = new List<LlmMessage>(llmMessages);
 
-        // Estimate and set token count on assistant message
-        var tokenCount = _contextWindowService.EstimateTokenCount(fullResponse);
-        assistantMessage.SetTokenCount(tokenCount);
+        for (var iteration = 0; iteration < MaxToolIterations; iteration++)
+        {
+            var response = await _llmService.SendMessageAsync(model, messages, tools, cancellationToken);
 
-        // Persist changes
-        await _repository.UpdateAsync(conversation, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (response.ToolCalls is not { Count: > 0 })
+            {
+                return response.Content;
+            }
 
-        return _mapper.MapToMessageDto(assistantMessage);
+            // Append the assistant message with tool calls
+            messages.Add(new LlmMessage("assistant", response.Content ?? string.Empty)
+            {
+                ToolCalls = response.ToolCalls,
+            });
+
+            // Execute each tool call sequentially
+            foreach (var toolCall in response.ToolCalls)
+            {
+                string toolContent;
+                try
+                {
+                    var result = await _toolProvider.ExecuteToolAsync(toolCall.FunctionName, toolCall.ArgumentsJson, cancellationToken);
+                    toolContent = result.IsSuccess
+                        ? result.Content
+                        : $"Error: {result.ErrorMessage}";
+                }
+                catch (Exception ex)
+                {
+                    toolContent = $"Error executing tool '{toolCall.FunctionName}': {ex.Message}";
+                }
+
+                messages.Add(new LlmMessage("tool", toolContent)
+                {
+                    ToolCallId = toolCall.Id,
+                    Name = toolCall.FunctionName,
+                });
+            }
+        }
+
+        // Max iterations reached — make one final call without tools to get a text response
+        var finalResponse = await _llmService.SendMessageAsync(model, messages, cancellationToken);
+        return finalResponse.Content;
     }
 }

@@ -6,7 +6,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Mimir.Application.Common.Interfaces;
+using Mimir.Domain.McpServers;
 using Mimir.Infrastructure.LiteLlm;
+using Mimir.Infrastructure.McpServers;
 using Mimir.Infrastructure.Persistence;
 using Mimir.Infrastructure.Persistence.Interceptors;
 using Mimir.Infrastructure.Persistence.Repositories;
@@ -16,6 +18,8 @@ using Polly;
 using Docker.DotNet;
 using Mimir.Infrastructure.Plugins;
 using Mimir.Infrastructure.Plugins.BuiltIn;
+using Mimir.Infrastructure.Tools;
+using Mimir.Domain.Tools;
 
 public static class DependencyInjection
 {
@@ -47,6 +51,8 @@ public static class DependencyInjection
         services.AddScoped<ISystemPromptRepository, SystemPromptRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
+        services.AddScoped<IMcpServerConfigRepository, McpServerConfigRepository>();
+        services.AddScoped<IToolWhitelistService, ToolWhitelistService>();
 
         // Context window service (scoped — depends on scoped ISystemPromptRepository)
         services.AddScoped<IContextWindowService, ContextWindowService>();
@@ -123,6 +129,11 @@ public static class DependencyInjection
         services.AddSingleton<CodeRunnerPlugin>();
         services.AddSingleton<WebSearchPlugin>();
         services.AddHostedService<BuiltInPluginRegistrar>();
+
+        // Tool provider abstraction (bridges plugins → unified tool interface)
+        services.AddSingleton<PluginToolProvider>();
+        services.AddSingleton<IToolProvider>(sp =>
+            new CompositeToolProvider(new IToolProvider[] { sp.GetRequiredService<PluginToolProvider>() }));
 
         // System prompt service (singleton — stateless template rendering)
         services.AddSingleton<ISystemPromptService, SystemPromptService>();

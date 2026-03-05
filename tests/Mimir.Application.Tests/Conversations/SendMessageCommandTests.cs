@@ -5,6 +5,7 @@ using Mimir.Application.Common.Models;
 using Mimir.Application.Conversations.Commands;
 using Mimir.Domain.Entities;
 using Mimir.Domain.Enums;
+using Mimir.Domain.Tools;
 using NSubstitute;
 using Shouldly;
 
@@ -18,6 +19,7 @@ public sealed class SendMessageCommandTests
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
     private readonly MimirMapper _mapper;
+    private readonly IToolProvider _toolProvider;
     private readonly SendMessageCommandHandler _handler;
 
     public SendMessageCommandTests()
@@ -47,8 +49,12 @@ public sealed class SendMessageCommandTests
 
         _mapper = new MimirMapper();
 
+        _toolProvider = Substitute.For<IToolProvider>();
+        _toolProvider.GetAvailableToolsAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<ToolDefinition>());
+
         _handler = new SendMessageCommandHandler(
-            _repository, _currentUserService, _unitOfWork, _llmService, _contextWindowService, _mapper);
+            _repository, _currentUserService, _unitOfWork, _llmService, _contextWindowService, _mapper, _toolProvider);
     }
 
     [Fact]

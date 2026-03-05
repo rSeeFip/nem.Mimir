@@ -1,5 +1,6 @@
 namespace Mimir.Infrastructure.LiteLlm;
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 // ─── Request Models ──────────────────────────────────────────────
@@ -25,6 +26,14 @@ internal sealed class ChatCompletionRequest
     [JsonPropertyName("temperature")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Temperature { get; init; }
+
+    [JsonPropertyName("tools")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ToolDefinitionRequest>? Tools { get; init; }
+
+    [JsonPropertyName("tool_choice")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? ToolChoice { get; init; }
 }
 
 /// <summary>
@@ -37,6 +46,39 @@ internal sealed class ChatMessageRequest
 
     [JsonPropertyName("content")]
     public required string Content { get; init; }
+
+    [JsonPropertyName("tool_call_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ToolCallId { get; init; }
+
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("tool_calls")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ToolCallRequest>? ToolCalls { get; init; }
+}
+
+internal sealed record ToolCallRequest
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "function";
+
+    [JsonPropertyName("function")]
+    public required FunctionCallRequest Function { get; init; }
+}
+
+internal sealed record FunctionCallRequest
+{
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("arguments")]
+    public required string Arguments { get; init; }
 }
 
 // ─── Non-streaming Response Models ───────────────────────────────
@@ -78,6 +120,10 @@ internal sealed class ChatCompletionMessage
 
     [JsonPropertyName("content")]
     public string? Content { get; init; }
+
+    [JsonPropertyName("tool_calls")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ToolCallResponse>? ToolCalls { get; init; }
 }
 
 internal sealed class ChatCompletionUsage
@@ -128,6 +174,10 @@ internal sealed class ChatCompletionDelta
 
     [JsonPropertyName("content")]
     public string? Content { get; init; }
+
+    [JsonPropertyName("tool_calls")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ToolCallDelta>? ToolCalls { get; init; }
 }
 
 // ─── Models List Response ────────────────────────────────────────
@@ -154,4 +204,79 @@ internal sealed class ModelInfo
 
     [JsonPropertyName("owned_by")]
     public string? OwnedBy { get; init; }
+}
+
+// ─── Tool Calling Models ────────────────────────────────────────
+
+internal sealed record ToolDefinitionRequest
+{
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "function";
+
+    [JsonPropertyName("function")]
+    public required FunctionDefinitionRequest Function { get; init; }
+}
+
+internal sealed record FunctionDefinitionRequest
+{
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("parameters")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Parameters { get; init; }
+}
+
+internal sealed record ToolCallResponse
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "function";
+
+    [JsonPropertyName("function")]
+    public required FunctionCallResponse Function { get; init; }
+}
+
+internal sealed record FunctionCallResponse
+{
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("arguments")]
+    public required string Arguments { get; init; }
+}
+
+internal sealed record ToolCallDelta
+{
+    [JsonPropertyName("index")]
+    public int Index { get; init; }
+
+    [JsonPropertyName("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("function")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FunctionCallDelta? Function { get; init; }
+}
+
+internal sealed record FunctionCallDelta
+{
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("arguments")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Arguments { get; init; }
 }

@@ -1,4 +1,5 @@
 using Mimir.Application.Common.Models;
+using Mimir.Domain.Tools;
 
 namespace Mimir.Application.Common.Interfaces;
 
@@ -18,6 +19,16 @@ public interface ILlmService
     Task<LlmResponse> SendMessageAsync(
         string model,
         IReadOnlyList<LlmMessage> messages,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a message to the LLM with tool definitions and returns the complete response.
+    /// The response may contain tool calls instead of text content.
+    /// </summary>
+    Task<LlmResponse> SendMessageAsync(
+        string model,
+        IReadOnlyList<LlmMessage> messages,
+        IReadOnlyList<ToolDefinition>? tools,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
+using Mimir.Domain.Tools;
 
 /// <summary>
 /// LiteLLM HTTP client implementing <see cref="ILlmService"/>.
@@ -38,9 +39,19 @@ internal sealed class LiteLlmClient : ILlmService
     }
 
     /// <inheritdoc />
+    public Task<LlmResponse> SendMessageAsync(
+        string model,
+        IReadOnlyList<LlmMessage> messages,
+        CancellationToken cancellationToken = default)
+    {
+        return SendMessageAsync(model, messages, tools: null, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<LlmResponse> SendMessageAsync(
         string model,
         IReadOnlyList<LlmMessage> messages,
+        IReadOnlyList<ToolDefinition>? tools,
         CancellationToken cancellationToken = default)
     {
         var effectiveModel = string.IsNullOrWhiteSpace(model) ? _options.DefaultModel : model;
@@ -49,7 +60,7 @@ internal sealed class LiteLlmClient : ILlmService
             "Sending non-streaming request to {Model} with {MessageCount} messages",
             effectiveModel, messages.Count);
 
-        var request = BuildRequest(effectiveModel, messages, stream: false);
+        var request = BuildRequest(effectiveModel, messages, stream: false, tools);
         using var httpClient = _httpClientFactory.CreateClient(HttpClientName);
 
         using var response = await httpClient.PostAsJsonAsync(
@@ -67,7 +78,8 @@ internal sealed class LiteLlmClient : ILlmService
             throw new InvalidOperationException("LiteLLM returned null response.");
         }
 
-        var content = completion.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+        var message = completion.Choices?.FirstOrDefault()?.Message;
+        var content = message?.Content ?? string.Empty;
         var finishReason = completion.Choices?.FirstOrDefault()?.FinishReason;
         var usage = completion.Usage;
 
@@ -75,13 +87,21 @@ internal sealed class LiteLlmClient : ILlmService
             "Received response from {Model}: {TokenCount} total tokens",
             completion.Model ?? effectiveModel, usage?.TotalTokens ?? 0);
 
+        var toolCalls = message?.ToolCalls?.Select(tc => new LlmToolCall(
+            tc.Id,
+            tc.Function.Name,
+            tc.Function.Arguments)).ToList();
+
         return new LlmResponse(
             Content: content,
             Model: completion.Model ?? effectiveModel,
             PromptTokens: usage?.PromptTokens ?? 0,
             CompletionTokens: usage?.CompletionTokens ?? 0,
             TotalTokens: usage?.TotalTokens ?? 0,
-            FinishReason: finishReason);
+            FinishReason: finishReason)
+        {
+            ToolCalls = toolCalls is { Count: > 0 } ? toolCalls : null,
+        };
     }
 
     /// <inheritdoc />
@@ -242,17 +262,58 @@ internal sealed class LiteLlmClient : ILlmService
     private static ChatCompletionRequest BuildRequest(
         string model,
         IReadOnlyList<LlmMessage> messages,
-        bool stream)
+        bool stream,
+        IReadOnlyList<ToolDefinition>? tools = null)
     {
-        return new ChatCompletionRequest
+        var chatMessages = messages.Select(m =>
         {
-            Model = model,
-            Messages = messages.Select(m => new ChatMessageRequest
+            IReadOnlyList<ToolCallRequest>? msgToolCalls = null;
+            if (m.ToolCalls is { Count: > 0 })
+            {
+                msgToolCalls = m.ToolCalls.Select(tc => new ToolCallRequest
+                {
+                    Id = tc.Id,
+                    Function = new FunctionCallRequest
+                    {
+                        Name = tc.FunctionName,
+                        Arguments = tc.ArgumentsJson,
+                    },
+                }).ToList();
+            }
+
+            return new ChatMessageRequest
             {
                 Role = m.Role,
                 Content = m.Content,
-            }).ToList(),
+                ToolCallId = m.ToolCallId,
+                Name = m.Name,
+                ToolCalls = msgToolCalls,
+            };
+        }).ToList();
+
+        IReadOnlyList<ToolDefinitionRequest>? toolDefinitions = null;
+        if (tools is { Count: > 0 })
+        {
+            toolDefinitions = tools.Select(t => new ToolDefinitionRequest
+            {
+                Function = new FunctionDefinitionRequest
+                {
+                    Name = t.Name,
+                    Description = t.Description,
+                    Parameters = string.IsNullOrWhiteSpace(t.ParametersJsonSchema)
+                        ? null
+                        : JsonDocument.Parse(t.ParametersJsonSchema).RootElement,
+                },
+            }).ToList();
+        }
+
+        return new ChatCompletionRequest
+        {
+            Model = model,
+            Messages = chatMessages,
             Stream = stream,
+            Tools = toolDefinitions,
+            ToolChoice = toolDefinitions is not null ? "auto" : null,
         };
     }
 }

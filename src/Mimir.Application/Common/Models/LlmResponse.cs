@@ -9,11 +9,17 @@ namespace Mimir.Application.Common.Models;
 /// <param name="PromptTokens">The number of tokens in the prompt.</param>
 /// <param name="CompletionTokens">The number of tokens in the completion.</param>
 /// <param name="TotalTokens">The total number of tokens used.</param>
-/// <param name="FinishReason">The reason the model stopped generating (e.g., "stop", "length").</param>
+/// <param name="FinishReason">The reason the model stopped generating (e.g., "stop", "length", "tool_calls").</param>
 public sealed record LlmResponse(
     string Content,
     string Model,
     int PromptTokens,
     int CompletionTokens,
     int TotalTokens,
-    string? FinishReason);
+    string? FinishReason)
+{
+    /// <summary>
+    /// Tool calls requested by the LLM, if any. Present when FinishReason is "tool_calls".
+    /// </summary>
+    public IReadOnlyList<LlmToolCall>? ToolCalls { get; init; }
+}
