@@ -127,19 +127,38 @@ public static class DependencyInjection
 
         // Built-in plugins
         services.AddSingleton<CodeRunnerPlugin>();
-        services.AddSingleton<WebSearchPlugin>();
         services.AddHostedService<BuiltInPluginRegistrar>();
 
-        // Tool provider abstraction (bridges plugins → unified tool interface)
+        services.AddSingleton<IToolAuditLogger, ToolAuditLogger>();
+
+        // Tool providers → CompositeToolProvider → AuditingDecorator → IToolProvider
         services.AddSingleton<PluginToolProvider>();
+        services.AddSingleton<McpToolProvider>();
         services.AddSingleton<IToolProvider>(sp =>
-            new CompositeToolProvider(new IToolProvider[] { sp.GetRequiredService<PluginToolProvider>() }));
+        {
+            var providers = new IToolProvider[]
+            {
+                sp.GetRequiredService<PluginToolProvider>(),
+                sp.GetRequiredService<McpToolProvider>(),
+            };
+            var composite = new CompositeToolProvider(providers);
+            var auditLogger = sp.GetRequiredService<IToolAuditLogger>();
+            return new AuditingToolProviderDecorator(composite, auditLogger);
+        });
 
         // System prompt service (singleton — stateless template rendering)
         services.AddSingleton<ISystemPromptService, SystemPromptService>();
 
         // Conversation archive service
         services.AddScoped<IConversationArchiveService, ConversationArchiveService>();
+
+        // MCP client manager (singleton — long-lived connections)
+        services.AddSingleton<IMcpClientManager, McpClientManager>();
+        services.AddHostedService<McpClientStartupService>();
+
+        // MCP config change listener (singleton — polls for runtime config changes)
+        services.AddSingleton<McpConfigChangeListener>();
+        services.AddHostedService(sp => sp.GetRequiredService<McpConfigChangeListener>());
 
         return services;
     }

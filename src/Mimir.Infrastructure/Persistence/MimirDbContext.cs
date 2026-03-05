@@ -14,6 +14,7 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<SystemPrompt> SystemPrompts => Set<SystemPrompt>();
     public DbSet<McpServerConfig> McpServerConfigs => Set<McpServerConfig>();
     public DbSet<McpToolWhitelist> McpToolWhitelists => Set<McpToolWhitelist>();
+    public DbSet<McpToolAuditLog> McpToolAuditLogs => Set<McpToolAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

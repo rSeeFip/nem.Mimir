@@ -10,19 +10,16 @@ internal sealed class BuiltInPluginRegistrar : IHostedService
 {
     private readonly PluginManager _pluginManager;
     private readonly CodeRunnerPlugin _codeRunner;
-    private readonly WebSearchPlugin _webSearch;
 
-    public BuiltInPluginRegistrar(IPluginService pluginService, CodeRunnerPlugin codeRunner, WebSearchPlugin webSearch)
+    public BuiltInPluginRegistrar(IPluginService pluginService, CodeRunnerPlugin codeRunner)
     {
         _pluginManager = (PluginManager)pluginService;
         _codeRunner = codeRunner;
-        _webSearch = webSearch;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _pluginManager.RegisterPlugin(_codeRunner);
-        _pluginManager.RegisterPlugin(_webSearch);
         return Task.CompletedTask;
     }
 
