@@ -48,6 +48,11 @@ public static class DependencyInjection
         services.AddSingleton<global::Mimir.Application.Services.Memory.ISemanticFactRepository, global::Mimir.Application.Services.Memory.InMemorySemanticFactRepository>();
         // T25: Semantic Memory
         services.AddScoped<nem.Contracts.Memory.ISemanticMemory, global::Mimir.Application.Services.Memory.SemanticMemoryService>();
+        services.AddSingleton<global::Mimir.Application.Services.Memory.MemoryConsolidationOptions>();
+        services.AddScoped<nem.Contracts.Memory.IMemoryConsolidator, global::Mimir.Application.Services.Memory.MemoryConsolidationService>();
+        // T27: Agent Memory Context
+        services.AddSingleton<global::Mimir.Application.Agents.AgentMemoryContextOptions>();
+        services.AddScoped<global::Mimir.Application.Agents.IAgentMemoryContextService, global::Mimir.Application.Agents.AgentMemoryContextService>();
 
         return services;
     }
