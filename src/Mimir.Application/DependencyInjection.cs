@@ -4,6 +4,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Mimir.Application.Common.Behaviours;
 using Mimir.Application.Common.Mappings;
+using Mimir.Application.Agents;
+using Mimir.Application.Tasks;
 
 namespace Mimir.Application;
 
@@ -34,6 +36,9 @@ public static class DependencyInjection
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         });
+
+        services.AddAgentOrchestration();
+        services.AddBackgroundTaskExecution();
 
         return services;
     }

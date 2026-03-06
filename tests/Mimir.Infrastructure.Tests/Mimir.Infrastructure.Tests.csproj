@@ -11,6 +11,7 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="WolverineFx" />
   </ItemGroup>
 
   <ItemGroup>

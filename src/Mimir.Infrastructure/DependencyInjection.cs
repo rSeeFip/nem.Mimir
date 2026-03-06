@@ -17,6 +17,8 @@ using Polly;
 using Docker.DotNet;
 using Mimir.Infrastructure.Plugins;
 using Mimir.Infrastructure.Plugins.BuiltIn;
+using Mimir.Infrastructure.Agents;
+using Mimir.Infrastructure.Tasks;
 
 public static class DependencyInjection
 {
@@ -135,6 +137,9 @@ public static class DependencyInjection
 
         // Conversation archive service
         services.AddScoped<IConversationArchiveService, ConversationArchiveService>();
+
+        services.AddAgentCommunicationBus();
+        services.AddBackgroundTaskInfrastructure(configuration);
 
         return services;
     }
