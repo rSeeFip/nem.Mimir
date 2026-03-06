@@ -4,6 +4,7 @@ using Mimir.Telegram.Configuration;
 using Mimir.Telegram.Handlers;
 using Mimir.Telegram.Health;
 using Mimir.Telegram.Services;
+using Mimir.Telegram.Voice;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -16,6 +17,11 @@ builder.Services.AddSingleton<UserStateManager>();
 builder.Services.AddSingleton<AuthenticationService>();
 builder.Services.AddSingleton<ICommandHandler, CommandHandler>();
 builder.Services.AddSingleton<IMessageHandler, MessageHandler>();
+
+// Voice pipeline
+builder.Services.AddSingleton<IAudioFormatConverter, AudioFormatConverter>();
+builder.Services.AddSingleton<ITelegramVoiceExtractor, TelegramVoiceExtractor>();
+builder.Services.AddSingleton<IVoiceMessageHandler, VoiceMessageHandler>();
 
 // HTTP clients
 var apiBaseUrl = builder.Configuration.GetSection(TelegramSettings.SectionName)

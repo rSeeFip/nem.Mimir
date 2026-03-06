@@ -7,6 +7,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Mimir.Telegram.Configuration;
 using Mimir.Telegram.Handlers;
+using Mimir.Telegram.Voice;
 
 namespace Mimir.Telegram.Services;
 
@@ -18,6 +19,7 @@ internal sealed class TelegramBotService : BackgroundService
     private readonly TelegramSettings _settings;
     private readonly ICommandHandler _commandHandler;
     private readonly IMessageHandler _messageHandler;
+    private readonly IVoiceMessageHandler? _voiceMessageHandler;
     private readonly ILogger<TelegramBotService> _logger;
     private ITelegramBotClient? _botClient;
 
@@ -25,11 +27,13 @@ internal sealed class TelegramBotService : BackgroundService
         IOptions<TelegramSettings> settings,
         ICommandHandler commandHandler,
         IMessageHandler messageHandler,
-        ILogger<TelegramBotService> logger)
+        ILogger<TelegramBotService> logger,
+        IVoiceMessageHandler? voiceMessageHandler = null)
     {
         _settings = settings.Value;
         _commandHandler = commandHandler;
         _messageHandler = messageHandler;
+        _voiceMessageHandler = voiceMessageHandler;
         _logger = logger;
     }
 
@@ -113,6 +117,25 @@ internal sealed class TelegramBotService : BackgroundService
 
     private async Task ProcessUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
+        if (update.Message is null)
+            return;
+
+        // Voice message handling — check before text guard so voice notes are not silently dropped
+        if (update.Message.Voice is not null)
+        {
+            if (_voiceMessageHandler is not null)
+            {
+                _logger.LogDebug("Received voice message from user {UserId} in chat {ChatId}",
+                    update.Message.From?.Id, update.Message.Chat.Id);
+                await _voiceMessageHandler.HandleVoiceMessageAsync(bot, update.Message, ct);
+            }
+            else
+            {
+                _logger.LogWarning("Received voice message but no voice handler is registered");
+            }
+            return;
+        }
+
         if (update.Message is not { Text: not null } message)
             return;
 
