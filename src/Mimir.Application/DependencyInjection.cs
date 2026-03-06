@@ -53,6 +53,15 @@ public static class DependencyInjection
         // T27: Agent Memory Context
         services.AddSingleton<global::Mimir.Application.Agents.AgentMemoryContextOptions>();
         services.AddScoped<global::Mimir.Application.Agents.IAgentMemoryContextService, global::Mimir.Application.Agents.AgentMemoryContextService>();
+        // T28: Context Optimizer
+        services.AddSingleton<global::Mimir.Application.Context.ContextOptimizerOptions>();
+        services.AddScoped<nem.Contracts.TokenOptimization.IContextOptimizer, global::Mimir.Application.Context.ContextOptimizerService>();
+        // T31: Token Tracker
+        services.AddSingleton<global::Mimir.Application.Tokens.TokenTrackerOptions>();
+        services.AddSingleton<nem.Contracts.TokenOptimization.ITokenTracker, global::Mimir.Application.Tokens.TokenTrackerService>();
+        // T30: Model Cascade
+        services.AddSingleton<global::Mimir.Application.Llm.ModelCascadeOptions>();
+        services.AddSingleton<nem.Contracts.TokenOptimization.IModelCascade, global::Mimir.Application.Llm.ModelCascadeService>();
 
         return services;
     }

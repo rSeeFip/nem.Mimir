@@ -938,6 +938,14 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - `pages/api/chat.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
 - `pages/api/models.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
 
+## T28 Context Optimizer implementation learnings (2026-03-06)
+
+- `IContextOptimizer` and `PruneStrategy` from `nem.Contracts.TokenOptimization` resolve cleanly at build time in this repo even when transient LSP diagnostics report namespace resolution issues.
+- For context safety constraints in optimizer logic, practical block-level protection heuristics are effective: preserve system-like blocks, preserve latest user-like block, and preserve final 3 blocks to avoid trimming recent interaction state.
+- Auto-trigger optimization should be decoupled from method call intent: `PruneAsync` and `CompressAsync` use threshold gating (`AutoTriggerThreshold * MaxContextTokens`), while `DistillAsync` remains explicit target-budget driven.
+- NSubstitute + Shouldly patterns in this repository favor concrete service tests with real options objects and substitute loggers rather than heavy mocking of algorithm internals.
+- Solution build (`dotnet build nem.Mimir.sln --verbosity minimal`) is the source of truth for cross-project contract compatibility; local editor diagnostics may be stale until full compile.
+
 ## [2026-03-06] MCP Client Manager (HTTP-based) implementation
 
 ### What worked
@@ -1371,3 +1379,11 @@ src/Mimir.WhatsApp/
 ### Test Results
 - 31 WhatsApp tests ✅ (new)
 - Build: 0 errors, 0 warnings ✅
+
+## T29: Semantic cache (in-memory) learnings (2026-03-06)
+
+- `src/Mimir.Infrastructure/Directory.Build.props` already injects a `nem.Contracts` project reference for the infrastructure tree; direct csproj reference is optional and can be omitted.
+- Local semantic matching without external embeddings works reliably using normalized character trigrams + cosine similarity.
+- For constrained cache size with `ConcurrentDictionary`, simple oldest-by-created-at trimming is sufficient and keeps implementation dependency-free.
+- Lazy TTL eviction on `GetAsync`/`GetStatsAsync` is enough for correctness in this service and avoids background cleanup complexity.
+- Full-solution `dotnet build nem.Mimir.sln --verbosity minimal` is the final compatibility check for contract visibility (`nem.Contracts.TokenOptimization`) across infra + tests.

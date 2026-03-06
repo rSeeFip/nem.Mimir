@@ -20,6 +20,7 @@ using Mimir.Infrastructure.Plugins.BuiltIn;
 using Mimir.Infrastructure.Agents;
 using Mimir.Infrastructure.Tasks;
 using Mimir.Infrastructure.Knowledge;
+using Mimir.Infrastructure.Cache;
 
 public static class DependencyInjection
 {
@@ -142,6 +143,9 @@ public static class DependencyInjection
         services.AddAgentCommunicationBus();
         services.AddBackgroundTaskInfrastructure(configuration);
         services.AddKnowHubIntegration(configuration);
+
+        services.AddSingleton<SemanticCacheOptions>();
+        services.AddSingleton<global::nem.Contracts.TokenOptimization.ISemanticCache, SemanticCacheService>();
 
         return services;
     }

@@ -97,3 +97,11 @@ Browser → openchat-ui (Next.js :3000)
   - `McpClientManager` is the primary `IToolProvider` implementation and owns discovery/cache/routing/error handling.
   - `McpToolAdapter` is a thin delegation wrapper for scoped provider consumption.
   - `AddMcpClient()` registers configuration + named HttpClient + manager + adapter wiring.
+
+## [2026-03-06] T29 semantic cache design choices
+
+- Implemented `ISemanticCache` in Infrastructure as a singleton, in-memory `ConcurrentDictionary` store with no external backing service.
+- Chose character trigram cosine similarity for semantic matching to satisfy local/no-dependency requirement while avoiding exact-text matching.
+- Enforced minimum similarity floor at `0.90` even if caller/config requests lower threshold.
+- Added per-user key isolation based on current HTTP principal (`sub` / `NameIdentifier`) with anonymous/global fallbacks controlled by option flag.
+- Applied graceful degradation across all cache operations: never throw to callers; return cache miss/default stats and log warnings on failures.
