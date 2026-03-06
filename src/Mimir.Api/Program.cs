@@ -17,6 +17,8 @@ using Mimir.Sync.Configuration;
 using Wolverine;
 using Mimir.Infrastructure.Serialization;
 using Mimir.Api.Swagger;
+using Mimir.Application.ChannelEvents;
+using nem.Contracts.AspNetCore.Auth;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -105,6 +107,7 @@ try
         options.AddPolicy("RequireAdmin", policy => policy.RequireRole("admin"));
         options.AddPolicy("RequireUser", policy => policy.RequireRole("user", "admin"));
     });
+    builder.Services.AddServiceAuthorization();
 
     // ── CORS ─────────────────────────────────────────────────────────────────
     var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
@@ -191,6 +194,9 @@ try
     builder.Services.AddNemTelemetry();
     builder.Services.AddApplicationServices();
     builder.Services.AddInfrastructureServices(builder.Configuration);
+
+    // ── Channel Event Routing ────────────────────────────────────────────────
+    builder.Services.AddSingleton<ChannelEventRouter>();
 
     // ── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();

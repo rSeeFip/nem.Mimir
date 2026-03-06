@@ -83,9 +83,10 @@ public class SolutionStructureTests
             .ToList();
 
         // Assert
-        projectReferences.Count.ShouldBe(2);
+        projectReferences.Count.ShouldBe(3);
         projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.infrastructure"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.sync"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("nem.contracts.aspnetcore"));
     }
 
     [Fact]

@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Mimir.Infrastructure\Mimir.Infrastructure.csproj" />
     <ProjectReference Include="..\Mimir.Sync\Mimir.Sync.csproj" />
+    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>
