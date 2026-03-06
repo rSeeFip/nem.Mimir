@@ -937,6 +937,31 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - `pages/api/auth/[...nextauth].ts`: Keycloak provider with JWT/session callbacks
 - `pages/api/chat.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
 - `pages/api/models.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
+
+## [2026-03-06] MCP Client Manager (HTTP-based) implementation
+
+### What worked
+- Implemented MCP integration as plain HTTP client flow (`GET /tools/list`, `POST /tools/call`) instead of SDK transport wiring.
+- Kept server routing deterministic via `serverPrefix.toolName` convention, with discovery fallback when no prefix is provided.
+- Tool schema discovery caching with per-server TTL behaved correctly using `TimeProvider` + in-memory per-server cache state.
+
+### Testing patterns that helped
+- Reused `HttpMessageHandler` stubs for endpoint simulation (success, 500 errors, empty tool lists).
+- Used `NSubstitute` for `IHttpClientFactory` to return deterministic `HttpClient` instances in unit tests.
+- `ManualTimeProvider` enabled deterministic cache expiry tests without sleeping.
+
+### Constraints observed
+- Infrastructure tests use Shouldly + NSubstitute; no Moq usage.
+- No additional NuGet packages required for HTTP implementation path.
+- Full solution build succeeded with 0 warnings and 0 errors after MCP changes.
+
+## [2026-03-06] Agent Orchestrator implementation notes
+
+- `IAgentOrchestrator`/`ISpecialistAgent` in `nem.Contracts` define async capability checks and execution signatures; application-layer orchestration should consume contract types directly to avoid signature drift.
+- `AgentExecutionContext` turn limits are best enforced centrally (`Interlocked.Increment`) and shared across child contexts to prevent recursive delegation loops.
+- Per-turn timeout handling belongs in coordinator execution (`CancellationTokenSource.CancelAfter(30s)`), with explicit `TimedOut` agent results for observability instead of throwing upstream.
+- Capability routing quality improved by combining capability keyword scoring + `AgentTaskType` weighting + general-agent fallback.
+- Solution-wide build in this branch is currently impacted by unrelated pre-existing failures in `tests/Mimir.Infrastructure.Tests/Mcp/McpClientManagerTests.cs`; targeted `Mimir.Application` build succeeds.
 - `pages/api/home/home.tsx`: useSession route protection, removed apiKey from query/localStorage/state
 - `components/Chat/Chat.tsx`: removed apiKey conditional, simplified to modelError check only
 - `components/Chatbar/components/ChatbarSettings.tsx`: removed Key component, added inline user profile + logout

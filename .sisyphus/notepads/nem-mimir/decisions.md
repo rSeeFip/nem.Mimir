@@ -78,3 +78,22 @@ Browser → openchat-ui (Next.js :3000)
 - ADJUST: T27-T30 (Wave 5) are now obsolete for Angular, replaced by new tasks
 - ADJUST: T28 streaming → built into openchat-ui natively (SSE)
 - ADJUST: T29 admin → minimal in openchat-ui, defer full admin to MCP Dashboard
+
+## [2026-03-06] Agent orchestration layering decision
+
+- Introduced a dedicated `Mimir.Application/Agents` orchestration layer with separated concerns:
+  - `AgentOrchestrator`: lifecycle/status/cancellation and delegation entrypoint
+  - `AgentDispatcher`: capability-based agent selection with fallback
+  - `AgentCoordinator`: sequential/parallel/hierarchical execution strategy engine
+  - `AgentExecutionContext`: shared per-invocation state (history/tool results/turn budget)
+- Kept orchestrator thin: no direct data-store access, no embedded specialist logic, no hardcoded single-agent “god” behavior.
+- Chose scoped DI registration for orchestrator/dispatcher/coordinator to align with request-scoped application handlers.
+
+## [2026-03-06] MCP integration transport decision (nem.Mimir-typed-ids)
+
+- Selected HTTP endpoint integration for MCP servers (`/tools/list`, `/tools/call`) instead of direct ModelContextProtocol SDK client transport.
+- Rationale: reduce coupling to SDK surface/version differences and keep infrastructure implementation stable against package drift.
+- Resulting architecture:
+  - `McpClientManager` is the primary `IToolProvider` implementation and owns discovery/cache/routing/error handling.
+  - `McpToolAdapter` is a thin delegation wrapper for scoped provider consumption.
+  - `AddMcpClient()` registers configuration + named HttpClient + manager + adapter wiring.
