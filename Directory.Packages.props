@@ -35,6 +35,9 @@
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
 
+    <!-- Teams packages -->
+    <PackageVersion Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.23.1" />
+
     <!-- Telegram packages -->
     <PackageVersion Include="Telegram.Bot" Version="22.9.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />

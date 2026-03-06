@@ -198,6 +198,12 @@ try
     // ── Channel Event Routing ────────────────────────────────────────────────
     builder.Services.AddSingleton<ChannelEventRouter>();
 
+    // ── WebWidget Channel Adapter ────────────────────────────────────────────
+    builder.Services.AddSingleton<WebWidgetChannelAdapter>();
+    builder.Services.AddSingleton<nem.Contracts.Channels.IChannelEventSource>(sp => sp.GetRequiredService<WebWidgetChannelAdapter>());
+    builder.Services.AddSingleton<nem.Contracts.Channels.IChannelMessageSender>(sp => sp.GetRequiredService<WebWidgetChannelAdapter>());
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<WebWidgetChannelAdapter>());
+
     // ── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
