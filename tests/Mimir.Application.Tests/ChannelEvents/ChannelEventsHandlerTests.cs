@@ -1,22 +1,34 @@
 using Mimir.Application.ChannelEvents;
+using Mimir.Application.Common.Interfaces;
 using Microsoft.Extensions.Logging;
 using nem.Contracts.Channels;
 using nem.Contracts.Content;
 using NSubstitute;
 using Shouldly;
+using ChannelEvent = Mimir.Domain.Entities.ChannelEvent;
 using IChannelMessageSender = Mimir.Application.ChannelEvents.IChannelMessageSender;
 
 namespace Mimir.Application.Tests.ChannelEvents;
 
 public sealed class IngestChannelEventHandlerTests
 {
+    private readonly IChannelEventRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<IngestChannelEventHandler> _logger;
     private readonly IngestChannelEventHandler _handler;
 
     public IngestChannelEventHandlerTests()
     {
+        _repository = Substitute.For<IChannelEventRepository>();
+        _repository.CreateAsync(Arg.Any<ChannelEvent>(), Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<ChannelEvent>());
+
+        _unitOfWork = Substitute.For<IUnitOfWork>();
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(1);
+
         _logger = Substitute.For<ILogger<IngestChannelEventHandler>>();
-        _handler = new IngestChannelEventHandler(_logger);
+        _handler = new IngestChannelEventHandler(_repository, _unitOfWork, _logger);
     }
 
     [Fact]
@@ -38,6 +50,56 @@ public sealed class IngestChannelEventHandlerTests
         result.ShouldNotBeNull();
         result.Accepted.ShouldBeTrue();
         result.EventId.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public async Task Handle_ValidCommand_ShouldPersistViaRepositoryAndUnitOfWork()
+    {
+        // Arrange
+        var content = Substitute.For<IContentPayload>();
+        var command = new IngestChannelEventCommand(
+            ChannelType.Telegram,
+            "ext-channel-1",
+            "ext-user-1",
+            content,
+            DateTimeOffset.UtcNow);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        await _repository.Received(1).CreateAsync(Arg.Any<ChannelEvent>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ValidCommand_ShouldPersistEntityWithCorrectProperties()
+    {
+        // Arrange
+        ChannelEvent? captured = null;
+        _repository.CreateAsync(Arg.Do<ChannelEvent>(e => captured = e), Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<ChannelEvent>());
+
+        var content = Substitute.For<IContentPayload>();
+        var timestamp = DateTimeOffset.UtcNow;
+        var command = new IngestChannelEventCommand(
+            ChannelType.WhatsApp,
+            "ext-channel-42",
+            "ext-user-99",
+            content,
+            timestamp);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        captured.ShouldNotBeNull();
+        captured.Channel.ShouldBe(ChannelType.WhatsApp);
+        captured.ExternalChannelId.ShouldBe("ext-channel-42");
+        captured.ExternalUserId.ShouldBe("ext-user-99");
+        captured.ContentPayload.ShouldBe(content);
+        captured.ReceivedAt.ShouldBe(timestamp);
+        result.EventId.ShouldBe(captured.Id);
     }
 
     [Fact]
