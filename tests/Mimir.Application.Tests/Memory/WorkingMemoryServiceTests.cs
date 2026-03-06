@@ -15,7 +15,7 @@ public sealed class WorkingMemoryServiceTests
     private readonly IConversationRepository _repository = Substitute.For<IConversationRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ILlmService _llmService = Substitute.For<ILlmService>();
-    private readonly ILogger<WorkingMemoryService> _logger = Substitute.For<ILogger<WorkingMemoryService>>();
+    private readonly ILogger<PersistentWorkingMemoryService> _logger = Substitute.For<ILogger<PersistentWorkingMemoryService>>();
 
     [Fact]
     public async Task GetWindowAsync_ReturnsMessagesWithinTokenBudget()
@@ -129,10 +129,10 @@ public sealed class WorkingMemoryServiceTests
             m.Content.StartsWith("[working-memory-summary]", StringComparison.OrdinalIgnoreCase));
     }
 
-    private WorkingMemoryService CreateSut(WorkingMemoryOptions? options = null)
+    private PersistentWorkingMemoryService CreateSut(WorkingMemoryOptions? options = null)
     {
         var value = options ?? new WorkingMemoryOptions();
-        return new WorkingMemoryService(_repository, _unitOfWork, _llmService, value, _logger);
+        return new PersistentWorkingMemoryService(_repository, _unitOfWork, _llmService, value, _logger);
     }
 
     private void SetupConversation(Conversation conversation)
