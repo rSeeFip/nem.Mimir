@@ -1201,3 +1201,148 @@ Following existing pattern: request DTOs as `sealed record` at the bottom of the
 - BuiltInPluginRegistrar casts IPluginService to PluginManager to access internal RegisterPlugin method
 - Test pattern: NSubstitute for IServiceScopeFactory chain → IServiceScope → IServiceProvider → ISandboxService
 - Global `<Using Include="Xunit" />` in test .csproj means no explicit `using Xunit;` needed
+
+
+## T10: Mimir.Api Ingestion API Endpoints — Channel Events
+
+### Completed
+- `IngestChannelEventCommand` + `ChannelEventResult` DTOs (MediatR IRequest)
+- `SendChannelMessageCommand` + `SendChannelMessageResult` DTOs (MediatR IRequest)
+- `IChannelMessageSender` interface (Mimir.Application-level abstraction)
+- `ChannelEventRouter` — routes to correct `IChannelMessageSender` by `ChannelType`
+- `IngestChannelEventHandler` — logs event, returns tracking ID (TODO: persist in T14+)
+- `SendChannelMessageHandler` — uses ChannelEventRouter to find sender, delegates to SendAsync
+- `ChannelEventsController` — `[Authorize(Policy = "ServiceAuth")]`, `POST /api/channel-events` and `POST /api/channel-events/send`
+- `nem.Contracts.AspNetCore` project reference added to Mimir.Api for ServiceAuth
+- `AddServiceAuthorization()` and `ChannelEventRouter` singleton registered in Program.cs
+- 9 unit tests: 2 IngestHandler, 2 SendHandler, 5 Router tests — all passing
+- SolutionStructureTests updated to expect 3 project references (Infrastructure, Sync, Contracts.AspNetCore)
+
+### Key Technical Learnings
+
+#### 1. Ambiguous IChannelMessageSender — Application vs Contracts
+**Problem**: Both `Mimir.Application.ChannelEvents.IChannelMessageSender` and `nem.Contracts.Channels.IChannelMessageSender` exist. Test file imports both namespaces → CS0104 ambiguity.
+**Solution**: Use `using IChannelMessageSender = Mimir.Application.ChannelEvents.IChannelMessageSender;` alias in test file.
+**Design Note**: The Application-level interface is a simplified Mimir-specific abstraction returning `SendChannelMessageResult`. The Contracts-level interface uses `OutboundChannelMessage` and is meant for cross-service communication.
+
+#### 2. ServiceAuth Not Previously Wired in Mimir.Api
+The `nem.Contracts.AspNetCore` package provides `AddServiceAuthorization()` which registers the "ServiceAuth" policy and handler. Mimir.Api had no reference to this package. Added both the project reference and the DI call.
+
+#### 3. SolutionStructureTests Architecture Guard
+Pre-existing architecture test (`ApiProject_ShouldReferenceInfrastructureAndSyncProjects`) validates project reference count. Adding `nem.Contracts.AspNetCore` bumped count from 2 to 3 — test updated.
+
+#### 4. Pre-existing Domain Test Failure
+`DomainProject_ShouldHaveNoProjectReferences` fails (expects 0, has 1 — `nem.Contracts`). This is pre-existing and NOT caused by T10 changes.
+
+### Files Created
+- src/Mimir.Application/ChannelEvents/IngestChannelEventCommand.cs
+- src/Mimir.Application/ChannelEvents/SendChannelMessageCommand.cs
+- src/Mimir.Application/ChannelEvents/IChannelMessageSender.cs
+- src/Mimir.Application/ChannelEvents/ChannelEventRouter.cs
+- src/Mimir.Application/ChannelEvents/IngestChannelEventHandler.cs
+- src/Mimir.Application/ChannelEvents/SendChannelMessageHandler.cs
+- src/Mimir.Api/Controllers/ChannelEventsController.cs
+- tests/Mimir.Application.Tests/ChannelEvents/ChannelEventsHandlerTests.cs
+
+### Files Modified
+- src/Mimir.Api/Mimir.Api.csproj (added nem.Contracts.AspNetCore ref)
+- src/Mimir.Api/Program.cs (ServiceAuth + ChannelEventRouter DI)
+- tests/Mimir.Domain.Tests/SolutionStructureTests.cs (updated expected ref count)
+
+### Test Results
+- 236 Application tests ✅ (9 new)
+- 219 Domain tests ✅ (1 pre-existing failure)
+- All other test suites unchanged and passing
+
+---
+
+## T15: WhatsApp Cloud API Channel Adapter — Mimir.WhatsApp
+
+### Completed
+- `Mimir.WhatsApp` WebApplication (Microsoft.NET.Sdk.Web) with WhatsApp Cloud API webhook integration
+- `WhatsAppChannelAdapter` — BackgroundService + IChannelEventSource + Application.IChannelMessageSender
+- Webhook endpoints: GET (challenge/response verification), POST (incoming messages with HMAC-SHA256 signature validation)
+- `WhatsAppMessageConverter` — static converter: text→TextContent, audio→VoiceContent, image/video/document→TextContent with format metadata
+- `WhatsAppSignatureValidator` — HMAC-SHA256 with CryptographicOperations.FixedTimeEquals
+- `WhatsAppMediaDownloader` — IHttpClientFactory-based media URL resolution and download
+- `WhatsAppHealthCheck` — config completeness verification
+- `WhatsAppSettings` — AccessToken, PhoneNumberId, VerifyToken, AppSecret, ApiBaseUrl, MimirApiBaseUrl
+- Full WhatsApp Cloud API DTOs (webhook payload models, send request/response)
+- OpenTelemetry ActivitySource "Mimir.WhatsApp"
+- 31 unit tests across 5 test files — all passing
+- 0 warnings, 0 errors build
+
+### Architecture
+```
+src/Mimir.WhatsApp/
+├── Configuration/WhatsAppSettings.cs
+├── Models/WhatsAppModels.cs           — Full Cloud API DTOs
+├── Services/
+│   ├── IWhatsAppMediaDownloader.cs
+│   ├── WhatsAppMediaDownloader.cs     — Named HttpClient "WhatsAppMedia"
+│   ├── WhatsAppMessageConverter.cs    — Static text/audio/image/video/document conversion
+│   ├── WhatsAppSignatureValidator.cs  — HMAC-SHA256 validation
+│   ├── WhatsAppChannelAdapter.cs      — BackgroundService + dual interface impl
+│   └── WhatsAppWebhookEndpoints.cs    — Minimal API MapGroup("/webhook/whatsapp")
+├── Health/WhatsAppHealthCheck.cs
+├── Program.cs                         — WebApplication with DI, health checks, webhook mapping
+└── appsettings.json + appsettings.Development.json
+```
+
+### Key Technical Learnings
+
+#### 1. NU1510: Web SDK Implicit Package References
+**Problem**: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Http`, and `Microsoft.Extensions.Diagnostics.HealthChecks` referenced in the csproj cause NU1510 warnings (treated as errors) because Microsoft.NET.Sdk.Web already includes these packages implicitly.
+**Solution**: Remove these explicit PackageReferences from the csproj. Only `Microsoft.Extensions.Http.Resilience` and `OpenTelemetry.Extensions.Hosting` need explicit references since they're not part of the Web SDK.
+**Lesson**: When using `Microsoft.NET.Sdk.Web`, the framework provides hosting, HTTP, health checks, logging, DI, and configuration packages automatically. Only add packages that aren't part of the shared framework.
+
+#### 2. Dual IChannelMessageSender Interfaces
+**Problem**: Both `Mimir.Application.ChannelEvents.IChannelMessageSender` and `nem.Contracts.Channels.IChannelMessageSender` exist with the same name but different signatures.
+**Solution**: WhatsAppChannelAdapter explicitly implements `Mimir.Application.ChannelEvents.IChannelMessageSender` (which has `SendAsync(string recipientId, IContentPayload content, CancellationToken ct)` returning `SendChannelMessageResult`). The nem.Contracts version uses `OutboundChannelMessage` and is for cross-service communication.
+**Key Insight**: Always use fully-qualified names or using aliases when both interfaces are in scope.
+
+#### 3. CS8604 Nullable + Shouldly ShouldContain
+**Problem**: `result.Description.ShouldContain("text")` where `Description` is `string?` causes CS8604 (possible null reference).
+**Solution**: Use null-forgiving operator: `result.Description!.ShouldContain("text")`. This is safe because the test is asserting the value exists — if it's null, the test should fail anyway.
+**Note**: This same pattern was seen in T22 (Telegram), P16 (Plugins), and now T15 (WhatsApp).
+
+#### 4. WhatsApp Webhook Verification Flow
+- GET request with `hub.mode=subscribe`, `hub.verify_token`, `hub.challenge`
+- Verify token matches configured `WhatsAppSettings.VerifyToken`
+- Return `hub.challenge` as plain text (200 OK) on match, 403 on mismatch
+- POST request includes `X-Hub-Signature-256` header with `sha256=<hmac>` prefix
+- Validate HMAC-SHA256 of raw request body using AppSecret
+
+#### 5. WhatsApp Cloud API Message Structure
+- Webhook payload: `object` → `entry[]` → `changes[]` → `value` → `messages[]`
+- Each message has `type` field: "text", "audio", "image", "video", "document"
+- Media messages have separate media objects (e.g., `message.Image.Id`) requiring a second API call to get the media URL
+- Timestamps are Unix epoch strings (not integers)
+- Phone numbers are the actor identity (WaId from contacts array)
+
+### Files Created
+- src/Mimir.WhatsApp/Mimir.WhatsApp.csproj
+- src/Mimir.WhatsApp/Configuration/WhatsAppSettings.cs
+- src/Mimir.WhatsApp/Models/WhatsAppModels.cs
+- src/Mimir.WhatsApp/Services/IWhatsAppMediaDownloader.cs
+- src/Mimir.WhatsApp/Services/WhatsAppMediaDownloader.cs
+- src/Mimir.WhatsApp/Services/WhatsAppMessageConverter.cs
+- src/Mimir.WhatsApp/Services/WhatsAppSignatureValidator.cs
+- src/Mimir.WhatsApp/Services/WhatsAppChannelAdapter.cs
+- src/Mimir.WhatsApp/Services/WhatsAppWebhookEndpoints.cs
+- src/Mimir.WhatsApp/Health/WhatsAppHealthCheck.cs
+- src/Mimir.WhatsApp/Program.cs
+- src/Mimir.WhatsApp/appsettings.json + appsettings.Development.json
+- tests/Mimir.WhatsApp.Tests/Mimir.WhatsApp.Tests.csproj
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppSignatureValidatorTests.cs (6 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppMessageConverterTests.cs (8 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppHealthCheckTests.cs (4 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppChannelAdapterTests.cs (9 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppMediaDownloaderTests.cs (4 tests)
+
+### Files Modified
+- nem.Mimir.sln (added Mimir.WhatsApp + Mimir.WhatsApp.Tests with build configs and nesting)
+
+### Test Results
+- 31 WhatsApp tests ✅ (new)
+- Build: 0 errors, 0 warnings ✅
