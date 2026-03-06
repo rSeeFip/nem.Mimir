@@ -56,6 +56,9 @@ public static class DependencyInjection
         // T28: Context Optimizer
         services.AddSingleton<global::Mimir.Application.Context.ContextOptimizerOptions>();
         services.AddScoped<nem.Contracts.TokenOptimization.IContextOptimizer, global::Mimir.Application.Context.ContextOptimizerService>();
+        services.AddSingleton(sp => Microsoft.Extensions.Options.Options.Create(
+            new global::Mimir.Application.Context.PromptCompressionOptions()));
+        services.AddScoped<global::Mimir.Application.Context.PromptCompressionService>();
         // T31: Token Tracker
         services.AddSingleton<global::Mimir.Application.Tokens.TokenTrackerOptions>();
         services.AddSingleton<nem.Contracts.TokenOptimization.ITokenTracker, global::Mimir.Application.Tokens.TokenTrackerService>();
