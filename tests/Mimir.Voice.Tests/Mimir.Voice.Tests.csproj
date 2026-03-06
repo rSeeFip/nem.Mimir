@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mimir.Voice\Mimir.Voice.csproj" />
+    <ProjectReference Include="..\..\src\Mimir.Api\Mimir.Api.csproj" />
+    <ProjectReference Include="..\..\src\Mimir.Telegram\Mimir.Telegram.csproj" />
   </ItemGroup>
 
 </Project>
