@@ -204,6 +204,9 @@ try
     builder.Services.AddSingleton<nem.Contracts.Channels.IChannelMessageSender>(sp => sp.GetRequiredService<WebWidgetChannelAdapter>());
     builder.Services.AddHostedService(sp => sp.GetRequiredService<WebWidgetChannelAdapter>());
 
+    // ── Canvas Renderers ───────────────────────────────────────────────────────
+    builder.Services.AddSingleton<nem.Contracts.Canvas.ICanvasRenderer, Mimir.Api.Canvas.WebCanvasRenderer>();
+
     // ── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
