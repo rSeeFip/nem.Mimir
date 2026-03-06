@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mimir.Infrastructure\Mimir.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.Abstractions\nem.Cognitive.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.Distillation\nem.Cognitive.Distillation.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.GraphRag\nem.Cognitive.GraphRag.csproj" />
   </ItemGroup>
 
 </Project>

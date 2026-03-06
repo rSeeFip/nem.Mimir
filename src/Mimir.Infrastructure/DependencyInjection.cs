@@ -19,6 +19,7 @@ using Mimir.Infrastructure.Plugins;
 using Mimir.Infrastructure.Plugins.BuiltIn;
 using Mimir.Infrastructure.Agents;
 using Mimir.Infrastructure.Tasks;
+using Mimir.Infrastructure.Knowledge;
 
 public static class DependencyInjection
 {
@@ -140,6 +141,7 @@ public static class DependencyInjection
 
         services.AddAgentCommunicationBus();
         services.AddBackgroundTaskInfrastructure(configuration);
+        services.AddKnowHubIntegration(configuration);
 
         return services;
     }

@@ -2,10 +2,12 @@ using System.Reflection;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Mimir.Application.Common.Behaviours;
 using Mimir.Application.Common.Mappings;
 using Mimir.Application.Agents;
 using Mimir.Application.Tasks;
+using nem.Contracts.Memory;
 
 namespace Mimir.Application;
 
@@ -39,6 +41,13 @@ public static class DependencyInjection
 
         services.AddAgentOrchestration();
         services.AddBackgroundTaskExecution();
+        services.AddSingleton<global::Mimir.Application.Services.Memory.WorkingMemoryOptions>();
+        services.AddScoped<IWorkingMemory>(sp => new global::Mimir.Application.Services.Memory.WorkingMemoryService(
+            sp.GetRequiredService<Common.Interfaces.IConversationRepository>(),
+            sp.GetRequiredService<Common.Interfaces.IUnitOfWork>(),
+            sp.GetRequiredService<Common.Interfaces.ILlmService>(),
+            sp.GetRequiredService<global::Mimir.Application.Services.Memory.WorkingMemoryOptions>(),
+            sp.GetRequiredService<ILogger<global::Mimir.Application.Services.Memory.WorkingMemoryService>>()));
 
         return services;
     }
