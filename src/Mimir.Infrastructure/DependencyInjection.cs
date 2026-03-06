@@ -10,6 +10,7 @@ using Mimir.Infrastructure.LiteLlm;
 using Mimir.Infrastructure.Persistence;
 using Mimir.Infrastructure.Persistence.Interceptors;
 using Mimir.Infrastructure.Persistence.Repositories;
+using Mimir.Infrastructure.Identity;
 using Mimir.Infrastructure.Services;
 using Mimir.Application.Common.Sanitization;
 using Polly;
@@ -47,6 +48,10 @@ public static class DependencyInjection
         services.AddScoped<ISystemPromptRepository, SystemPromptRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
+
+        // Actor identity services
+        services.AddScoped<nem.Contracts.Identity.IActorIdentityResolver, EfCoreActorIdentityResolver>();
+        services.AddScoped<nem.Contracts.Identity.IActorIdentityService, EfCoreActorIdentityService>();
 
         // Context window service (scoped — depends on scoped ISystemPromptRepository)
         services.AddScoped<IContextWindowService, ContextWindowService>();

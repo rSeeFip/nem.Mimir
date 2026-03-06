@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mimir.Application\Mimir.Application.csproj" />
+    <ProjectReference Include="..\..\src\Mimir.Infrastructure\Mimir.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

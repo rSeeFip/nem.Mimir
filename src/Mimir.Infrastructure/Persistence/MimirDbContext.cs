@@ -4,6 +4,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Mimir.Domain.Common;
 using Mimir.Domain.Entities;
+using Mimir.Infrastructure.Identity;
 using Mimir.Infrastructure.Persistence.Converters;
 
 public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContext(options)
@@ -13,6 +14,8 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<SystemPrompt> SystemPrompts => Set<SystemPrompt>();
+    public DbSet<ActorIdentityDocument> ActorIdentities => Set<ActorIdentityDocument>();
+    public DbSet<ChannelIdentityLinkDocument> ChannelIdentityLinks => Set<ChannelIdentityLinkDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
