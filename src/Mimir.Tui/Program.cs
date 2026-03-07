@@ -362,12 +362,12 @@ internal static class Program
                 {
                     responseBuilder.Append(token.Token);
                     // Write raw token for real-time streaming display
-                    Console.Write(token.Token);
+                    AnsiConsole.Write(Markup.Escape(token.Token));
                 }
 
                 if (token.IsComplete)
                 {
-                    Console.WriteLine();
+                    AnsiConsole.WriteLine();
                     break;
                 }
             }

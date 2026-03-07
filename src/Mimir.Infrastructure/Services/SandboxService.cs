@@ -14,6 +14,7 @@ namespace Mimir.Infrastructure.Services;
 /// Each execution creates a one-shot container with strict resource limits, captures output,
 /// and removes the container after completion.
 /// </summary>
+[Obsolete("v3 Migration: Replaced by OpenSandbox K8s-native ISandboxProvider. Use Mimir.Infrastructure.Sandbox.OpenSandboxProvider instead. Will be removed in v4.", false)]
 internal sealed class SandboxService : ISandboxService
 {
     private const string SandboxImage = "mimir-sandbox:latest";

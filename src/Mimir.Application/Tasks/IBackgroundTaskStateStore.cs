@@ -2,6 +2,9 @@ namespace Mimir.Application.Tasks;
 
 using nem.Contracts.Agents;
 
+/// <summary>
+/// Persistence abstraction for tracking background task lifecycle state transitions.
+/// </summary>
 public interface IBackgroundTaskStateStore
 {
     Task RecordSubmittedAsync(AgentTask task, string agentId, CancellationToken cancellationToken = default);
