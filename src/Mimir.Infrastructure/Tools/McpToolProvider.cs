@@ -1,6 +1,7 @@
 namespace Mimir.Infrastructure.Tools;
 
 using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Mimir.Domain.McpServers;
 using Mimir.Domain.Tools;
@@ -9,10 +10,12 @@ using Mimir.Domain.Tools;
 /// Bridges MCP server tools into the unified <see cref="IToolProvider"/> abstraction.
 /// Aggregates tools from all connected MCP servers, handles name collisions by
 /// namespacing with the server name, and routes executions to the correct server.
+/// Only exposes tools that are explicitly whitelisted per server configuration.
 /// </summary>
 internal sealed class McpToolProvider : IToolProvider
 {
     private readonly IMcpClientManager _clientManager;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<McpToolProvider> _logger;
 
     /// <summary>
@@ -21,9 +24,10 @@ internal sealed class McpToolProvider : IToolProvider
     /// </summary>
     private readonly ConcurrentDictionary<string, (Guid ServerId, string OriginalName)> _toolMapping = new(StringComparer.OrdinalIgnoreCase);
 
-    public McpToolProvider(IMcpClientManager clientManager, ILogger<McpToolProvider> logger)
+    public McpToolProvider(IMcpClientManager clientManager, IServiceScopeFactory scopeFactory, ILogger<McpToolProvider> logger)
     {
         _clientManager = clientManager;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -33,15 +37,39 @@ internal sealed class McpToolProvider : IToolProvider
         var toolNameCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var serverTools = new List<(McpServerConfig Server, IReadOnlyList<ToolDefinition> Tools)>();
 
-        // First pass: collect all tools and detect name collisions
+        // Resolve the scoped whitelist service once for this call
+        using var scope = _scopeFactory.CreateScope();
+        var whitelistService = scope.ServiceProvider.GetRequiredService<IToolWhitelistService>();
+
+        // First pass: collect whitelisted tools and detect name collisions
         foreach (var server in servers)
         {
             try
             {
                 var tools = await _clientManager.GetServerToolsAsync(server.Id, cancellationToken);
-                serverTools.Add((server, tools));
 
+                // Filter to only whitelisted tools — default-deny security model
+                var allowedTools = new List<ToolDefinition>();
                 foreach (var tool in tools)
+                {
+                    if (await whitelistService.IsToolAllowedAsync(server.Id, tool.Name, cancellationToken))
+                    {
+                        allowedTools.Add(tool);
+                    }
+                }
+
+                if (allowedTools.Count > 0)
+                {
+                    serverTools.Add((server, allowedTools.AsReadOnly()));
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "MCP server {ServerName} ({ServerId}) has {TotalTools} tools but none are whitelisted",
+                        server.Name, server.Id, tools.Count);
+                }
+
+                foreach (var tool in allowedTools)
                 {
                     toolNameCounts[tool.Name] = toolNameCounts.GetValueOrDefault(tool.Name) + 1;
                 }
@@ -84,6 +112,15 @@ internal sealed class McpToolProvider : IToolProvider
         // Try cached mapping first (populated by GetAvailableToolsAsync)
         if (_toolMapping.TryGetValue(toolName, out var mapping))
         {
+            // Re-verify whitelist at execution time (defense in depth)
+            using var scope = _scopeFactory.CreateScope();
+            var whitelistService = scope.ServiceProvider.GetRequiredService<IToolWhitelistService>();
+            if (!await whitelistService.IsToolAllowedAsync(mapping.ServerId, mapping.OriginalName, cancellationToken))
+            {
+                _logger.LogWarning("Tool {ToolName} is no longer whitelisted on server {ServerId}", toolName, mapping.ServerId);
+                return ToolResult.Failure($"Tool '{toolName}' is not authorized for execution");
+            }
+
             try
             {
                 return await _clientManager.ExecuteToolAsync(mapping.ServerId, mapping.OriginalName, argumentsJson, cancellationToken);

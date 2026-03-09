@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 
@@ -21,16 +24,36 @@ public sealed class MockMcpServer : IAsyncDisposable
 
     /// <summary>
     /// The SSE endpoint URL for MCP client connections.
+    /// MapMcp("/mcp") registers SSE at /mcp/sse and message endpoint at /mcp/message.
     /// </summary>
-    public string SseUrl => $"{BaseUrl}/sse";
+    public string SseUrl => $"{BaseUrl}/mcp/sse";
+
+    /// <summary>
+    /// The Streamable HTTP endpoint URL for MCP client connections.
+    /// </summary>
+    public string StreamableHttpUrl => $"{BaseUrl}/mcp";
 
     /// <summary>
     /// Starts the mock MCP server on a random available port.
     /// </summary>
     public async Task StartAsync(CancellationToken ct = default)
     {
-        var builder = WebApplication.CreateBuilder();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            // Prevent loading appsettings.json from the test working directory
+            // which might contain host filtering or other unwanted configuration.
+            ContentRootPath = Path.GetTempPath(),
+        });
+
+        // Explicit Kestrel configuration to avoid any HttpSys/IIS interference
+        builder.WebHost.UseKestrel();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
+
+        // Ensure no host filtering rejects requests to 127.0.0.1
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AllowedHosts"] = "*",
+        });
 
         builder.Services
             .AddMcpServer(options =>
@@ -45,12 +68,15 @@ public sealed class MockMcpServer : IAsyncDisposable
             .WithTools<MockSearchTool>();
 
         _app = builder.Build();
-        _app.MapMcp();
+        _app.MapMcp("/mcp");
 
         await _app.StartAsync(ct);
 
-        var address = _app.Urls.First();
-        BaseUrl = address;
+        // Get the actual bound address (port 0 is resolved to a real port by Kestrel)
+        var server = _app.Services.GetRequiredService<IServer>();
+        var addressFeature = server.Features.Get<IServerAddressesFeature>();
+        BaseUrl = addressFeature?.Addresses.FirstOrDefault()
+                  ?? _app.Urls.First();
     }
 
     /// <summary>

@@ -185,17 +185,30 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
 
     private void ConfigureDefaultWireMockStubs()
     {
-        // POST /v1/chat/completions — streaming SSE response
+        // POST /v1/chat/completions — non-streaming JSON response.
+        // PluginToolProvider always returns at least CodeRunnerPlugin, so
+        // SendMessageCommandHandler always takes the tool-loop path (non-streaming).
+        // WireMock must return a JSON ChatCompletionResponse, not SSE.
         _wireMock
             .Given(Request.Create()
                 .WithPath("/v1/chat/completions")
                 .UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
-                .WithHeader("Content-Type", "text/event-stream")
-                .WithHeader("Cache-Control", "no-cache")
-                .WithHeader("Connection", "keep-alive")
-                .WithBody(BuildDefaultSseResponse()));
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("""
+                    {
+                        "id": "chatcmpl-default",
+                        "object": "chat.completion",
+                        "model": "qwen-2.5-72b",
+                        "choices": [{
+                            "index": 0,
+                            "message": { "role": "assistant", "content": "Hello from Mimir" },
+                            "finish_reason": "stop"
+                        }],
+                        "usage": { "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15 }
+                    }
+                    """));
 
         // GET /v1/models — model list
         _wireMock
@@ -233,33 +246,6 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithBody("{\"status\":\"healthy\"}"));
-    }
-
-    private static string BuildDefaultSseResponse()
-    {
-        var sb = new StringBuilder();
-
-        // Chunk 1: role + first content
-        sb.AppendLine("data: {\"id\":\"chatcmpl-test123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hello\"},\"finish_reason\":null}]}");
-        sb.AppendLine();
-
-        // Chunk 2: content only
-        sb.AppendLine("data: {\"id\":\"chatcmpl-test123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" from\"},\"finish_reason\":null}]}");
-        sb.AppendLine();
-
-        // Chunk 3: content only
-        sb.AppendLine("data: {\"id\":\"chatcmpl-test123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Mimir\"},\"finish_reason\":null}]}");
-        sb.AppendLine();
-
-        // Chunk 4: finish_reason = stop
-        sb.AppendLine("data: {\"id\":\"chatcmpl-test123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}");
-        sb.AppendLine();
-
-        // [DONE] marker
-        sb.AppendLine("data: [DONE]");
-        sb.AppendLine();
-
-        return sb.ToString();
     }
 
     private async Task ApplyMigrationsAsync()

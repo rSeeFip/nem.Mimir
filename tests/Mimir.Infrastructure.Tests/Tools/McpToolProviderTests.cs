@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Mimir.Domain.McpServers;
 using Mimir.Domain.Tools;
@@ -11,12 +12,26 @@ namespace Mimir.Infrastructure.Tests.Tools;
 public sealed class McpToolProviderTests
 {
     private readonly IMcpClientManager _clientManager = Substitute.For<IMcpClientManager>();
+    private readonly IToolWhitelistService _whitelistService = Substitute.For<IToolWhitelistService>();
     private readonly ILogger<McpToolProvider> _logger = Substitute.For<ILogger<McpToolProvider>>();
     private readonly McpToolProvider _sut;
 
     public McpToolProviderTests()
     {
-        _sut = new McpToolProvider(_clientManager, _logger);
+        // Default: whitelist allows ALL tools (tests override as needed)
+        _whitelistService.IsToolAllowedAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        serviceProvider.GetService(typeof(IToolWhitelistService)).Returns(_whitelistService);
+
+        var scope = Substitute.For<IServiceScope>();
+        scope.ServiceProvider.Returns(serviceProvider);
+
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        scopeFactory.CreateScope().Returns(scope);
+
+        _sut = new McpToolProvider(_clientManager, scopeFactory, _logger);
     }
 
     [Fact]
@@ -31,7 +46,7 @@ public sealed class McpToolProviderTests
     }
 
     [Fact]
-    public async Task GetAvailableToolsAsync_SingleServer_ReturnsTools()
+    public async Task GetAvailableToolsAsync_SingleServer_ReturnsWhitelistedTools()
     {
         var server = CreateServer("server-a");
         var serverTools = new List<ToolDefinition>
@@ -52,6 +67,33 @@ public sealed class McpToolProviderTests
         tools[0].Description.ShouldBe("Search the web");
         tools[1].Name.ShouldBe("fetch");
         tools[1].ParametersJsonSchema.ShouldBe("""{"type":"object"}""");
+    }
+
+    [Fact]
+    public async Task GetAvailableToolsAsync_FiltersNonWhitelistedTools()
+    {
+        var server = CreateServer("server-a");
+        var serverTools = new List<ToolDefinition>
+        {
+            new("allowed-tool", "This tool is whitelisted"),
+            new("blocked-tool", "This tool is not whitelisted"),
+        };
+
+        _clientManager.GetConnectedServersAsync(Arg.Any<CancellationToken>())
+            .Returns(new[] { server });
+        _clientManager.GetServerToolsAsync(server.Id, Arg.Any<CancellationToken>())
+            .Returns(serverTools.AsReadOnly());
+
+        // Only allow "allowed-tool" — block "blocked-tool"
+        _whitelistService.IsToolAllowedAsync(server.Id, "allowed-tool", Arg.Any<CancellationToken>())
+            .Returns(true);
+        _whitelistService.IsToolAllowedAsync(server.Id, "blocked-tool", Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var tools = await _sut.GetAvailableToolsAsync();
+
+        tools.Count.ShouldBe(1);
+        tools[0].Name.ShouldBe("allowed-tool");
     }
 
     [Fact]
@@ -143,6 +185,28 @@ public sealed class McpToolProviderTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Content.ShouldBe("namespaced result");
+    }
+
+    [Fact]
+    public async Task ExecuteToolAsync_WhitelistRevokedAfterCache_ReturnsFailure()
+    {
+        var server = CreateServer("server-a");
+        _clientManager.GetConnectedServersAsync(Arg.Any<CancellationToken>())
+            .Returns(new[] { server });
+        _clientManager.GetServerToolsAsync(server.Id, Arg.Any<CancellationToken>())
+            .Returns(new[] { new ToolDefinition("tool-a", "A tool") });
+
+        // Populate cache (whitelist allows all by default)
+        await _sut.GetAvailableToolsAsync();
+
+        // Now revoke whitelist for this tool
+        _whitelistService.IsToolAllowedAsync(server.Id, "tool-a", Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var result = await _sut.ExecuteToolAsync("tool-a", "{}");
+
+        result.IsSuccess.ShouldBeFalse();
+        result.ErrorMessage.ShouldContain("not authorized");
     }
 
     [Fact]

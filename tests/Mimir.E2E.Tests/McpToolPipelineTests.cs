@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Mimir.E2E.Tests.Fixtures;
 using Mimir.E2E.Tests.Helpers;
 using Shouldly;
@@ -63,7 +64,7 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
 
     /// <summary>
     /// Registers the mock MCP server via the admin API, enables it, whitelists the tool,
-    /// and triggers a config refresh so the MCP client manager connects.
+    /// and connects the MCP client directly (bypassing the background polling service).
     /// Returns the server config ID.
     /// </summary>
     private async Task<Guid> RegisterAndConnectMockMcpServerAsync(
@@ -74,8 +75,8 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
         var createResponse = await adminClient.PostAsJsonAsync("/api/mcp/servers", new
         {
             name = $"MockMcpTestServer-{Guid.NewGuid():N}",
-            transportType = 1, // Sse
-            url = _mockMcpServer!.SseUrl,
+            transportType = 2, // StreamableHttp
+            url = _mockMcpServer!.StreamableHttpUrl,
             isEnabled = true,
             description = "E2E test mock MCP server",
         }, ct);
@@ -86,13 +87,27 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
         var serverId = await createResponse.Content.ReadFromJsonAsync<Guid>(ct);
         serverId.ShouldNotBe(Guid.Empty);
 
-        // 2. Wait for the config change listener polling interval to pick up changes
-        await Task.Delay(TimeSpan.FromSeconds(12), ct);
+        // 2. Directly connect the MCP client manager to the mock server
+        //    This bypasses the background polling service (McpConfigChangeListener)
+        //    which has unpredictable timing in E2E tests.
+        var clientManager = _factory.Services.GetRequiredService<Mimir.Domain.McpServers.IMcpClientManager>();
+        var config = new Mimir.Domain.McpServers.McpServerConfig
+        {
+            Id = serverId,
+            Name = $"MockMcpTestServer",
+            TransportType = Mimir.Domain.McpServers.McpTransportType.StreamableHttp,
+            Url = _mockMcpServer.StreamableHttpUrl,
+            IsEnabled = true,
+        };
+        await clientManager.ConnectAsync(config, ct);
 
-        // 3. Give a short moment for the MCP connection handshake to complete
-        await Task.Delay(2000, ct);
+        // Verify the connection is healthy and tools are discovered
+        var tools = await clientManager.GetServerToolsAsync(serverId, ct);
+        tools.ShouldNotBeEmpty(
+            $"MockMcpServer should expose at least one tool. " +
+            $"URL: {_mockMcpServer.StreamableHttpUrl}");
 
-        // 4. Whitelist the mock_search tool
+        // 3. Whitelist the mock_search tool
         var whitelistResponse = await adminClient.PutAsJsonAsync(
             $"/api/mcp/servers/{serverId}/whitelist",
             new
@@ -130,9 +145,11 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Configures WireMock with scenario-based stateful behavior:
+    /// Configures WireMock with callback-based stateful behavior:
     /// - First POST to /v1/chat/completions returns a tool_call response
     /// - Second POST returns a normal text response
+    /// Uses a thread-safe counter instead of WireMock scenarios (which have known
+    /// issues with state initialization after Reset() in WireMock.Net).
     /// </summary>
     private void ConfigureWireMockForToolCallScenario(
         string toolName = "mock_search",
@@ -167,90 +184,83 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
                     }
                     """));
 
-        // Scenario: First call returns tool_call, second call returns text
-        const string scenarioName = "ToolCallFlow";
-
-        // State 1 (initial → Started): Return tool call response
-        _factory.WireMock
-            .Given(Request.Create()
-                .WithPath("/v1/chat/completions")
-                .UsingPost())
-            .InScenario(scenarioName)
-            .WhenStateIs("Started")
-            .WillSetStateTo("ToolExecuted")
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("Content-Type", "application/json")
-                .WithBody(JsonSerializer.Serialize(new
+        // Build the two response bodies
+        var toolCallBody = JsonSerializer.Serialize(new
+        {
+            id = "chatcmpl-tool1",
+            @object = "chat.completion",
+            model = "qwen-2.5-72b",
+            choices = new[]
+            {
+                new
                 {
-                    id = "chatcmpl-tool1",
-                    @object = "chat.completion",
-                    model = "qwen-2.5-72b",
-                    choices = new[]
+                    index = 0,
+                    message = new
                     {
-                        new
+                        role = "assistant",
+                        content = (string?)null,
+                        tool_calls = new[]
                         {
-                            index = 0,
-                            message = new
+                            new
                             {
-                                role = "assistant",
-                                content = (string?)null,
-                                tool_calls = new[]
+                                id = "call_e2e_001",
+                                type = "function",
+                                function = new
                                 {
-                                    new
-                                    {
-                                        id = "call_e2e_001",
-                                        type = "function",
-                                        function = new
-                                        {
-                                            name = toolName,
-                                            arguments = toolArguments,
-                                        },
-                                    },
+                                    name = toolName,
+                                    arguments = toolArguments,
                                 },
                             },
-                            finish_reason = "tool_calls",
                         },
                     },
-                    usage = new { prompt_tokens = 50, completion_tokens = 20, total_tokens = 70 },
-                })));
+                    finish_reason = "tool_calls",
+                },
+            },
+            usage = new { prompt_tokens = 50, completion_tokens = 20, total_tokens = 70 },
+        });
 
-        // State 2 (ToolExecuted): Return normal text response
+        var textBody = JsonSerializer.Serialize(new
+        {
+            id = "chatcmpl-final",
+            @object = "chat.completion",
+            model = "qwen-2.5-72b",
+            choices = new[]
+            {
+                new
+                {
+                    index = 0,
+                    message = new
+                    {
+                        role = "assistant",
+                        content = finalResponseText,
+                        tool_calls = (object?)null,
+                    },
+                    finish_reason = "stop",
+                },
+            },
+            usage = new { prompt_tokens = 100, completion_tokens = 30, total_tokens = 130 },
+        });
+
+        // Use callback with counter: first call returns tool_call, subsequent calls return text
+        var callCount = 0;
         _factory.WireMock
             .Given(Request.Create()
                 .WithPath("/v1/chat/completions")
                 .UsingPost())
-            .InScenario(scenarioName)
-            .WhenStateIs("ToolExecuted")
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
-                .WithBody(JsonSerializer.Serialize(new
+                .WithBody(req =>
                 {
-                    id = "chatcmpl-final",
-                    @object = "chat.completion",
-                    model = "qwen-2.5-72b",
-                    choices = new[]
-                    {
-                        new
-                        {
-                            index = 0,
-                            message = new
-                            {
-                                role = "assistant",
-                                content = finalResponseText,
-                                tool_calls = (object?)null,
-                            },
-                            finish_reason = "stop",
-                        },
-                    },
-                    usage = new { prompt_tokens = 100, completion_tokens = 30, total_tokens = 130 },
-                })));
+                    var count = Interlocked.Increment(ref callCount);
+                    return count == 1 ? toolCallBody : textBody;
+                }));
     }
 
     /// <summary>
-    /// Configures WireMock to always return tool_call responses (never a text response),
-    /// used to test the max iterations safety limit.
+    /// Configures WireMock to always return tool_call responses for the first 5 calls,
+    /// then a text response on the 6th call. Used to test the max iterations safety limit.
+    /// Uses a thread-safe counter instead of WireMock scenarios.
     /// </summary>
     private void ConfigureWireMockForInfiniteToolCalls(
         string toolName = "mock_search",
@@ -271,94 +281,80 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
                 .WithHeader("Content-Type", "application/json")
                 .WithBody("""{"object":"list","data":[{"id":"qwen-2.5-72b","object":"model","created":1234567890,"owned_by":"litellm"}]}"""));
 
-        // Use a scenario with 6 states: 5 tool-call responses, then 1 final text response
-        // The handler makes MaxToolIterations (5) calls with tools, then 1 final call without tools.
-        // We need to provide responses for all 6 calls.
-        const string scenarioName = "InfiniteToolCalls";
-        var states = new[] { "Started", "Iter1", "Iter2", "Iter3", "Iter4", "Iter5" };
-
-        // First 5 states: always return tool_calls
-        for (var i = 0; i < 5; i++)
+        var finalTextBody = JsonSerializer.Serialize(new
         {
-            var currentState = states[i];
-            var nextState = states[i + 1];
-
-            _factory.WireMock
-                .Given(Request.Create()
-                    .WithPath("/v1/chat/completions")
-                    .UsingPost())
-                .InScenario(scenarioName)
-                .WhenStateIs(currentState)
-                .WillSetStateTo(nextState)
-                .RespondWith(Response.Create()
-                    .WithStatusCode(200)
-                    .WithHeader("Content-Type", "application/json")
-                    .WithBody(JsonSerializer.Serialize(new
+            id = "chatcmpl-final-fallback",
+            @object = "chat.completion",
+            model = "qwen-2.5-72b",
+            choices = new[]
+            {
+                new
+                {
+                    index = 0,
+                    message = new
                     {
-                        id = $"chatcmpl-iter{i + 1}",
-                        @object = "chat.completion",
-                        model = "qwen-2.5-72b",
-                        choices = new[]
-                        {
-                            new
-                            {
-                                index = 0,
-                                message = new
-                                {
-                                    role = "assistant",
-                                    content = (string?)null,
-                                    tool_calls = new[]
-                                    {
-                                        new
-                                        {
-                                            id = $"call_iter_{i + 1}",
-                                            type = "function",
-                                            function = new
-                                            {
-                                                name = toolName,
-                                                arguments = toolArguments,
-                                            },
-                                        },
-                                    },
-                                },
-                                finish_reason = "tool_calls",
-                            },
-                        },
-                        usage = new { prompt_tokens = 50, completion_tokens = 20, total_tokens = 70 },
-                    })));
-        }
+                        role = "assistant",
+                        content = finalFallbackText,
+                        tool_calls = (object?)null,
+                    },
+                    finish_reason = "stop",
+                },
+            },
+            usage = new { prompt_tokens = 200, completion_tokens = 50, total_tokens = 250 },
+        });
 
-        // State 6 (Iter5): The final call WITHOUT tools — return text response
+        // The handler makes MaxToolIterations (5) calls with tools, then 1 final call without tools.
+        // We need to provide tool_call responses for the first 5 calls and a text response for the 6th.
+        var callCount = 0;
         _factory.WireMock
             .Given(Request.Create()
                 .WithPath("/v1/chat/completions")
                 .UsingPost())
-            .InScenario(scenarioName)
-            .WhenStateIs("Iter5")
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
-                .WithBody(JsonSerializer.Serialize(new
+                .WithBody(req =>
                 {
-                    id = "chatcmpl-final-fallback",
-                    @object = "chat.completion",
-                    model = "qwen-2.5-72b",
-                    choices = new[]
+                    var count = Interlocked.Increment(ref callCount);
+                    if (count <= 5)
                     {
-                        new
+                        return JsonSerializer.Serialize(new
                         {
-                            index = 0,
-                            message = new
+                            id = $"chatcmpl-iter{count}",
+                            @object = "chat.completion",
+                            model = "qwen-2.5-72b",
+                            choices = new[]
                             {
-                                role = "assistant",
-                                content = finalFallbackText,
-                                tool_calls = (object?)null,
+                                new
+                                {
+                                    index = 0,
+                                    message = new
+                                    {
+                                        role = "assistant",
+                                        content = (string?)null,
+                                        tool_calls = new[]
+                                        {
+                                            new
+                                            {
+                                                id = $"call_iter_{count}",
+                                                type = "function",
+                                                function = new
+                                                {
+                                                    name = toolName,
+                                                    arguments = toolArguments,
+                                                },
+                                            },
+                                        },
+                                    },
+                                    finish_reason = "tool_calls",
+                                },
                             },
-                            finish_reason = "stop",
-                        },
-                    },
-                    usage = new { prompt_tokens = 200, completion_tokens = 50, total_tokens = 250 },
-                })));
+                            usage = new { prompt_tokens = 50, completion_tokens = 20, total_tokens = 70 },
+                        });
+                    }
+
+                    return finalTextBody;
+                }));
     }
 
     /// <summary>
@@ -437,7 +433,7 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
 
         // Assert — Should get 201 with assistant response
         sendResponse.StatusCode.ShouldBe(HttpStatusCode.Created,
-            $"SendMessage failed: {await sendResponse.Content.ReadAsStringAsync()}");
+            $"SendMessage failed ({sendResponse.StatusCode}): {await sendResponse.Content.ReadAsStringAsync()}");
 
         var messageBody = await sendResponse.Content.ReadAsStringAsync();
         messageBody.ShouldNotBeNullOrWhiteSpace();
@@ -451,13 +447,13 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
         var completionRequests = _factory.WireMock.LogEntries
             .Where(e => e.RequestMessage.Path == "/v1/chat/completions")
             .ToList();
+
         completionRequests.Count.ShouldBe(2,
-            "Expected exactly 2 LLM calls: first returns tool_call, second returns text after tool execution");
+            "Expected exactly 2 LLM calls: first returns tool_call, second returns text after tool execution.");
 
         // Verify — second request should contain a "tool" role message with the tool result
         var secondRequestBody = completionRequests[1].RequestMessage.Body;
         secondRequestBody.ShouldNotBeNull();
-        secondRequestBody.ShouldContain("tool");
         secondRequestBody.ShouldContain(MockSearchTool.ExpectedResult);
     }
 
@@ -468,39 +464,16 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
     [Fact]
     public async Task NoMcpServerConnected_SendMessage_ReturnsResponseWithoutToolCalls()
     {
-        // Arrange — Do NOT register any MCP server. The tool provider should return
-        // zero tools, so the handler takes the streaming path (no tool loop).
-        // However, WireMock is configured for non-streaming JSON response, and the
-        // SendMessage handler checks tools.Count == 0 → StreamResponseAsync path.
-        // We need to configure WireMock for SSE streaming response for this case.
+        // Arrange — Do NOT register any MCP server. The MCP tool provider returns
+        // zero MCP tools, but PluginToolProvider always returns CodeRunnerPlugin.
+        // So the handler ALWAYS takes the tool-loop path (non-streaming JSON).
+        // WireMock must return a JSON ChatCompletionResponse (not SSE).
         var userId = Guid.NewGuid().ToString();
         var userClient = CreateUserClient(userId);
         var conversationId = await CreateConversationAsync(userClient);
 
-        // Configure WireMock for a simple streaming SSE response (no tools scenario)
-        _factory.WireMock.Reset();
-
-        _factory.WireMock
-            .Given(Request.Create().WithPath("/health").UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody("""{"status":"healthy"}"""));
-
-        _factory.WireMock
-            .Given(Request.Create().WithPath("/v1/models").UsingGet())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("Content-Type", "application/json")
-                .WithBody("""{"object":"list","data":[{"id":"qwen-2.5-72b","object":"model","created":1234567890,"owned_by":"litellm"}]}"""));
-
-        // Streaming SSE response (when no tools available, handler uses StreamResponseAsync)
-        _factory.WireMock
-            .Given(Request.Create()
-                .WithPath("/v1/chat/completions")
-                .UsingPost())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("Content-Type", "text/event-stream")
-                .WithHeader("Cache-Control", "no-cache")
-                .WithBody(BuildStreamingResponse("Hello from Mimir without tools")));
+        // Configure WireMock for a simple JSON response (tool-loop path with no tool_calls returned)
+        ConfigureWireMockForSimpleTextResponse("Hello from Mimir without tools");
 
         // Act
         var sendResponse = await userClient.PostAsJsonAsync(
@@ -573,7 +546,9 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
     public async Task UnreachableMcpServer_SendMessage_GracefullyDegradesToNoTools()
     {
         // Arrange — Create an MCP server config pointing to a non-existent URL.
-        // The connection should fail, but the system should still work (no tools available).
+        // The connection should fail, but the system should still work.
+        // PluginToolProvider always returns CodeRunnerPlugin, so the handler takes
+        // the tool-loop path. WireMock must return JSON ChatCompletionResponse.
         var userId = Guid.NewGuid().ToString();
         var adminClient = CreateAdminClient(userId);
         var userClient = CreateUserClient(userId);
@@ -599,29 +574,8 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
 
         var conversationId = await CreateConversationAsync(userClient);
 
-        // Configure WireMock for streaming (no-tools path since MCP server is unreachable)
-        _factory.WireMock.Reset();
-
-        _factory.WireMock
-            .Given(Request.Create().WithPath("/health").UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody("""{"status":"healthy"}"""));
-
-        _factory.WireMock
-            .Given(Request.Create().WithPath("/v1/models").UsingGet())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("Content-Type", "application/json")
-                .WithBody("""{"object":"list","data":[{"id":"qwen-2.5-72b","object":"model","created":1234567890,"owned_by":"litellm"}]}"""));
-
-        _factory.WireMock
-            .Given(Request.Create()
-                .WithPath("/v1/chat/completions")
-                .UsingPost())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("Content-Type", "text/event-stream")
-                .WithHeader("Cache-Control", "no-cache")
-                .WithBody(BuildStreamingResponse("Hello despite unreachable MCP server")));
+        // Configure WireMock for JSON response (tool-loop path — CodeRunner always present)
+        ConfigureWireMockForSimpleTextResponse("Hello despite unreachable MCP server");
 
         // Act
         var sendResponse = await userClient.PostAsJsonAsync(
@@ -685,52 +639,4 @@ public sealed class McpToolPipelineTests : IAsyncLifetime
         body.ShouldContain(serverName);
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // Helpers
-    // ──────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Builds an SSE streaming response body for WireMock.
-    /// </summary>
-    private static string BuildStreamingResponse(string fullText)
-    {
-        var sb = new System.Text.StringBuilder();
-
-        // Split text into words for realistic chunking
-        var words = fullText.Split(' ');
-        for (var i = 0; i < words.Length; i++)
-        {
-            var chunk = i == 0 ? words[i] : $" {words[i]}";
-            var isFirst = i == 0;
-
-            if (isFirst)
-            {
-                sb.AppendLine($"data: {{\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{{\"index\":0,\"delta\":{{\"role\":\"assistant\",\"content\":\"{EscapeJsonString(chunk)}\"}},\"finish_reason\":null}}]}}");
-            }
-            else
-            {
-                sb.AppendLine($"data: {{\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{{\"index\":0,\"delta\":{{\"content\":\"{EscapeJsonString(chunk)}\"}},\"finish_reason\":null}}]}}");
-            }
-
-            sb.AppendLine();
-        }
-
-        // Finish chunk
-        sb.AppendLine("data: {\"id\":\"chatcmpl-stream\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"qwen-2.5-72b\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}");
-        sb.AppendLine();
-        sb.AppendLine("data: [DONE]");
-        sb.AppendLine();
-
-        return sb.ToString();
-    }
-
-    private static string EscapeJsonString(string value)
-    {
-        return value
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\n", "\\n")
-            .Replace("\r", "\\r")
-            .Replace("\t", "\\t");
-    }
 }

@@ -44,14 +44,14 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
                 exception.GetType().Name, exception.Message);
         }
 
-        // Never expose internal exception messages to clients — use generic messages
-        // for all error types to prevent information leakage
         var detail = exception switch
         {
             ValidationException => "One or more validation errors occurred.",
-            NotFoundException notFound => notFound.Message, // NotFoundException messages are user-facing by design
+            NotFoundException notFound => notFound.Message,
             ForbiddenAccessException => "You do not have permission to perform this action.",
             ConflictException => "The request conflicts with the current state of the resource.",
+            // Never expose internal exception messages to clients — use generic messages
+            // for all error types to prevent information leakage
             _ => "An unexpected error occurred. Please try again later."
         };
 

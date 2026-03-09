@@ -1,4 +1,5 @@
 using MediatR;
+using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Domain.McpServers;
 
@@ -23,6 +24,13 @@ internal sealed class CreateMcpServerCommandHandler(
 {
     public async Task<Guid> Handle(CreateMcpServerCommand request, CancellationToken cancellationToken)
     {
+        if (!Enum.IsDefined(typeof(McpTransportType), request.TransportType))
+        {
+            throw new ValidationException(
+                $"Invalid transport type: {(int)request.TransportType}. " +
+                $"Valid values are: {string.Join(", ", Enum.GetNames(typeof(McpTransportType)))}.");
+        }
+
         var config = new McpServerConfig
         {
             Id = Guid.NewGuid(),
