@@ -1,0 +1,103 @@
+{
+  "clientId": "unifi-console",
+  "name": "UniFi Console",
+  "description": "SAML client configuration for UniFi network console SSO",
+  "protocol": "saml",
+  "enabled": true,
+  "rootUrl": "${UNIFI_CONSOLE_URL:http://unifi.local:8443}",
+  "baseUrl": "/",
+  "redirectUris": [
+    "http://unifi.local:8443/*",
+    "https://unifi.local:8443/*"
+  ],
+  "webOrigins": [
+    "http://unifi.local:8443",
+    "https://unifi.local:8443",
+    "+"
+  ],
+  "attributes": {
+    "saml.signature.algorithm": "RSA_SHA256",
+    "saml.authnstatement": "true",
+    "saml.client.signature": "false",
+    "saml.assertion.signature": "true",
+    "saml.assertion.encryption": "false",
+    "saml.force.post.binding": "true",
+    "saml.encrypt.assertions": "false",
+    "saml.server.signature": "true",
+    "saml.server.signature.keyinfo.ext": "false",
+    "saml.assertion.lifespan": "3600",
+    "saml_assertion_consumer_url_post": "http://unifi.local:8443/api/login/ubnt_cloud",
+    "saml_single_logout_service_url_post": "http://unifi.local:8443/logout",
+    "saml_single_logout_service_url_redirect": "http://unifi.local:8443/logout",
+    "saml.name.id.format": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+    "saml.front.channel.logout": "true",
+    "saml.force.name.id.format": "false",
+    "exclude.session.state.from.auth.response": "false",
+    "saml_name_id_format": "email"
+  },
+  "protocolMappers": [
+    {
+      "name": "email",
+      "protocol": "saml",
+      "protocolMapper": "saml-user-property-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "email",
+        "attribute.name": "email",
+        "attribute.nameformat": "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+      }
+    },
+    {
+      "name": "firstName",
+      "protocol": "saml",
+      "protocolMapper": "saml-user-property-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "firstName",
+        "attribute.name": "givenName",
+        "attribute.nameformat": "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+      }
+    },
+    {
+      "name": "lastName",
+      "protocol": "saml",
+      "protocolMapper": "saml-user-property-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "lastName",
+        "attribute.name": "surname",
+        "attribute.nameformat": "urn:oasis:names:tc:SAML:2.0:attrname-format:basic"
+      }
+    },
+    {
+      "name": "groups",
+      "protocol": "saml",
+      "protocolMapper": "saml-user-attribute-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "groups",
+        "attribute.name": "groups",
+        "attribute.nameformat": "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified",
+        "single": "false"
+      }
+    },
+    {
+      "name": "role mapper",
+      "protocol": "saml",
+      "protocolMapper": "saml-user-role-list-mapper",
+      "consentRequired": false,
+      "config": {
+        "role.attribute.name": "roles",
+        "single": "false",
+        "attribute.nameformat": "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified"
+      }
+    }
+  ],
+  "frontchannelLogout": true,
+  "publicClient": false,
+  "standardFlowEnabled": true,
+  "directAccessGrantsEnabled": false,
+  "implicitFlowEnabled": false,
+  "serviceAccountsEnabled": false,
+  "consentRequired": false
+}
