@@ -126,7 +126,8 @@ internal sealed class ExecuteCodeCommandHandler : IRequestHandler<ExecuteCodeCom
         var sb = new StringBuilder();
         sb.AppendLine($"[Code Execution: {language}]");
         sb.AppendLine($"Exit Code: {result.ExitCode} | Time: {result.ExecutionTimeMs}ms");
-        if (result.TimedOut) sb.AppendLine("⚠ Execution timed out");
+        if (result.TimedOut)
+            sb.AppendLine("⚠ Execution timed out");
         if (!string.IsNullOrWhiteSpace(result.Stdout))
         {
             sb.AppendLine("--- stdout ---");

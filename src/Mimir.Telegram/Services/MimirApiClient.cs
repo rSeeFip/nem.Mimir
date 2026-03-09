@@ -144,7 +144,8 @@ internal sealed class MimirApiClient
         string? line;
         while ((line = await reader.ReadLineAsync(ct)) is not null)
         {
-            if (ct.IsCancellationRequested) yield break;
+            if (ct.IsCancellationRequested)
+                yield break;
 
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith(':'))
                 continue;

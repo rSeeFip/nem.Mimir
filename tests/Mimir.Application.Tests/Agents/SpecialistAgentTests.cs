@@ -96,8 +96,8 @@ public sealed class SpecialistAgentTests
         var agent = CreateGeneralAgent();
         var task = new AgentTask("t5", AgentTaskType.Research, "Explain something");
 
-         _llmService.When(x => x.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>()))
-             .Do(x => throw new InvalidOperationException("LLM unavailable"));
+        _llmService.When(x => x.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>()))
+            .Do(x => throw new InvalidOperationException("LLM unavailable"));
 
         var result = await agent.ExecuteAsync(task);
 

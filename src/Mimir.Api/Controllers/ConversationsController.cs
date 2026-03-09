@@ -33,8 +33,12 @@ public sealed class ConversationsController : ControllerBase
     /// <param name="request">The conversation creation payload.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The newly created conversation.</returns>
+    /// <response code="201">Returns the newly created conversation with its ID and initial status.</response>
+    /// <response code="400">If the request payload is invalid.</response>
+    /// <response code="401">If the request is not authenticated.</response>
     [HttpPost]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create([FromBody] CreateConversationRequest request, CancellationToken ct)
     {
@@ -51,6 +55,8 @@ public sealed class ConversationsController : ControllerBase
     /// <param name="pageSize">Page size (default 20).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A paginated list of conversation summaries.</returns>
+    /// <response code="200">Returns the paginated list of conversation summaries.</response>
+    /// <response code="401">If the request is not authenticated.</response>
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedList<ConversationListDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -69,6 +75,9 @@ public sealed class ConversationsController : ControllerBase
     /// <param name="id">The conversation identifier.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The conversation with its messages.</returns>
+    /// <response code="200">Returns the full conversation details including messages.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the conversation was not found or doesn't belong to the user.</response>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -85,8 +94,13 @@ public sealed class ConversationsController : ControllerBase
     /// <param name="id">The conversation identifier.</param>
     /// <param name="request">The new title payload.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <response code="204">If the title was successfully updated.</response>
+    /// <response code="400">If the new title is invalid.</response>
+    /// <response code="401">If the request is not authenticated.</response>
+    /// <response code="404">If the conversation was not found.</response>
     [HttpPut("{id:guid}/title")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateTitle(Guid id, [FromBody] UpdateConversationTitleRequest request, CancellationToken ct)

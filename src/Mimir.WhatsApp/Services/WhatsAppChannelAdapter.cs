@@ -51,15 +51,18 @@ internal sealed class WhatsAppChannelAdapter(
 
     internal async Task ProcessWebhookPayloadAsync(WhatsAppWebhookPayload payload, CancellationToken ct)
     {
-        if (payload.Entry is null) return;
+        if (payload.Entry is null)
+            return;
 
         foreach (var entry in payload.Entry)
         {
-            if (entry.Changes is null) continue;
+            if (entry.Changes is null)
+                continue;
 
             foreach (var change in entry.Changes)
             {
-                if (change.Value?.Messages is null) continue;
+                if (change.Value?.Messages is null)
+                    continue;
 
                 foreach (var message in change.Value.Messages)
                 {

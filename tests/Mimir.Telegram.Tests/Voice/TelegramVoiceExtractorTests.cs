@@ -410,7 +410,9 @@ public sealed class VoiceMessageHandlerTests
     {
         var message = CreateVoiceMessage(new TelegramVoice
         {
-            FileId = "f", FileUniqueId = "u", Duration = 1
+            FileId = "f",
+            FileUniqueId = "u",
+            Duration = 1
         });
 
         await Should.ThrowAsync<ArgumentNullException>(

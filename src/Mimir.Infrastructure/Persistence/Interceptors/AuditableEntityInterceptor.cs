@@ -37,7 +37,8 @@ public class AuditableEntityInterceptor(
         foreach (var entry in context.ChangeTracker.Entries())
         {
             var isAuditable = IsAuditableEntity(entry.Entity.GetType());
-            if (!isAuditable) continue;
+            if (!isAuditable)
+                continue;
 
             if (entry.State == EntityState.Deleted)
             {

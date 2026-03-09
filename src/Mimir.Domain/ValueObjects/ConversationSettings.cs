@@ -10,7 +10,7 @@ public sealed class ConversationSettings : ValueObject
     public int AutoArchiveAfterDays { get; }
     public SystemPromptId? SystemPromptId { get; }
 
-    #pragma warning disable CS8618 // Required by EF Core
+#pragma warning disable CS8618 // Required by EF Core
     private ConversationSettings() { }
 #pragma warning restore CS8618
 

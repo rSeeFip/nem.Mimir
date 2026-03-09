@@ -252,7 +252,7 @@ try
         context.Response.Headers.Append("X-Frame-Options", "DENY");
         context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
         context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-        
+
         // Content Security Policy — strict policy for API-only service
         // No unsafe-inline/unsafe-eval needed since this is a REST/SSE/SignalR API, not serving HTML pages
         context.Response.Headers.Append(
@@ -263,7 +263,7 @@ try
             "base-uri 'self'; " +
             "form-action 'self'"
         );
-        
+
         await next();
     });
 

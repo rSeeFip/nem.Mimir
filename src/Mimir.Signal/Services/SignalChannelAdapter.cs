@@ -72,7 +72,8 @@ internal sealed class SignalChannelAdapter : BackgroundService, IChannelEventSou
                             message.Envelope?.SourceUuid ?? "unknown");
                     }
 
-                    if (stoppingToken.IsCancellationRequested) break;
+                    if (stoppingToken.IsCancellationRequested)
+                        break;
                 }
 
                 await Task.Delay(TimeSpan.FromMilliseconds(_settings.PollingIntervalMs), stoppingToken);
@@ -120,7 +121,8 @@ internal sealed class SignalChannelAdapter : BackgroundService, IChannelEventSou
     private async Task ProcessMessageAsync(SignalReceivedMessage received, CancellationToken cancellationToken)
     {
         var envelope = received.Envelope;
-        if (envelope?.DataMessage is null) return;
+        if (envelope?.DataMessage is null)
+            return;
 
         var senderUuid = envelope.SourceUuid ?? envelope.Source ?? "unknown";
         var text = envelope.DataMessage.Message;

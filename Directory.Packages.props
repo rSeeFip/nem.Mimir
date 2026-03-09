@@ -67,5 +67,7 @@
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.10.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="coverlet.msbuild" Version="6.0.4" />
+    <PackageVersion Include="NBomber" Version="6.0.0" />
+    <PackageVersion Include="NBomber.Http" Version="6.0.0" />
   </ItemGroup>
 </Project>

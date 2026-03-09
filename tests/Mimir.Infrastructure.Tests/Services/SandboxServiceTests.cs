@@ -9,6 +9,7 @@ using Shouldly;
 
 namespace Mimir.Infrastructure.Tests.Services;
 
+#pragma warning disable CS0618
 public sealed class SandboxServiceTests
 {
     private readonly IDockerClient _dockerClient = Substitute.For<IDockerClient>();
@@ -33,9 +34,9 @@ public sealed class SandboxServiceTests
             .ExtractArchiveToContainerAsync(containerId, Arg.Any<CopyToContainerParameters>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-                _containerOps
-            .StartContainerAsync(containerId, Arg.Any<ContainerStartParameters>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+        _containerOps
+    .StartContainerAsync(containerId, Arg.Any<ContainerStartParameters>(), Arg.Any<CancellationToken>())
+    .Returns(true);
 
         _containerOps
             .WaitContainerAsync(containerId, Arg.Any<CancellationToken>())
@@ -383,3 +384,4 @@ public sealed class SandboxServiceTests
         result.ExitCode.ShouldBe(0);
     }
 }
+#pragma warning restore CS0618

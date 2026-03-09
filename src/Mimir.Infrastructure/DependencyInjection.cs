@@ -61,8 +61,8 @@ public static class DependencyInjection
         // Context window service (scoped — depends on scoped ISystemPromptRepository)
         services.AddScoped<IContextWindowService, ContextWindowService>();
 
- // Audit service
- services.AddScoped<IAuditService, AuditService>();
+        // Audit service
+        services.AddScoped<IAuditService, AuditService>();
 
         // Sanitization service (singleton — stateless)
         services.Configure<SanitizationSettings>(configuration.GetSection(SanitizationSettings.SectionName));
@@ -123,8 +123,10 @@ public static class DependencyInjection
         // Docker sandbox service
         // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.
         // See: https://github.com/dotnet/Docker.DotNet
+#pragma warning disable CS0618
         services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
         services.AddScoped<ISandboxService, SandboxService>();
+#pragma warning restore CS0618
 
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<IPluginService, PluginManager>();

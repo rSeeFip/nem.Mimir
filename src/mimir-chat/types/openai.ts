@@ -22,7 +22,6 @@ export enum OpenAIModelID {
 export const fallbackModelID = OpenAIModelID.OPENCHAT3_2;
 
 export const OpenAIModels: Record<OpenAIModelID, OpenAIModel> = {
-  // OpenChat
   [OpenAIModelID.OPENCHAT]: {
     id: OpenAIModelID.OPENCHAT,
     name: 'OpenChat',

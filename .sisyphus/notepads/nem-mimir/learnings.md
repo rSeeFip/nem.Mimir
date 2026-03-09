@@ -855,6 +855,12 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - Build: 0 errors, 0 warnings ✓
 - Tests: 569 passed (160+130+151+44+39+45) ✓
 
+## [2026-03-07] T40 integration test stabilization (CrossServiceIntegrationTests)
+
+- Reflection against `NullLogger<T>.Instance` is brittle when `T` is only known at runtime via `MakeGenericType`; property lookup can return null depending on reflection context/runtime shape and causes NRE before test body executes.
+- Safer pattern for runtime-constructed generic logger dependencies in tests: build `ILogger<runtimeType>` interface with `typeof(ILogger<>).MakeGenericType(type)` and inject `Substitute.For(interfaceType, Array.Empty<object>())`.
+- Context-optimizer assertions should avoid strict `<` comparisons when optimization can validly return unchanged token count at threshold boundaries; `<=` preserves intent (no regression in token pressure) without flaky boundary failures.
+
 ## [2026-02-28] Task: P6 - Mimir.Sync.Tests
 
 ### NSubstitute + Internal Types + ILogger<T> Gotcha
@@ -1117,6 +1123,12 @@ This ensures Wolverine can immediately connect to RabbitMQ in mimir-api on start
 - `Common/Interfaces/IPluginService.cs` — LoadPluginAsync, UnloadPluginAsync, ListPluginsAsync, ExecutePluginAsync
 - `Plugins/Commands/LoadPlugin.cs` — Command + Validator + Handler
 - `Plugins/Commands/UnloadPlugin.cs` — Command + Validator + Handler
+
+## 2026-03-07 — T43 NBomber performance test stability
+
+- NBomber result containers for `ScenarioStats`/`StepStats` are not guaranteed to expose `Get(string)`; relying on a single reflection method name is brittle across NBomber API shape changes.
+- A robust extraction path for benchmark assertions should use layered fallback: known accessor method names, dictionary-like lookup (`IDictionary`/`IDictionary<string, T>` via `TryGetValue`), then enumerable scan by common name keys (`Name`, `ScenarioName`, `StepName`, `Key`).
+- Threshold and p95 assertions remain valid when extraction is resilient; test intent (per-scenario p95 latency + zero failed requests) can be preserved without binding to one internal collection API.
 - `Plugins/Commands/ExecutePlugin.cs` — Command + Validator + Handler
 - `Plugins/Queries/ListPlugins.cs` — Query + Handler
 

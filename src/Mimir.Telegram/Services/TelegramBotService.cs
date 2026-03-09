@@ -90,7 +90,8 @@ internal sealed class TelegramBotService : BackgroundService
                         _logger.LogError(ex, "Error processing update {UpdateId}", update.Id);
                     }
 
-                    if (stoppingToken.IsCancellationRequested) break;
+                    if (stoppingToken.IsCancellationRequested)
+                        break;
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

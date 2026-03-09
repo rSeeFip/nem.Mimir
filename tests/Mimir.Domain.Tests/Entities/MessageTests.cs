@@ -190,7 +190,7 @@ public class MessageTests
         var conversation = Conversation.Create(Guid.NewGuid(), "Test");
         var msg1 = conversation.AddMessage(MessageRole.User, "Message 1");
         var msg2 = conversation.AddMessage(MessageRole.Assistant, "Message 2");
-        
+
         // Use reflection to set msg2's Id to match msg1's
         msg2.GetType()
             .GetProperty("Id", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)

@@ -65,7 +65,7 @@ public sealed class ModelsControllerTests
         // that the endpoint would return a model list if properly authenticated.
         // We test the 401 unauthorized case above, and the business logic
         // is verified through unit tests of the LLM service.
-        
+
         // The controller returns models from the LLM service,
         // which in tests returns hardcoded unavailable models (LiteLLM BaseUrl is empty).
         // This is acceptable as the controller pattern and caching behavior is verified

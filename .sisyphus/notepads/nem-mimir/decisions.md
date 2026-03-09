@@ -105,3 +105,8 @@ Browser → openchat-ui (Next.js :3000)
 - Enforced minimum similarity floor at `0.90` even if caller/config requests lower threshold.
 - Added per-user key isolation based on current HTTP principal (`sub` / `NameIdentifier`) with anonymous/global fallbacks controlled by option flag.
 - Applied graceful degradation across all cache operations: never throw to callers; return cache miss/default stats and log warnings on failures.
+
+## [2026-03-07] T40 test helper construction decision
+
+- In integration tests that instantiate internal Infrastructure types through reflection, avoid depending on reflected static singleton properties (`NullLogger<T>.Instance`) for runtime-generated closed generic types.
+- Chosen approach: inject a dynamic `ILogger<ConcreteType>` substitute via `NSubstitute` using runtime interface construction. This keeps the helper resilient while preserving test intent and scope strictly inside test code.

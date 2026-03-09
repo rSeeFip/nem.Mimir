@@ -70,27 +70,27 @@ internal sealed class AuditRepository(MimirDbContext context) : IAuditRepository
         return new PaginatedList<AuditEntry>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
     }
 
- public async Task<PaginatedList<AuditEntry>> GetAllAsync(
- int pageNumber,
- int pageSize,
- CancellationToken cancellationToken = default)
- {
- var query = context.AuditEntries
- .AsNoTracking()
- .OrderByDescending(a => a.Timestamp);
+    public async Task<PaginatedList<AuditEntry>> GetAllAsync(
+    int pageNumber,
+    int pageSize,
+    CancellationToken cancellationToken = default)
+    {
+        var query = context.AuditEntries
+        .AsNoTracking()
+        .OrderByDescending(a => a.Timestamp);
 
- var totalCount = await query
- .CountAsync(cancellationToken)
- .ConfigureAwait(false);
+        var totalCount = await query
+        .CountAsync(cancellationToken)
+        .ConfigureAwait(false);
 
- var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
- var items = await query
- .Skip((pageNumber - 1) * pageSize)
- .Take(pageSize)
- .ToListAsync(cancellationToken)
- .ConfigureAwait(false);
+        var items = await query
+        .Skip((pageNumber - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync(cancellationToken)
+        .ConfigureAwait(false);
 
- return new PaginatedList<AuditEntry>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
- }
+        return new PaginatedList<AuditEntry>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
+    }
 }
