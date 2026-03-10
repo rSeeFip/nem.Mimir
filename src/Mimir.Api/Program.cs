@@ -13,13 +13,14 @@ using Serilog;
 using Mimir.Api.Hubs;
 using Mimir.Sync.Configuration;
 using Wolverine;
+using Mimir.Api.Authentication;
 using nem.Contracts.AspNetCore.Auth;
 using nem.Contracts.AspNetCore.Secrets;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .CreateBootstrapLogger();
+    .CreateLogger();
 
 try
 {
@@ -49,8 +50,14 @@ try
     var liteLlmSettings = builder.Configuration.GetSection(LiteLlmSettings.SectionName).Get<LiteLlmSettings>()
         ?? new LiteLlmSettings();
 
-    // ── Authentication (Keycloak OIDC via shared nem.Contracts.AspNetCore) ───
-    builder.Services.AddNemKeycloakAuth(builder.Configuration);
+    // ── Options Binding ────────────────────────────────────────────────────
+    var mimirApiOptions = builder.Configuration.GetSection(MimirApiOptions.SectionName).Get<MimirApiOptions>()
+        ?? new MimirApiOptions();
+
+    // ── Authentication ───────────────────────────────────────────────────────
+    // StandaloneMode: auto-authenticates as dev admin (no Keycloak required)
+    // Otherwise: Keycloak OIDC via shared nem.Contracts.AspNetCore
+    builder.Services.AddMimirAuthentication(builder.Configuration, mimirApiOptions.StandaloneMode);
 
     // ── Secrets Management (OpenBao via shared nem.Contracts.AspNetCore) ──────
     builder.Services.AddNemSecrets(builder.Configuration);
