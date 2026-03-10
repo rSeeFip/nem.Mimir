@@ -6,6 +6,8 @@ using Mimir.Application.Common.Exceptions;
 using Mimir.Application.Common.Interfaces;
 using Mimir.Application.Common.Models;
 using Mimir.Domain.Enums;
+using nem.Contracts.Events.Integration;
+using Wolverine;
 
 namespace Mimir.Application.Conversations.Commands;
 
@@ -46,6 +48,7 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
     private readonly MimirMapper _mapper;
+    private readonly IMessageBus _messageBus;
 
     public SendMessageCommandHandler(
         IConversationRepository repository,
@@ -53,7 +56,8 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         IUnitOfWork unitOfWork,
         ILlmService llmService,
         IContextWindowService contextWindowService,
-        MimirMapper mapper)
+        MimirMapper mapper,
+        IMessageBus messageBus)
     {
         _repository = repository;
         _currentUserService = currentUserService;
@@ -61,6 +65,7 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         _llmService = llmService;
         _contextWindowService = contextWindowService;
         _mapper = mapper;
+        _messageBus = messageBus;
     }
 
     public async Task<MessageDto> Handle(SendMessageCommand request, CancellationToken cancellationToken)
@@ -102,6 +107,16 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
         // Persist changes
         await _repository.UpdateAsync(conversation, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Publish message creation event for nem.Comms operator inbox projection
+        await _messageBus.PublishAsync(new MessageCreatedEvent(
+            SessionId: Guid.Empty,
+            MessageId: Guid.NewGuid(),
+            TenantId: _currentUserService.UserId ?? string.Empty,
+            SenderName: _currentUserService.UserId ?? "Unknown",
+            Text: request.Content,
+            Timestamp: DateTimeOffset.UtcNow,
+            ChannelType: nem.Contracts.Channels.ChannelType.WebWidget));
 
         return _mapper.MapToMessageDto(assistantMessage);
     }
