@@ -16,9 +16,11 @@ using Mimir.Api.Hubs;
 using Mimir.Sync.Configuration;
 using Wolverine;
 using Mimir.Infrastructure.Serialization;
+using Mimir.Infrastructure.LiteLlm;
 using Mimir.Api.Swagger;
 using Mimir.Application.ChannelEvents;
 using nem.Contracts.AspNetCore.Auth;
+using nem.Contracts.AspNetCore.Classification;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -194,6 +196,18 @@ try
     builder.Services.AddNemTelemetry();
     builder.Services.AddApplicationServices();
     builder.Services.AddInfrastructureServices(builder.Configuration);
+    builder.Services.AddTransient<LiteLlmClassificationInterceptor>();
+    builder.Services.AddTransient<ClassificationGatingHandler>();
+    var classificationOptions = builder.Configuration
+        .GetSection(ClassificationOptions.SectionName)
+        .Get<ClassificationOptions>() ?? new ClassificationOptions();
+    builder.Services.Configure<ClassificationGatingOptions>(options =>
+    {
+        options.InternalHosts.UnionWith(classificationOptions.InternalHosts);
+    });
+    builder.Services.AddHttpClient("LiteLlm")
+        .AddHttpMessageHandler<LiteLlmClassificationInterceptor>()
+        .AddHttpMessageHandler<ClassificationGatingHandler>();
 
     // ── Channel Event Routing ────────────────────────────────────────────────
     builder.Services.AddSingleton<ChannelEventRouter>();

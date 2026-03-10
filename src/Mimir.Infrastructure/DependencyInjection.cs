@@ -21,6 +21,7 @@ using Mimir.Infrastructure.Agents;
 using Mimir.Infrastructure.Tasks;
 using Mimir.Infrastructure.Knowledge;
 using Mimir.Infrastructure.Cache;
+using nem.Contracts.AspNetCore.Classification;
 
 public static class DependencyInjection
 {
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddSingleton<ISanitizationService, SanitizationService>();
         // LiteLLM options
         services.Configure<LiteLlmOptions>(configuration.GetSection(LiteLlmOptions.SectionName));
+        services.Configure<ClassificationOptions>(configuration.GetSection(ClassificationOptions.SectionName));
 
         // LiteLLM HTTP client with Polly resilience
         var liteLlmSection = configuration.GetSection(LiteLlmOptions.SectionName);
@@ -112,6 +114,16 @@ public static class DependencyInjection
                 MinimumThroughput = 5,
                 BreakDuration = TimeSpan.FromSeconds(30),
             });
+        });
+
+        var classificationSection = configuration.GetSection(ClassificationOptions.SectionName);
+        var classificationBaseUrl = classificationSection.GetValue<string>(nameof(ClassificationOptions.ClassificationApiBaseUrl)) ?? "http://localhost:5100";
+
+        services.AddHttpClient("ClassificationApi", client =>
+        {
+            client.BaseAddress = new Uri(classificationBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
         });
 
         // Request queue (singleton — one queue for the whole app)

@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mimir.Application\Mimir.Application.csproj" />
+    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.Abstractions\nem.Cognitive.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.Distillation\nem.Cognitive.Distillation.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.Cognitive.GraphRag\nem.Cognitive.GraphRag.csproj" />
