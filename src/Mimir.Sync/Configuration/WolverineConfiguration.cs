@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Mimir.Application.ChannelEvents;
 using Mimir.Sync.Publishers;
 using Wolverine;
 using Wolverine.RabbitMQ;
@@ -31,6 +32,7 @@ public static class WolverineConfiguration
         opts.Policies.UseDurableOutboxOnAllSendingEndpoints();
 
         opts.Discovery.IncludeAssembly(typeof(WolverineConfiguration).Assembly);
+        opts.Discovery.IncludeAssembly(typeof(IngestChannelEventCommand).Assembly);
 
         opts.Services.AddSingleton<IMimirEventPublisher, MimirEventPublisher>();
 
