@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <PackageReference Include="MediatR.Contracts" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
-  </ItemGroup>
-</Project>

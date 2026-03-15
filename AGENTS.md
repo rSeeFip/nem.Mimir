@@ -1,78 +1,62 @@
 # nem.Mimir-typed-ids — Agent Notes
 
-> THE active Mimir. Conversational AI service — multi-channel chat, LLM routing, agent hierarchy, triple-store memory, MCP tool integration.
+> **ACTIVE** Mimir. Multi-channel conversational AI: Telegram, Teams, Web, Console, MCP. LLM routing (LiteLLM), agent hierarchy, triple-store memory. **nem.Mimir (without `-typed-ids`) is LEGACY — do not develop there.**
 
-## Overview
+## Purpose
 
-Central AI/chat service for the nem.* ecosystem. Routes conversations across channels (Telegram, Teams, Console, Web), manages LLM provider abstraction via LiteLLM, implements agent hierarchy with tool orchestration, and maintains conversation memory in a triple store. This is the actively developed version (not `nem.Mimir` which is legacy).
+Central AI/chat service for nem.* ecosystem. Routes conversations through channel adapters (Telegram, Teams, Web, Console, MCP) via a unified MediatR CQRS layer. Manages LLM provider abstraction, agent orchestration with tool integration, and conversation memory.
+
+## Status
+
+- **nem.Mimir-typed-ids** (this repo): ✓ ACTIVE. Refactored with typed IDs from nem.Contracts. Current development branch.
+- **nem.Mimir**: LEGACY. Pre-typed-IDs version. Superseded by nem.Mimir-typed-ids. Do not develop here.
 
 ## Structure
 
-```
-nem.Mimir-typed-ids/src/
-├── nem.Mimir.Api/                   # ASP.NET host, endpoints, middleware, SignalR
-├── nem.Mimir.Application/           # MediatR handlers, commands, queries, DTOs
-├── nem.Mimir.Domain/                # Entities, value objects, strongly-typed IDs
-├── nem.Mimir.Infrastructure/        # Persistence, LLM clients, external integrations
-├── nem.Mimir.Adapter.Console/       # Console channel adapter
-├── nem.Mimir.Adapter.MCP/           # MCP tool integration adapter
-├── nem.Mimir.Adapter.Teams/         # Microsoft Teams channel adapter
-├── nem.Mimir.Adapter.Telegram/      # Telegram Bot API adapter
-├── nem.Mimir.Adapter.Web/           # Web/WebSocket channel adapter
-├── nem.Mimir.Sync/                  # Synchronization service
-├── nem.Mimir.Tui/                   # Terminal UI client
-└── mimir-chat/                      # Next.js web chat frontend
-```
+| Layer | Projects | Notes |
+|-------|----------|-------|
+| Core | Api, Application, Domain, Infrastructure | Clean Architecture + MediatR CQRS |
+| Adapters | Adapter.{Telegram, Teams, Web, Console, MCP}, Sync | Channel isolation + cross-sync |
+| Client | Tui, mimir-chat | Terminal UI + Next.js web |
+
+For detailed project descriptions, see `src/AGENTS.md`.
 
 ## Key Patterns
 
-- **MediatR CQRS**: `SendMessageCommand` → handler pipeline. NOT Wolverine (unlike MCP/KnowHub). Never mix.
-- **Channel Adapters**: Each channel (Telegram, Teams, Web, Console, MCP) is an isolated adapter project. Common `IChannelAdapter` interface.
-- **LLM Routing**: LiteLLM proxy for provider abstraction. Model-ID normalization map handles provider differences. Support for OpenAI, Azure, Ollama, Anthropic.
-- **Agent Hierarchy**: Agents with tool definitions. MCP tool integration for cross-service capabilities.
-- **Triple-Store Memory**: Conversation context and knowledge stored as triples (subject-predicate-object).
-- **Typed IDs**: All entity IDs are strongly-typed (from nem.Contracts). `ConversationId`, `MessageId`, `AgentId`, etc.
+- **MediatR CQRS**: NOT Wolverine (that's MCP/KnowHub). Never mix.
+- **Typed IDs**: All entity IDs strongly-typed (nem.Contracts). `ConversationId`, `MessageId`, `AgentId`.
+- **Channel Adapters**: Isolated, deployable separately. Common `IChannelAdapter` interface.
+- **LLM Routing**: LiteLLM proxy. Model-ID normalization (OpenAI, Azure, Ollama, Anthropic).
+- **Agent Hierarchy**: MCP tool integration for cross-service capabilities.
+- **Memory**: Triple-store (subject-predicate-object) for context + knowledge.
 
-## Where to Look
+## Solution + Docker
 
-| Need | Location |
-|------|----------|
-| API endpoints | `src/nem.Mimir.Api/` |
-| Command/query handlers | `src/nem.Mimir.Application/` |
-| Domain entities | `src/nem.Mimir.Domain/` |
-| LLM integration | `src/nem.Mimir.Infrastructure/` |
-| Channel adapters | `src/nem.Mimir.Adapter.*/` |
-| MCP tool bridge | `src/nem.Mimir.Adapter.MCP/` |
-| Web chat UI | `src/mimir-chat/` (Next.js) |
-| Model normalization | Look for model-ID mapping/normalization in Infrastructure |
+| File | Format | Purpose |
+|------|--------|---------|
+| `nem.Mimir.slnx` | .slnx (canonical format) | Solution file |
+| `docker/api/Dockerfile` | — | API service container |
+| `docker/sandbox/Dockerfile` | — | Sandbox environment |
+| `docker/telegram/Dockerfile.telegram` | — | Telegram adapter |
+| `src/mimir-chat/Dockerfile` | — | Next.js frontend |
 
 ## Conventions
 
-- MediatR for CQRS (NOT Wolverine — that's MCP/KnowHub)
+- MediatR for CQRS (NEVER Wolverine in Mimir)
 - Clean Architecture: Api → Application → Domain ← Infrastructure
-- Channel adapters are independent — each can be deployed separately
-- Strongly-typed IDs everywhere — no raw Guid/string identifiers
+- Strongly-typed IDs only — no raw Guid/string
 - File-scoped namespaces, sealed classes, nullable, TreatWarningsAsErrors
 
 ## Tests
 
 - xUnit v3 + NSubstitute
-- Run: `dotnet test nem.Mimir.sln`
+- Run: `dotnet test nem.Mimir.slnx`
 
-## Commands
+## Quick Commands
 
 ```bash
-dotnet build nem.Mimir.sln
-dotnet test nem.Mimir.sln
+dotnet build nem.Mimir.slnx
+dotnet test nem.Mimir.slnx
 dotnet run --project src/nem.Mimir.Api
-# Chat UI:
 cd src/mimir-chat && npm install && npm run dev
 ```
-
-## Anti-Patterns
-
-- Never use Wolverine in Mimir — MediatR only
-- Never use primitive IDs — always strongly-typed
-- Never hardcode LLM provider URLs — use LiteLLM proxy
-- Never add channel-specific logic to Application layer — keep in adapters
-- `nem.Mimir` (without `-typed-ids`) is LEGACY — do not develop there

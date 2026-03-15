@@ -1,6 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <RootNamespace>nem.Mimir.PerformanceTests</RootNamespace>
+    <AssemblyName>nem.Mimir.PerformanceTests</AssemblyName>
+
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -19,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Mimir.Api\Mimir.Api.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Api\nem.Mimir.Api.csproj" />
   </ItemGroup>
 
 </Project>

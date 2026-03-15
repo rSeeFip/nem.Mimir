@@ -1,0 +1,38 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="../nem.Contracts/src/nem.Contracts/nem.Contracts.csproj" />
+    <Project Path="src/nem.Mimir.Signal/nem.Mimir.Signal.csproj" />
+    <Project Path="src/nem.Mimir.Sync/nem.Mimir.Sync.csproj" />
+    <Project Path="src/nem.Mimir.Teams/nem.Mimir.Teams.csproj" />
+    <Project Path="src/nem.Mimir.Telegram/nem.Mimir.Telegram.csproj" />
+    <Project Path="src/nem.Mimir.Tui/nem.Mimir.Tui.csproj" />
+    <Project Path="src/nem.Mimir.Voice/nem.Mimir.Voice.csproj" />
+    <Project Path="src/nem.Mimir.WhatsApp/nem.Mimir.WhatsApp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/nem.Mimir.Api.Tests/nem.Mimir.Api.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.E2E.Tests/nem.Mimir.E2E.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.IntegrationTests/nem.Mimir.IntegrationTests.csproj" />
+    <Project Path="tests/nem.Mimir.PerformanceTests/nem.Mimir.PerformanceTests.csproj" />
+    <Project Path="tests/nem.Mimir.Signal.Tests/nem.Mimir.Signal.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.Sync.Tests/nem.Mimir.Sync.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.Teams.Tests/nem.Mimir.Teams.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.Telegram.Tests/nem.Mimir.Telegram.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.Tui.Tests/nem.Mimir.Tui.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.Voice.Tests/nem.Mimir.Voice.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.WhatsApp.Tests/nem.Mimir.WhatsApp.Tests.csproj" />
+  </Folder>
+  <Project Path="src/nem.Mimir.Api/nem.Mimir.Api.csproj" />
+  <Project Path="src/nem.Mimir.Application/nem.Mimir.Application.csproj" />
+  <Project Path="src/nem.Mimir.Domain/nem.Mimir.Domain.csproj" />
+  <Project Path="src/nem.Mimir.Infrastructure/nem.Mimir.Infrastructure.csproj" />
+  <Project Path="tests/nem.Mimir.Api.IntegrationTests/nem.Mimir.Api.IntegrationTests.csproj" />
+  <Project Path="tests/nem.Mimir.Application.Tests/nem.Mimir.Application.Tests.csproj" />
+  <Project Path="tests/nem.Mimir.Domain.Tests/nem.Mimir.Domain.Tests.csproj" />
+  <Project Path="tests/nem.Mimir.Infrastructure.Tests/nem.Mimir.Infrastructure.Tests.csproj" />
+</Solution>

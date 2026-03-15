@@ -1,0 +1,39 @@
+﻿namespace nem.Mimir.Infrastructure.Persistence;
+
+using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using nem.Mimir.Domain.Common;
+using nem.Mimir.Domain.Entities;
+using nem.Mimir.Infrastructure.Identity;
+using nem.Mimir.Infrastructure.Persistence.Converters;
+
+public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContext(options)
+{
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<Message> Messages => Set<Message>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<AgentMessage> AgentMessages => Set<AgentMessage>();
+    public DbSet<ChannelEvent> ChannelEvents => Set<ChannelEvent>();
+    public DbSet<BackgroundTask> BackgroundTasks => Set<BackgroundTask>();
+    public DbSet<SystemPrompt> SystemPrompts => Set<SystemPrompt>();
+    public DbSet<ActorIdentityDocument> ActorIdentities => Set<ActorIdentityDocument>();
+    public DbSet<ChannelIdentityLinkDocument> ChannelIdentityLinks => Set<ChannelIdentityLinkDocument>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+    }
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        foreach (var (idType, valueType) in typeof(ITypedId<>).Assembly.GetTypedIds())
+        {
+            var converterType = typeof(TypedIdValueConverter<,>).MakeGenericType(idType, valueType);
+            configurationBuilder.Properties(idType).HaveConversion(converterType);
+        }
+    }
+}

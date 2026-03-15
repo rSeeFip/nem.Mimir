@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Reflection;
 using System.Text;
 using Microsoft.AspNetCore.Http;
@@ -6,19 +6,19 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Mimir.Application.Agents;
-using Mimir.Application.CodeExecution.Commands;
-using Mimir.Application.Common.Interfaces;
-using Mimir.Application.Common.Models;
-using Mimir.Application.Context;
-using Mimir.Application.Knowledge;
-using Mimir.Application.Llm;
-using Mimir.Application.Services.Memory;
-using Mimir.Application.Tasks;
-using Mimir.Application.Tokens;
-using Mimir.Domain.Entities;
-using Mimir.Infrastructure.Cache;
-using Mimir.Infrastructure.Mcp;
+using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.CodeExecution.Commands;
+using nem.Mimir.Application.Common.Interfaces;
+using nem.Mimir.Application.Common.Models;
+using nem.Mimir.Application.Context;
+using nem.Mimir.Application.Knowledge;
+using nem.Mimir.Application.Llm;
+using nem.Mimir.Application.Services.Memory;
+using nem.Mimir.Application.Tasks;
+using nem.Mimir.Application.Tokens;
+using nem.Mimir.Domain.Entities;
+using nem.Mimir.Infrastructure.Cache;
+using nem.Mimir.Infrastructure.Mcp;
 using NSubstitute;
 using Shouldly;
 using nem.Contracts.Agents;
@@ -424,8 +424,8 @@ public sealed class CrossServiceIntegrationTests
 
     private static ISemanticCache CreateSemanticCache(SemanticCacheOptions options)
     {
-        var assembly = typeof(global::Mimir.Infrastructure.DependencyInjection).Assembly;
-        var cacheType = assembly.GetType("Mimir.Infrastructure.Cache.SemanticCacheService", throwOnError: true)!;
+        var assembly = typeof(global::nem.Mimir.Infrastructure.DependencyInjection).Assembly;
+        var cacheType = assembly.GetType("nem.Mimir.Infrastructure.Cache.SemanticCacheService", throwOnError: true)!;
         var loggerInterfaceType = typeof(ILogger<>).MakeGenericType(cacheType);
         var logger = Substitute.For([loggerInterfaceType], Array.Empty<object>());
         var constructor = cacheType.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Single();

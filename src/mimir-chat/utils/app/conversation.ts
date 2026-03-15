@@ -5,7 +5,7 @@ import {
   updateConversationTitle as apiUpdateTitle,
   saveMessages as apiSaveMessages,
   deleteConversation as apiDeleteConversation,
-} from './conversationApi';
+} from './conversation-api';
 
 // ---------------------------------------------------------------------------
 // Write-through helpers — fire API call, log errors but never block the UI.

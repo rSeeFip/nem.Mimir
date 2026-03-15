@@ -1,6 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <RootNamespace>nem.Mimir.IntegrationTests</RootNamespace>
+    <AssemblyName>nem.Mimir.IntegrationTests</AssemblyName>
+
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -17,9 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Mimir.Application\Mimir.Application.csproj" />
-    <ProjectReference Include="..\..\src\Mimir.Domain\Mimir.Domain.csproj" />
-    <ProjectReference Include="..\..\src\Mimir.Infrastructure\Mimir.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Application\nem.Mimir.Application.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Domain\nem.Mimir.Domain.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Infrastructure\nem.Mimir.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
   </ItemGroup>
 

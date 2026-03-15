@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>nem.Mimir.Voice.Tests</RootNamespace>
+    <AssemblyName>nem.Mimir.Voice.Tests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\nem.Mimir.Voice\nem.Mimir.Voice.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Api\nem.Mimir.Api.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Telegram\nem.Mimir.Telegram.csproj" />
+  </ItemGroup>
+
+</Project>
