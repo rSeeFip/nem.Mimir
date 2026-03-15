@@ -6,7 +6,7 @@ import {
   isExportFormatV3,
   isExportFormatV4,
   isLatestExportFormat,
-} from '@/utils/app/importExport';
+} from '@/utils/app/import-export';
 
 import { ExportFormatV1, ExportFormatV2, ExportFormatV4 } from '@/types/export';
 import { OpenAIModelID, OpenAIModels } from '@/types/openai';

@@ -7,23 +7,23 @@ COPY *.sln ./
 COPY Directory.Packages.props ./
 COPY Directory.Build.props ./
 COPY global.json ./
-COPY src/Mimir.Domain/Mimir.Domain.csproj src/Mimir.Domain/
-COPY src/Mimir.Application/Mimir.Application.csproj src/Mimir.Application/
-COPY src/Mimir.Infrastructure/Mimir.Infrastructure.csproj src/Mimir.Infrastructure/
-COPY src/Mimir.Sync/Mimir.Sync.csproj src/Mimir.Sync/
-COPY src/Mimir.Api/Mimir.Api.csproj src/Mimir.Api/
+COPY src/nem.Mimir.Domain/nem.Mimir.Domain.csproj src/nem.Mimir.Domain/
+COPY src/nem.Mimir.Application/nem.Mimir.Application.csproj src/nem.Mimir.Application/
+COPY src/nem.Mimir.Infrastructure/nem.Mimir.Infrastructure.csproj src/nem.Mimir.Infrastructure/
+COPY src/nem.Mimir.Sync/nem.Mimir.Sync.csproj src/nem.Mimir.Sync/
+COPY src/nem.Mimir.Api/nem.Mimir.Api.csproj src/nem.Mimir.Api/
 
 # Restore dependencies
-RUN dotnet restore src/Mimir.Api/Mimir.Api.csproj
+RUN dotnet restore src/nem.Mimir.Api/nem.Mimir.Api.csproj
 
 # Copy remaining source code
 COPY src/ src/
 
 # Build
-RUN dotnet build src/Mimir.Api/Mimir.Api.csproj -c Release
+RUN dotnet build src/nem.Mimir.Api/nem.Mimir.Api.csproj -c Release
 
 # Publish
-RUN dotnet publish src/Mimir.Api/Mimir.Api.csproj -c Release -o /app/publish
+RUN dotnet publish src/nem.Mimir.Api/nem.Mimir.Api.csproj -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
@@ -43,4 +43,4 @@ ENV DOTNET_GCTuningRefreshIntervalMS=10000
 # Enable Tiered Compilation for faster JIT
 ENV DOTNET_TieredCompilation="1"
 ENV DOTNET_TieredCompilationQuickJit="1"
-ENTRYPOINT ["dotnet", "Mimir.Api.dll"]
+ENTRYPOINT ["dotnet", "nem.Mimir.Api.dll"]

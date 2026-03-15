@@ -35,10 +35,10 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
+        run: dotnet restore nem.Mimir.slnx
 
       - name: Build solution
-        run: dotnet build nem.Mimir.sln --no-restore --warnaserrors
+        run: dotnet build nem.Mimir.slnx --no-restore --warnaserrors
 
   unit-tests:
     name: Unit Tests (.NET)
@@ -62,28 +62,28 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
+        run: dotnet restore nem.Mimir.slnx
 
       - name: Run Domain Tests
-        run: dotnet run --project tests/Mimir.Domain.Tests/Mimir.Domain.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Domain.Tests/nem.Mimir.Domain.Tests.csproj
 
       - name: Run Application Tests
-        run: dotnet run --project tests/Mimir.Application.Tests/Mimir.Application.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Application.Tests/nem.Mimir.Application.Tests.csproj
 
       - name: Run Infrastructure Tests
-        run: dotnet run --project tests/Mimir.Infrastructure.Tests/Mimir.Infrastructure.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Infrastructure.Tests/nem.Mimir.Infrastructure.Tests.csproj
 
       - name: Run API Tests
-        run: dotnet run --project tests/Mimir.Api.Tests/Mimir.Api.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Api.Tests/nem.Mimir.Api.Tests.csproj
 
       - name: Run TUI Tests
-        run: dotnet run --project tests/Mimir.Tui.Tests/Mimir.Tui.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Tui.Tests/nem.Mimir.Tui.Tests.csproj
 
       - name: Run Telegram Tests
-        run: dotnet run --project tests/Mimir.Telegram.Tests/Mimir.Telegram.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Telegram.Tests/nem.Mimir.Telegram.Tests.csproj
 
       - name: Run Sync Tests
-        run: dotnet run --project tests/Mimir.Sync.Tests/Mimir.Sync.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.Sync.Tests/nem.Mimir.Sync.Tests.csproj
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -116,13 +116,13 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
+        run: dotnet restore nem.Mimir.slnx
 
       - name: Run E2E Tests
-        run: dotnet run --project tests/Mimir.E2E.Tests/Mimir.E2E.Tests.csproj
+        run: dotnet run --project tests/nem.Mimir.E2E.Tests/nem.Mimir.E2E.Tests.csproj
 
       - name: Run API Integration Tests
-        run: dotnet run --project tests/Mimir.Api.IntegrationTests/Mimir.Api.IntegrationTests.csproj
+        run: dotnet run --project tests/nem.Mimir.Api.IntegrationTests/nem.Mimir.Api.IntegrationTests.csproj
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -154,7 +154,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
+        run: dotnet restore nem.Mimir.slnx
 
       - name: Check NuGet vulnerabilities
-        run: dotnet list nem.Mimir.sln package --vulnerable --include-transitive
+        run: dotnet list nem.Mimir.slnx package --vulnerable --include-transitive

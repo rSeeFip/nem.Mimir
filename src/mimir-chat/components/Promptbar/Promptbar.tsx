@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useCreateReducer } from '@/hooks/useCreateReducer';
+import { useCreateReducer } from '@/hooks/use-create-reducer';
 
 import { savePrompts } from '@/utils/app/prompts';
 
@@ -114,7 +114,7 @@ const Promptbar = () => {
     } else {
       promptDispatch({ field: 'filteredPrompts', value: prompts });
     }
-  }, [searchTerm, prompts]);
+  }, [promptDispatch, prompts, searchTerm]);
 
   return (
     <PromptbarContext.Provider
