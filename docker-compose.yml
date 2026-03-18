@@ -113,7 +113,7 @@ services:
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-this-to-a-random-string}
       - OPENAI_API_HOST=http://mimir-api:5000
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen2.5-coder-32b-instruct}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3.5-9b-mlx}
     depends_on:
       mimir-api:
         condition: service_started
