@@ -1,25 +1,52 @@
 model_list:
-  - model_name: qwen-2.5-72b
+  - model_name: qwen3-coder-30b
     litellm_params:
-      model: openai/lm_studio/qwen2.5-72b-instruct
+      model: openai/qwen/qwen3-coder-30b
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+      timeout: 3600
+
+  - model_name: qwen3-coder-next
+    litellm_params:
+      model: openai/qwen/qwen3-coder-next
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+      timeout: 3600
+
+  - model_name: qwen3.5-9b-mlx
+    litellm_params:
+      model: openai/zai-org/qwen3.5-9b-mlx
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+      timeout: 600
+
+  - model_name: qwen3.5-0.8b-mlx
+    litellm_params:
+      model: openai/zai-org/qwen3.5-0.8b-mlx
       api_base: http://host.docker.internal:1234/v1
       api_key: not-needed
 
-  - model_name: phi-4-mini
+  - model_name: qwen2.5-0.5b-instruct-mlx
     litellm_params:
-      model: openai/lm_studio/phi-4-mini-instruct
+      model: openai/qwen2.5-0.5b-instruct-mlx
       api_base: http://host.docker.internal:1234/v1
       api_key: not-needed
 
-  - model_name: qwen-2.5-coder-32b
+  - model_name: glm-4.7-flash
     litellm_params:
-      model: openai/lm_studio/qwen2.5-coder-32b-instruct
+      model: openai/zai-org/glm-4.7-flash
+      api_base: http://host.docker.internal:1234/v1
+      api_key: not-needed
+
+  - model_name: glm-4.6v-flash
+    litellm_params:
+      model: openai/zai-org/glm-4.6v-flash
       api_base: http://host.docker.internal:1234/v1
       api_key: not-needed
 
   - model_name: nomic-embed-text
     litellm_params:
-      model: openai/lm_studio/nomic-embed-text-v1.5
+      model: openai/text-embedding-nomic-embed-text-v1.5
       api_base: http://host.docker.internal:1234/v1
       api_key: not-needed
 
