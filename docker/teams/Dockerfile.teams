@@ -1,0 +1,24 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+WORKDIR /src
+
+COPY ["nem.Contracts/", "nem.Contracts/"]
+COPY ["nem.Mimir-typed-ids/", "nem.Mimir-typed-ids/"]
+
+WORKDIR /src/nem.Mimir-typed-ids
+RUN dotnet restore "src/nem.Mimir.Teams/nem.Mimir.Teams.csproj"
+RUN dotnet publish "src/nem.Mimir.Teams/nem.Mimir.Teams.csproj" -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+RUN addgroup -S mimir && adduser -S -G mimir -s /bin/false mimir
+
+WORKDIR /app
+RUN apk add --no-cache curl
+COPY --from=build /app/publish .
+
+EXPOSE 80
+ENV ASPNETCORE_HTTP_PORTS=80
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:80/health || exit 1
+USER mimir
+
+ENTRYPOINT ["dotnet", "nem.Mimir.Teams.dll"]

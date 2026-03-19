@@ -7,7 +7,7 @@ public static class AgentCommunicationServiceExtensions
     public static IServiceCollection AddAgentCommunicationBus(this IServiceCollection services)
     {
         services.AddSingleton<IAgentMessagePersistence, AgentMessagePersistence>();
-        services.AddSingleton<IAgentCommunicationBus, AgentCommunicationBus>();
+        services.AddScoped<IAgentCommunicationBus, AgentCommunicationBus>();
         return services;
     }
 }

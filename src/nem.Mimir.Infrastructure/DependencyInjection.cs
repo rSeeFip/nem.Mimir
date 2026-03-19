@@ -22,6 +22,9 @@ using nem.Mimir.Infrastructure.Tasks;
 using nem.Mimir.Infrastructure.Knowledge;
 using nem.Mimir.Infrastructure.Cache;
 using nem.Contracts.AspNetCore.Classification;
+using nem.Contracts.Classification;
+using nem.Contracts.Lifecycle;
+using nem.Mimir.Infrastructure.Lifecycle;
 
 public static class DependencyInjection
 {
@@ -71,6 +74,7 @@ public static class DependencyInjection
         // LiteLLM options
         services.Configure<LiteLlmOptions>(configuration.GetSection(LiteLlmOptions.SectionName));
         services.Configure<ClassificationOptions>(configuration.GetSection(ClassificationOptions.SectionName));
+        services.AddScoped<IClassificationContext, ClassificationContext>();
 
         // LiteLLM HTTP client with Polly resilience
         var liteLlmSection = configuration.GetSection(LiteLlmOptions.SectionName);
@@ -160,6 +164,11 @@ public static class DependencyInjection
 
         services.AddSingleton<SemanticCacheOptions>();
         services.AddSingleton<global::nem.Contracts.TokenOptimization.ISemanticCache, SemanticCacheService>();
+
+        // Lifecycle services (data subject, erasure, pruning, retention policy cache)
+        services.AddScoped<IDataSubjectContributor, MimirDataSubjectContributor>();
+        services.AddScoped<IReadModelPruningStrategy, MimirReadModelPruningStrategy>();
+        services.AddSingleton<MimirRetentionPolicyCache>();
 
         return services;
     }

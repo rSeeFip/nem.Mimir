@@ -1,0 +1,26 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+
+WORKDIR /src
+
+COPY ["nem.Contracts/", "nem.Contracts/"]
+COPY ["nem.Mimir-typed-ids/", "nem.Mimir-typed-ids/"]
+
+WORKDIR /src/nem.Mimir-typed-ids
+RUN dotnet restore "src/nem.Mimir.Signal/nem.Mimir.Signal.csproj"
+
+RUN dotnet publish "src/nem.Mimir.Signal/nem.Mimir.Signal.csproj" -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
+
+RUN addgroup -S mimir && adduser -S -G mimir -s /bin/false mimir
+
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD dotnet --list-runtimes
+
+USER mimir
+
+ENTRYPOINT ["dotnet", "nem.Mimir.Signal.dll"]

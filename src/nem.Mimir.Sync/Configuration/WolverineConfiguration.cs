@@ -34,7 +34,7 @@ public static class WolverineConfiguration
         opts.Discovery.IncludeAssembly(typeof(WolverineConfiguration).Assembly);
         opts.Discovery.IncludeAssembly(typeof(IngestChannelEventCommand).Assembly);
 
-        opts.Services.AddSingleton<IMimirEventPublisher, MimirEventPublisher>();
+        opts.Services.AddScoped<IMimirEventPublisher, MimirEventPublisher>();
 
         return opts;
     }
