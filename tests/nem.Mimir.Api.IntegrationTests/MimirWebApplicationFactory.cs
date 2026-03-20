@@ -16,7 +16,12 @@ namespace nem.Mimir.Api.IntegrationTests;
 /// </summary>
 public sealed class MimirWebApplicationFactory : WebApplicationFactory<Program>
 {
-    // CreateHost is not needed when using shared collection fixture
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = builder.Build();
+        host.Start();
+        return host;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

@@ -58,8 +58,8 @@ public sealed class MessageSentHandlerTests
             Arg.Any<string?>(),
             Arg.Is<string?>(details =>
                 details != null &&
-                details.Contains("\"Role\":\"assistant\"") &&
-                details.Contains(conversationId.ToString())),
+                JsonDocument.Parse(details).RootElement.GetProperty("role").GetString() == "assistant" &&
+                JsonDocument.Parse(details).RootElement.GetProperty("conversationId").GetGuid() == conversationId),
             Arg.Any<CancellationToken>());
     }
 

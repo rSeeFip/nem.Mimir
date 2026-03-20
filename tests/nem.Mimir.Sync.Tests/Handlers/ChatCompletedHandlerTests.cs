@@ -60,10 +60,10 @@ public sealed class ChatCompletedHandlerTests
             Arg.Any<string?>(),
             Arg.Is<string?>(details =>
                 details != null &&
-                details.Contains("\"Model\":\"phi-4-mini\"") &&
-                details.Contains("\"PromptTokens\":200") &&
-                details.Contains("\"CompletionTokens\":75") &&
-                details.Contains("\"DurationMs\":1234")),
+                JsonDocument.Parse(details).RootElement.GetProperty("model").GetString() == "phi-4-mini" &&
+                JsonDocument.Parse(details).RootElement.GetProperty("promptTokens").GetInt32() == 200 &&
+                JsonDocument.Parse(details).RootElement.GetProperty("completionTokens").GetInt32() == 75 &&
+                Math.Abs(JsonDocument.Parse(details).RootElement.GetProperty("durationMs").GetDouble() - 1234d) < 0.001d),
             Arg.Any<CancellationToken>());
     }
 

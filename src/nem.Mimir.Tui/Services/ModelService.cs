@@ -36,10 +36,27 @@ internal sealed class ModelService
     public async Task<IReadOnlyList<ModelInfoDto>?> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         ConfigureAuth();
-        var response = await _httpClient.GetAsync("api/models", cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<IReadOnlyList<ModelInfoDto>>(
-            cancellationToken: cancellationToken);
+
+        try
+        {
+            var response = await _httpClient.GetAsync("api/models", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return Array.Empty<ModelInfoDto>();
+            }
+
+            return await response.Content.ReadFromJsonAsync<IReadOnlyList<ModelInfoDto>>(
+                       cancellationToken: cancellationToken)
+                   ?? Array.Empty<ModelInfoDto>();
+        }
+        catch (HttpRequestException)
+        {
+            return Array.Empty<ModelInfoDto>();
+        }
+        catch (InvalidOperationException)
+        {
+            return Array.Empty<ModelInfoDto>();
+        }
     }
 
     /// <summary>
@@ -49,6 +66,11 @@ internal sealed class ModelService
     /// <returns>True if the model was recognized and set.</returns>
     public bool TrySetModel(string modelName)
     {
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            return false;
+        }
+
         var normalized = modelName.Trim().ToLowerInvariant();
         if (IsKnownModel(normalized))
         {
@@ -62,13 +84,21 @@ internal sealed class ModelService
     /// <summary>
     /// Checks if a model name is a known/allowed model.
     /// </summary>
-    internal static bool IsKnownModel(string modelName) => modelName switch
+    internal static bool IsKnownModel(string modelName)
+    {
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            return false;
+        }
+
+        return modelName switch
     {
         "phi-4-mini" => true,
         "qwen-2.5-72b" => true,
         "qwen-2.5-coder-32b" => true,
         _ => false,
     };
+    }
 
     private void ConfigureAuth()
     {

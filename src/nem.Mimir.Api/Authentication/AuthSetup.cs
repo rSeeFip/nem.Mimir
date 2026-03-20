@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Hosting;
 using nem.Contracts.AspNetCore.Auth;
 
 namespace nem.Mimir.Api.Authentication;
@@ -13,6 +14,7 @@ public static class AuthSetup
     public static IServiceCollection AddMimirAuthentication(
         this IServiceCollection services,
         IConfiguration configuration,
+        IHostEnvironment environment,
         bool standaloneMode)
     {
         if (standaloneMode)
@@ -23,7 +25,7 @@ public static class AuthSetup
         }
         else
         {
-            services.AddNemKeycloakAuth(configuration);
+            services.AddNemKeycloakAuth(configuration, environment);
         }
 
         return services;

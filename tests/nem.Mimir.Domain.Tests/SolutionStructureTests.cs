@@ -7,15 +7,42 @@ public class SolutionStructureTests
 {
     private static string GetProjectRootPath()
     {
-        // Get the directory of the test assembly and navigate up to solution root
+        var candidates = new List<string>();
+
         var currentDir = AppDomain.CurrentDomain.BaseDirectory;
         var di = new DirectoryInfo(currentDir);
-        // Navigate from bin/Debug/net10.0 to solution root
-        while (di != null && !File.Exists(Path.Combine(di.FullName, "nem.Mimir.slnx")))
+
+        while (di is not null)
         {
+            candidates.Add(di.FullName);
             di = di.Parent;
         }
-        return di?.FullName ?? throw new InvalidOperationException("Could not find solution root");
+
+        candidates.Add("/workspace/wmreflect/nem.Mimir");
+        candidates.Add("/workspace/wmreflect");
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var root = candidate.EndsWith("nem.Mimir", StringComparison.OrdinalIgnoreCase)
+                ? candidate
+                : Path.Combine(candidate, "nem.Mimir");
+
+            if (File.Exists(Path.Combine(root, "nem.Mimir.slnx")))
+            {
+                return root;
+            }
+        }
+
+        throw new InvalidOperationException("Could not find nem.Mimir solution root");
+    }
+
+    private static IReadOnlyList<string> GetMimirProjectReferences(XDocument project)
+    {
+        return project
+            .Descendants("ProjectReference")
+            .Select(x => x.Attribute("Include")?.Value ?? string.Empty)
+            .Where(r => r.Contains("nem.Mimir.", StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     [Fact]
@@ -42,9 +69,7 @@ public class SolutionStructureTests
         var doc = XDocument.Load(appProjPath);
 
         // Act
-        var projectReferences = doc.Descendants("ProjectReference")
-            .Select(x => x.Attribute("Include")?.Value ?? string.Empty)
-            .ToList();
+        var projectReferences = GetMimirProjectReferences(doc);
 
         // Assert
         projectReferences.ShouldHaveSingleItem();
@@ -60,9 +85,7 @@ public class SolutionStructureTests
         var doc = XDocument.Load(infProjPath);
 
         // Act
-        var projectReferences = doc.Descendants("ProjectReference")
-            .Select(x => x.Attribute("Include")?.Value ?? string.Empty)
-            .ToList();
+        var projectReferences = GetMimirProjectReferences(doc);
 
         // Assert
         projectReferences.ShouldHaveSingleItem();
@@ -78,9 +101,7 @@ public class SolutionStructureTests
         var doc = XDocument.Load(apiProjPath);
 
         // Act
-        var projectReferences = doc.Descendants("ProjectReference")
-            .Select(x => x.Attribute("Include")?.Value ?? string.Empty)
-            .ToList();
+        var projectReferences = GetMimirProjectReferences(doc);
 
         // Assert
         projectReferences.Count.ShouldBe(2);

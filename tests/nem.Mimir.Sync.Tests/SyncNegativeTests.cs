@@ -175,7 +175,7 @@ public sealed class SyncNegativeTests
             Arg.Any<Guid>(),
             "Logout",
             "User",
-            null,
+            message.ResourceId.ToString(),
             null,
             Arg.Any<CancellationToken>());
     }

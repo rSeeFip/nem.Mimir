@@ -1,6 +1,7 @@
 using nem.Mimir.Application.Auditing.EventHandlers;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Events;
+using System.Text.Json;
 using NSubstitute;
 using Shouldly;
 
@@ -54,7 +55,7 @@ public sealed class UserCreatedEventHandlerTests
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
-            Arg.Is<string>(s => s.Contains("\"Username\":\"admin_user\"")),
+            Arg.Is<string>(s => JsonDocument.Parse(s).RootElement.GetProperty("username").GetString() == "admin_user"),
             Arg.Any<CancellationToken>());
     }
 

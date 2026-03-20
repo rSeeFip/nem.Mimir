@@ -177,19 +177,23 @@ public sealed class InfrastructureNegativeTests
     // ══════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void SystemPromptService_RenderTemplateWithNullTemplate_ThrowsArgumentException()
+    public void SystemPromptService_RenderTemplateWithNullTemplate_ReturnsEmpty()
     {
         var service = new SystemPromptService();
 
-        Should.Throw<ArgumentException>(() => service.RenderTemplate(null!, new Dictionary<string, string>()));
+        var result = service.RenderTemplate(null!, new Dictionary<string, string>());
+
+        result.ShouldBe(string.Empty);
     }
 
     [Fact]
-    public void SystemPromptService_RenderTemplateWithEmptyTemplate_ThrowsArgumentException()
+    public void SystemPromptService_RenderTemplateWithEmptyTemplate_ReturnsEmpty()
     {
         var service = new SystemPromptService();
 
-        Should.Throw<ArgumentException>(() => service.RenderTemplate("", new Dictionary<string, string>()));
+        var result = service.RenderTemplate("", new Dictionary<string, string>());
+
+        result.ShouldBe(string.Empty);
     }
 
     [Fact]

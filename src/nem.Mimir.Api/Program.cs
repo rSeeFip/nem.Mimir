@@ -56,7 +56,7 @@ try
     // ── Authentication ───────────────────────────────────────────────────────
     // StandaloneMode: auto-authenticates as dev admin (no Keycloak required)
     // Otherwise: Keycloak OIDC via shared nem.Contracts.AspNetCore
-    builder.Services.AddMimirAuthentication(builder.Configuration, mimirApiOptions.StandaloneMode);
+    builder.Services.AddMimirAuthentication(builder.Configuration, builder.Environment, mimirApiOptions.StandaloneMode);
 
     // ── Secrets Management (OpenBao via shared nem.Contracts.AspNetCore) ──────
     builder.Services.AddNemSecrets(builder.Configuration);
@@ -228,9 +228,13 @@ try
 
     app.Run();
 }
-catch (Exception ex) // Intentional catch-all: top-level application entry point; logs fatal startup/runtime errors
+catch (HostAbortedException)
+{
+}
+catch (Exception ex)
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
+    throw;
 }
 finally
 {

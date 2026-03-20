@@ -32,7 +32,38 @@ internal sealed class CommandHandler : ICommandHandler
     /// </summary>
     public static bool IsCommand(string? text)
     {
-        return text is not null && text.StartsWith('/');
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (!trimmed.StartsWith('/'))
+        {
+            return false;
+        }
+
+        var firstToken = trimmed.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries)[0];
+        if (firstToken.Length <= 1)
+        {
+            return false;
+        }
+
+        var commandName = firstToken.Split('@')[0];
+        if (commandName.Length <= 1)
+        {
+            return false;
+        }
+
+        foreach (var c in commandName[1..])
+        {
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -50,6 +81,11 @@ internal sealed class CommandHandler : ICommandHandler
     {
         var text = message.Text ?? string.Empty;
         var parts = text.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return;
+        }
+
         var command = parts[0].ToLowerInvariant().Split('@')[0]; // Handle @botname suffix
         var argument = parts.Length > 1 ? parts[1].Trim() : string.Empty;
         var chatId = message.Chat.Id;

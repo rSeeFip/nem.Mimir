@@ -158,3 +158,29 @@ jobs:
 
       - name: Check NuGet vulnerabilities
         run: dotnet list nem.Mimir.slnx package --vulnerable --include-transitive
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore nem.Mimir.slnx
+
+      - name: Check code formatting
+        run: dotnet format nem.Mimir.slnx --verify-no-changes

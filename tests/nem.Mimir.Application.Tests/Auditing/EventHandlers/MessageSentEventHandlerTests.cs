@@ -2,6 +2,7 @@ using nem.Mimir.Application.Auditing.EventHandlers;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Enums;
 using nem.Mimir.Domain.Events;
+using System.Text.Json;
 using NSubstitute;
 using Shouldly;
 
@@ -83,7 +84,7 @@ public sealed class MessageSentEventHandlerTests
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
-            Arg.Is<string>(s => s.Contains("\"Role\":\"User\"")),
+            Arg.Is<string>(s => JsonDocument.Parse(s).RootElement.GetProperty("role").GetString() == "User"),
             Arg.Any<CancellationToken>());
     }
 }
