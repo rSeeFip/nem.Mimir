@@ -7,15 +7,87 @@ public class SolutionStructureTests
 {
     private static string GetProjectRootPath()
     {
-        // Get the directory of the test assembly and navigate up to solution root
-        var currentDir = AppDomain.CurrentDomain.BaseDirectory;
-        var di = new DirectoryInfo(currentDir);
-        // Navigate from bin/Debug/net10.0 to solution root
-        while (di != null && !File.Exists(Path.Combine(di.FullName, "nem.Mimir.sln")))
+        foreach (var candidate in GetRootCandidates())
         {
-            di = di.Parent;
+            var resolved = ResolveRepositoryRoot(candidate);
+            if (resolved is not null)
+            {
+                return resolved;
+            }
         }
-        return di?.FullName ?? throw new InvalidOperationException("Could not find solution root");
+
+        throw new InvalidOperationException("Could not find solution root");
+    }
+
+    private static IEnumerable<string> GetRootCandidates()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in EnumeratePathAndParents(AppDomain.CurrentDomain.BaseDirectory))
+        {
+            if (seen.Add(path))
+            {
+                yield return path;
+            }
+        }
+
+        foreach (var path in EnumeratePathAndParents(Environment.CurrentDirectory))
+        {
+            if (seen.Add(path))
+            {
+                yield return path;
+            }
+        }
+
+        foreach (var path in new[]
+                 {
+                     "/workspace/wmreflect/nem.Mimir-typed-ids",
+                     "/workspace/wmreflect",
+                     "/workspace",
+                 })
+        {
+            if (seen.Add(path))
+            {
+                yield return path;
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumeratePathAndParents(string? start)
+    {
+        if (string.IsNullOrWhiteSpace(start))
+        {
+            yield break;
+        }
+
+        var current = new DirectoryInfo(start);
+        while (current is not null)
+        {
+            yield return current.FullName;
+            current = current.Parent;
+        }
+    }
+
+    private static string? ResolveRepositoryRoot(string candidate)
+    {
+        if (!Directory.Exists(candidate))
+        {
+            return null;
+        }
+
+        if (IsRepositoryRoot(candidate))
+        {
+            return candidate;
+        }
+
+        var nested = Path.Combine(candidate, "nem.Mimir-typed-ids");
+        return IsRepositoryRoot(nested) ? nested : null;
+    }
+
+    private static bool IsRepositoryRoot(string path)
+    {
+        return File.Exists(Path.Combine(path, "nem.Mimir.slnx"))
+               || File.Exists(Path.Combine(path, "nem.Mimir.sln"));
     }
 
     [Fact]
@@ -27,10 +99,13 @@ public class SolutionStructureTests
         var doc = XDocument.Load(domainProjPath);
 
         // Act
-        var projectReferences = doc.Descendants("ProjectReference").Count();
+        var projectReferences = doc.Descendants("ProjectReference")
+            .Select(x => x.Attribute("Include")?.Value ?? string.Empty)
+            .ToList();
 
         // Assert
-        projectReferences.ShouldBe(0);
+        projectReferences.Count.ShouldBe(1);
+        projectReferences[0].ToLower().ShouldContain("nem.contracts");
     }
 
     [Fact]
@@ -47,8 +122,9 @@ public class SolutionStructureTests
             .ToList();
 
         // Assert
-        projectReferences.ShouldHaveSingleItem();
-        projectReferences[0].ToLower().ShouldContain("mimir.domain");
+        projectReferences.Count.ShouldBe(2);
+        projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.domain"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("nem.contracts"));
     }
 
     [Fact]
@@ -65,8 +141,14 @@ public class SolutionStructureTests
             .ToList();
 
         // Assert
-        projectReferences.ShouldHaveSingleItem();
-        projectReferences[0].ToLower().ShouldContain("mimir.application");
+        projectReferences.Count.ShouldBe(7);
+        projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.application"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("nem.contracts"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("nem.contracts.aspnetcore"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.abstractions"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.distillation"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.graphrag"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.graph"));
     }
 
     [Fact]

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using nem.Mimir.E2E.Tests.Helpers;
 using nem.Mimir.Infrastructure.Persistence;
@@ -79,7 +80,7 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(Environments.Development);
 
         builder.ConfigureAppConfiguration((_, config) =>
         {

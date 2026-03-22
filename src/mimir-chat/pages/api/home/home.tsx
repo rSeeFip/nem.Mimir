@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 
 import { GetServerSideProps } from 'next';
@@ -82,9 +82,9 @@ const Home = ({
 
   const stopConversationRef = useRef<boolean>(false);
 
-  const { data, error, refetch } = useQuery(
-    ['GetModels', serverSideApiKeyIsSet],
-    ({ signal }) => {
+  const { data, error } = useQuery({
+    queryKey: ['GetModels', serverSideApiKeyIsSet],
+    queryFn: ({ signal }) => {
       return getModels(
         {
           key: '',
@@ -92,8 +92,10 @@ const Home = ({
         signal,
       );
     },
-    { enabled: true, refetchOnMount: false },
-  );
+    enabled: serverSideApiKeyIsSet && typeof window !== 'undefined',
+    refetchOnMount: false,
+    retry: false,
+  });
 
   useEffect(() => {
     if (data) dispatch({ field: 'models', value: data });

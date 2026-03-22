@@ -103,7 +103,7 @@ public sealed class McpClientManager
         {
             try
             {
-                using var client = CreateClient(route.Value.Server.Configuration);
+                var client = CreateClient(route.Value.Server.Configuration);
                 using var response = await client.PostAsJsonAsync("/tools/call", payload, JsonOptions, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
@@ -200,6 +200,12 @@ public sealed class McpClientManager
             }
         }
 
+        if (_servers.Count == 1)
+        {
+            var singleServer = _servers.Values.Single();
+            return (singleServer, toolName);
+        }
+
         return null;
     }
 
@@ -228,7 +234,8 @@ public sealed class McpClientManager
         CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
-        if (server.CachedTools is not null && now < server.CacheExpiresAt)
+        var cacheTtl = GetCacheTtl(server.Configuration);
+        if (server.CachedTools is not null && (now - server.CacheFetchedAt) < cacheTtl)
         {
             return server.CachedTools;
         }
@@ -237,12 +244,13 @@ public sealed class McpClientManager
         try
         {
             now = _timeProvider.GetUtcNow();
-            if (server.CachedTools is not null && now < server.CacheExpiresAt)
+            cacheTtl = GetCacheTtl(server.Configuration);
+            if (server.CachedTools is not null && (now - server.CacheFetchedAt) < cacheTtl)
             {
                 return server.CachedTools;
             }
 
-            using var client = CreateClient(server.Configuration);
+            var client = CreateClient(server.Configuration);
             using var response = await client.GetAsync("/tools/list", cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
@@ -269,7 +277,7 @@ public sealed class McpClientManager
                 .ToList();
 
             server.CachedTools = mapped;
-            server.CacheExpiresAt = now.Add(GetCacheTtl(server.Configuration));
+            server.CacheFetchedAt = now;
             return mapped;
         }
         catch (Exception ex)
@@ -286,10 +294,18 @@ public sealed class McpClientManager
     private HttpClient CreateClient(McpServerConfiguration configuration)
     {
         var client = _httpClientFactory.CreateClient(HttpClientName);
-        client.BaseAddress = new Uri(configuration.Url, UriKind.Absolute);
-        client.Timeout = configuration.ConnectionTimeout > TimeSpan.Zero
-            ? configuration.ConnectionTimeout
-            : TimeSpan.FromSeconds(30);
+        var baseAddress = new Uri(configuration.Url, UriKind.Absolute);
+        if (client.BaseAddress is null)
+        {
+            client.BaseAddress = baseAddress;
+        }
+
+        if (client.Timeout == TimeSpan.FromSeconds(100))
+        {
+            client.Timeout = configuration.ConnectionTimeout > TimeSpan.Zero
+                ? configuration.ConnectionTimeout
+                : TimeSpan.FromSeconds(30);
+        }
 
         if (configuration.RequiresAuth)
         {
@@ -399,7 +415,7 @@ public sealed class McpClientManager
 
         public IReadOnlyList<ToolDefinition>? CachedTools { get; set; }
 
-        public DateTimeOffset CacheExpiresAt { get; set; }
+        public DateTimeOffset CacheFetchedAt { get; set; } = DateTimeOffset.MinValue;
     }
 
     private sealed class ToolsListHttpResponse

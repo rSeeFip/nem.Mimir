@@ -8,7 +8,7 @@ public sealed class McpServerConfiguration
 
     public string TransportType { get; set; } = "sse";
 
-    public bool RequiresAuth { get; set; } = true;
+    public bool RequiresAuth { get; set; }
 
     public TimeSpan ConnectionTimeout { get; set; } = TimeSpan.FromSeconds(30);
 

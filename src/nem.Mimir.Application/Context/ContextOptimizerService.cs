@@ -55,8 +55,15 @@ public sealed class ContextOptimizerService : IContextOptimizer
             MarkProtectedBlocks(blocks);
             ScoreBlocks(blocks);
 
-            var kept = BuildDistilledSet(blocks, targetTokens);
+            var charsPerToken = _options.CharsPerToken <= 0 ? 4.0d : _options.CharsPerToken;
+            var kept = BuildDistilledSet(blocks, targetTokens, charsPerToken);
             var distilled = RebuildContent(kept.OrderBy(x => x.Index));
+            if (EstimateTokens(distilled) > targetTokens)
+            {
+                distilled = EnforceTokenBudget(kept, targetTokens, charsPerToken);
+            }
+
+            distilled = FitToTokenBudget(distilled, targetTokens, charsPerToken);
 
             if (string.IsNullOrWhiteSpace(distilled))
             {
@@ -154,11 +161,6 @@ public sealed class ContextOptimizerService : IContextOptimizer
 
             foreach (var block in blocks)
             {
-                if (block.IsProtected)
-                {
-                    continue;
-                }
-
                 block.Text = CompactWhitespace(block.Text);
             }
 
@@ -374,7 +376,7 @@ public sealed class ContextOptimizerService : IContextOptimizer
         }
     }
 
-    private static List<ContentBlock> BuildDistilledSet(IReadOnlyList<ContentBlock> blocks, int targetTokens)
+    private static List<ContentBlock> BuildDistilledSet(IReadOnlyList<ContentBlock> blocks, int targetTokens, double charsPerToken)
     {
         var kept = blocks.Where(x => x.IsProtected).ToList();
         var keptTokenCount = EstimateTokens(kept);
@@ -388,7 +390,7 @@ public sealed class ContextOptimizerService : IContextOptimizer
                      .OrderByDescending(x => x.Priority)
                      .ThenByDescending(x => x.Index))
         {
-            var next = keptTokenCount + Math.Max(1, (int)Math.Ceiling(candidate.Text.Length / 4d));
+            var next = keptTokenCount + Math.Max(1, (int)Math.Ceiling(candidate.Text.Length / charsPerToken));
             if (next > targetTokens)
             {
                 continue;
@@ -405,8 +407,8 @@ public sealed class ContextOptimizerService : IContextOptimizer
 
         return kept;
 
-        static int EstimateTokens(IReadOnlyCollection<ContentBlock> collection)
-            => Math.Max(0, collection.Sum(x => Math.Max(1, (int)Math.Ceiling(x.Text.Length / 4d))));
+        int EstimateTokens(IReadOnlyCollection<ContentBlock> collection)
+            => Math.Max(0, collection.Sum(x => Math.Max(1, (int)Math.Ceiling(x.Text.Length / charsPerToken))));
     }
 
     private static Dictionary<string, int> BuildTermWeights(string corpus)
@@ -488,6 +490,75 @@ public sealed class ContextOptimizerService : IContextOptimizer
     private static string RebuildContent(IEnumerable<ContentBlock> blocks)
     {
         return string.Join("\n\n", blocks.Select(x => x.Text.Trim())).Trim();
+    }
+
+    private static string EnforceTokenBudget(IReadOnlyCollection<ContentBlock> blocks, int targetTokens, double charsPerToken)
+    {
+        if (targetTokens <= 0 || blocks.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var maxChars = Math.Max(8, (int)Math.Floor(targetTokens * charsPerToken));
+        if (targetTokens > 0)
+        {
+            maxChars = Math.Max(8, maxChars - 1);
+        }
+        var ordered = blocks
+            .OrderByDescending(x => x.Index)
+            .Select(x => x.Text.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        var selected = new List<string>();
+        var usedChars = 0;
+
+        foreach (var text in ordered)
+        {
+            if (usedChars >= maxChars)
+            {
+                break;
+            }
+
+            var remaining = maxChars - usedChars;
+            if (text.Length <= remaining)
+            {
+                selected.Add(text);
+                usedChars += text.Length + 2;
+                continue;
+            }
+
+            if (remaining >= 8)
+            {
+                selected.Add($"{text[..remaining].TrimEnd()}...");
+                usedChars = maxChars;
+            }
+
+            break;
+        }
+
+        selected.Reverse();
+        return string.Join("\n\n", selected).Trim();
+    }
+
+    private static string FitToTokenBudget(string content, int targetTokens, double charsPerToken)
+    {
+        if (string.IsNullOrWhiteSpace(content) || targetTokens <= 0)
+        {
+            return content;
+        }
+
+        var maxChars = Math.Max(1, (int)Math.Floor(targetTokens * charsPerToken));
+        var candidate = content.Length > maxChars
+            ? content[..maxChars].TrimEnd()
+            : content;
+
+        while (candidate.Length > 0 && Math.Ceiling(candidate.Length / charsPerToken) > targetTokens)
+        {
+            candidate = candidate[..^1];
+        }
+
+        return string.IsNullOrWhiteSpace(candidate) ? content : candidate;
     }
 
     private static bool LooksLikeSystemPrompt(string block)

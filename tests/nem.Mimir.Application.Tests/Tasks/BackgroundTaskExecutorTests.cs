@@ -61,6 +61,7 @@ public sealed class BackgroundTaskExecutorTests
         result.Status.ShouldBe("Completed");
         result.Output.ShouldBe("done");
         active.Count.ShouldBe(0);
+        await WaitForConditionAsync(() => progressEvents.Count >= 2);
         progressEvents.Count.ShouldBeGreaterThanOrEqualTo(2);
         progressEvents.ShouldContain(x => x.StatusMessage == "Running");
         progressEvents.ShouldContain(x => x.StatusMessage == "Completed");
@@ -130,5 +131,18 @@ public sealed class BackgroundTaskExecutorTests
         });
 
         return new BackgroundTaskExecutor(cache, _runtime, channel, options, _logger);
+    }
+
+    private static async Task WaitForConditionAsync(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
     }
 }

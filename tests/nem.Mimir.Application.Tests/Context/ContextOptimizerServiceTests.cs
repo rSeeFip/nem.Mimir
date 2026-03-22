@@ -44,7 +44,7 @@ public sealed class ContextOptimizerServiceTests
         var pruned = await sut.PruneAsync(content, PruneStrategy.RemoveOldest, CancellationToken.None);
 
         pruned.ShouldContain("message-18");
-        pruned.ShouldNotContain("message-1");
+        pruned.ShouldNotContain("user: message-1 with deployment context");
         sut.EstimateTokens(pruned).ShouldBeLessThan(sut.EstimateTokens(content));
     }
 

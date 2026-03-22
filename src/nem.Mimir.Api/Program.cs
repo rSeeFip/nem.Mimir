@@ -21,6 +21,9 @@ using nem.Mimir.Api.Swagger;
 using nem.Mimir.Application.ChannelEvents;
 using nem.Contracts.AspNetCore.Auth;
 using nem.Contracts.AspNetCore.Classification;
+using nem.Contracts.AspNetCore.DataRetention;
+using nem.Contracts.AspNetCore.Cors;
+using nem.Contracts.AspNetCore.Api;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -32,6 +35,8 @@ try
     Log.Information("Starting Mimir API");
 
     var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddNemDevModeGuardrails(builder.Environment);
+    builder.Services.AddNemDataRetention(builder.Configuration);
 
     // ── Kestrel Request Body Size Limits ────────────────────────────────────
     builder.WebHost.ConfigureKestrel(options =>
@@ -58,6 +63,9 @@ try
     var liteLlmSettings = builder.Configuration.GetSection(LiteLlmSettings.SectionName).Get<LiteLlmSettings>()
         ?? new LiteLlmSettings();
 
+    var effectiveRequireHttpsMetadata = jwtSettings.RequireHttpsMetadata || !builder.Environment.IsDevelopment();
+    var attemptedDisableHttpsMetadataInNonDevelopment = !jwtSettings.RequireHttpsMetadata && !builder.Environment.IsDevelopment();
+
     // ── Authentication (JWT Bearer via Keycloak) ─────────────────────────────
     builder.Services.AddAuthentication(options =>
         {
@@ -68,7 +76,7 @@ try
         {
             options.Authority = jwtSettings.Authority;
             options.Audience = jwtSettings.Audience;
-            options.RequireHttpsMetadata = jwtSettings.RequireHttpsMetadata;
+            options.RequireHttpsMetadata = effectiveRequireHttpsMetadata;
 
             options.TokenValidationParameters = new TokenValidationParameters
             {
@@ -103,6 +111,13 @@ try
             };
         });
 
+    if (attemptedDisableHttpsMetadataInNonDevelopment)
+    {
+        Log.Warning(
+            "Jwt:RequireHttpsMetadata=false was requested via configuration but ignored in {EnvironmentName}. HTTPS metadata is forced outside Development.",
+            builder.Environment.EnvironmentName);
+    }
+
     // ── Authorization ────────────────────────────────────────────────────────
     builder.Services.AddAuthorization(options =>
     {
@@ -111,20 +126,7 @@ try
     });
     builder.Services.AddServiceAuthorization();
 
-    // ── CORS ─────────────────────────────────────────────────────────────────
-    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-        ?? ["http://localhost:3000"];
-
-    builder.Services.AddCors(options =>
-    {
-        options.AddPolicy("AllowFrontend", policy =>
-        {
-            policy.WithOrigins(corsOrigins)
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        });
-    });
+    builder.Services.AddNemCors(builder.Configuration, NemCorsProfile.NemTrusted);
 
     // ── Health Checks ────────────────────────────────────────────────────────
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -161,6 +163,7 @@ try
 
 
     // ── Swagger ──────────────────────────────────────────────────────────────
+    builder.Services.AddNemApiDocs(builder.Configuration);
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
     {
@@ -243,13 +246,9 @@ try
     app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
     app.UseMiddleware<OutputSanitizationMiddleware>();
 
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
+    app.MapNemApiDocs();
 
-    app.UseCors("AllowFrontend");
+    app.UseCors(NemCorsExtensions.PolicyName);
 
     // ── Security Headers (HSTS, CSP) ───────────────────────────────────────────
     if (!app.Environment.IsDevelopment())

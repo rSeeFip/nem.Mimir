@@ -4,8 +4,7 @@ import { OpenAIModel } from '@/types/openai';
 import { AZURE_DEPLOYMENT_ID, OPENAI_API_HOST, OPENAI_API_TYPE, OPENAI_API_VERSION, OPENAI_ORGANIZATION } from '../app/const';
 
 import {
-  ParsedEvent,
-  ReconnectInterval,
+  EventSourceMessage,
   createParser,
 } from 'eventsource-parser';
 
@@ -93,8 +92,8 @@ export const OpenAIStream = async (
 
   const stream = new ReadableStream({
     async start(controller) {
-      const onParse = (event: ParsedEvent | ReconnectInterval) => {
-        if (event.type === 'event') {
+      const parser = createParser({
+        onEvent: (event: EventSourceMessage) => {
           const data = event.data;
 
           try {
@@ -109,10 +108,8 @@ export const OpenAIStream = async (
           } catch (e) {
             controller.error(e);
           }
-        }
-      };
-
-      const parser = createParser(onParse);
+        },
+      });
 
       for await (const chunk of res.body as any) {
         parser.feed(decoder.decode(chunk));

@@ -20,5 +20,5 @@ public sealed class JwtSettings
     /// <summary>
     /// Gets a value indicating whether HTTPS is required for metadata retrieval.
     /// </summary>
-    public bool RequireHttpsMetadata { get; init; }
+    public bool RequireHttpsMetadata { get; init; } = true;
 }

@@ -21,7 +21,7 @@ public sealed class MimirWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(Environments.Development);
 
         builder.ConfigureTestServices(services =>
         {
