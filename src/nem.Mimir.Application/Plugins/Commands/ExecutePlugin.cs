@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Plugins;
 
@@ -31,7 +30,7 @@ public sealed class ExecutePluginCommandValidator : AbstractValidator<ExecutePlu
     }
 }
 
-internal sealed class ExecutePluginCommandHandler : IRequestHandler<ExecutePluginCommand, PluginResult>
+internal sealed class ExecutePluginCommandHandler
 {
     private readonly IPluginService _pluginService;
 

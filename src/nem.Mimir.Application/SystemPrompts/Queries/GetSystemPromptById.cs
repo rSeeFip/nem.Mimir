@@ -1,5 +1,4 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Exceptions;
+﻿using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
@@ -14,7 +13,7 @@ namespace nem.Mimir.Application.SystemPrompts.Queries;
 /// <param name="Id">The unique identifier of the system prompt to retrieve.</param>
 public sealed record GetSystemPromptByIdQuery(SystemPromptId Id) : IQuery<SystemPromptDto>;
 
-internal sealed class GetSystemPromptByIdQueryHandler : IRequestHandler<GetSystemPromptByIdQuery, SystemPromptDto>
+internal sealed class GetSystemPromptByIdQueryHandler
 {
     private readonly ISystemPromptRepository _repository;
     private readonly MimirMapper _mapper;

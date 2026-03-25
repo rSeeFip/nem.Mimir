@@ -1,5 +1,4 @@
-﻿using MediatR;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 
 namespace nem.Mimir.Application.ChannelEvents;
 
@@ -9,7 +8,7 @@ namespace nem.Mimir.Application.ChannelEvents;
 /// </summary>
 internal sealed class SendChannelMessageHandler(
     ChannelEventRouter router,
-    ILogger<SendChannelMessageHandler> logger) : IRequestHandler<SendChannelMessageCommand, SendChannelMessageResult>
+    ILogger<SendChannelMessageHandler> logger)
 {
     public async Task<SendChannelMessageResult> Handle(SendChannelMessageCommand request, CancellationToken cancellationToken)
     {

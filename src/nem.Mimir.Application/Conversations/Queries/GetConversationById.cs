@@ -1,5 +1,4 @@
 ﻿using nem.Mimir.Application.Common.Mappings;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -13,7 +12,7 @@ namespace nem.Mimir.Application.Conversations.Queries;
 /// <param name="ConversationId">The unique identifier of the conversation to retrieve.</param>
 public sealed record GetConversationByIdQuery(Guid ConversationId) : IQuery<ConversationDto>;
 
-internal sealed class GetConversationByIdQueryHandler : IRequestHandler<GetConversationByIdQuery, ConversationDto>
+internal sealed class GetConversationByIdQueryHandler
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;

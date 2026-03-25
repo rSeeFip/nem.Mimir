@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Common.Models;
@@ -16,15 +16,15 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class ConversationsController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ConversationsController"/> class.
     /// </summary>
-    /// <param name="sender">MediatR sender for dispatching commands and queries.</param>
-    public ConversationsController(ISender sender)
+    /// <param name="bus">Wolverine message bus for dispatching commands and queries.</param>
+    public ConversationsController(IMessageBus bus)
     {
-        _sender = sender;
+        _bus = bus;
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create([FromBody] CreateConversationRequest request, CancellationToken ct)
     {
-        var result = await _sender.Send(
+        var result = await _bus.InvokeAsync<ConversationDto>(
             new CreateConversationCommand(request.Title, request.SystemPrompt, request.Model), ct);
 
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
@@ -65,7 +65,7 @@ public sealed class ConversationsController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _sender.Send(new GetConversationsByUserQuery(pageNumber, pageSize), ct);
+        var result = await _bus.InvokeAsync<PaginatedList<ConversationListDto>>(new GetConversationsByUserQuery(pageNumber, pageSize), ct);
         return Ok(result);
     }
 
@@ -84,7 +84,7 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var result = await _sender.Send(new GetConversationByIdQuery(id), ct);
+        var result = await _bus.InvokeAsync<ConversationDto>(new GetConversationByIdQuery(id), ct);
         return Ok(result);
     }
 
@@ -105,7 +105,7 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateTitle(Guid id, [FromBody] UpdateConversationTitleRequest request, CancellationToken ct)
     {
-        await _sender.Send(new UpdateConversationTitleCommand(id, request.Title), ct);
+        await _bus.InvokeAsync(new UpdateConversationTitleCommand(id, request.Title), ct);
         return NoContent();
     }
 
@@ -120,7 +120,7 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
     {
-        await _sender.Send(new ArchiveConversationCommand(id), ct);
+        await _bus.InvokeAsync(new ArchiveConversationCommand(id), ct);
         return NoContent();
     }
 
@@ -135,7 +135,7 @@ public sealed class ConversationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await _sender.Send(new DeleteConversationCommand(id), ct);
+        await _bus.InvokeAsync(new DeleteConversationCommand(id), ct);
         return NoContent();
     }
 }

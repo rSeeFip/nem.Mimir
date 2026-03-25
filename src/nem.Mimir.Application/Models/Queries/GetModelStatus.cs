@@ -1,5 +1,4 @@
-﻿using MediatR;
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -12,7 +11,7 @@ namespace nem.Mimir.Application.Models.Queries;
 /// <param name="ModelId">The identifier of the model to retrieve status for.</param>
 public sealed record GetModelStatusQuery(string ModelId) : IQuery<LlmModelInfoDto?>;
 
-internal sealed class GetModelStatusQueryHandler : IRequestHandler<GetModelStatusQuery, LlmModelInfoDto?>
+internal sealed class GetModelStatusQueryHandler
 {
     private const string ModelsListCacheKey = "available-models";
     private const int CacheExpirationSeconds = 60;

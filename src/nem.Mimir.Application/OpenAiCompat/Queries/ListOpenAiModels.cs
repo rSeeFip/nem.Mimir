@@ -1,5 +1,4 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Interfaces;
+﻿using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.OpenAiCompat.Models;
 
 namespace nem.Mimir.Application.OpenAiCompat.Queries;
@@ -13,7 +12,7 @@ public sealed record ListOpenAiModelsQuery : IQuery<List<OpenAiModelDto>>;
 /// Handles <see cref="ListOpenAiModelsQuery"/> by fetching available models
 /// from the LLM service and mapping them to OpenAI-compatible DTOs.
 /// </summary>
-internal sealed class ListOpenAiModelsQueryHandler : IRequestHandler<ListOpenAiModelsQuery, List<OpenAiModelDto>>
+internal sealed class ListOpenAiModelsQueryHandler
 {
     private readonly ILlmService _llmService;
 

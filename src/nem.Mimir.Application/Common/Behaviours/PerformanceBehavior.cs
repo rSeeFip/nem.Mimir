@@ -1,52 +1,44 @@
 ﻿using System.Diagnostics;
-using MediatR;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace nem.Mimir.Application.Common.Behaviours;
 
 /// <summary>
-/// MediatR pipeline behavior that warns when request handling exceeds a performance threshold.
+/// Wolverine middleware that warns when request handling exceeds a performance threshold.
 /// Logs a warning for requests that take longer than 500 milliseconds.
+/// Applied globally via <c>opts.Policies.AddMiddleware&lt;PerformanceMiddleware&gt;()</c>.
 /// </summary>
-/// <typeparam name="TRequest">The type of the request.</typeparam>
-/// <typeparam name="TResponse">The type of the response.</typeparam>
-public sealed class PerformanceBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : notnull
+/// <remarks>
+/// Uses the static middleware pattern: <see cref="Before"/> returns a <see cref="Stopwatch"/>
+/// that Wolverine passes into <see cref="Finally"/> automatically.
+/// </remarks>
+public static class PerformanceMiddleware
 {
     private const int WarningThresholdMilliseconds = 500;
 
-    private readonly ILogger<PerformanceBehavior<TRequest, TResponse>> _logger;
-    private readonly Stopwatch _timer;
-
-    public PerformanceBehavior(ILogger<PerformanceBehavior<TRequest, TResponse>> logger)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Stopwatch Before()
     {
-        _logger = logger;
-        _timer = new Stopwatch();
+        var stopwatch = new Stopwatch();
+        stopwatch.Start();
+        return stopwatch;
     }
 
-    public async Task<TResponse> Handle(
-        TRequest request,
-        RequestHandlerDelegate<TResponse> next,
-        CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Finally(Stopwatch stopwatch, ILogger logger, Envelope envelope)
     {
-        _timer.Start();
+        stopwatch.Stop();
 
-        var response = await next();
-
-        _timer.Stop();
-
-        var elapsedMilliseconds = _timer.ElapsedMilliseconds;
+        var elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
 
         if (elapsedMilliseconds > WarningThresholdMilliseconds)
         {
-            var requestName = typeof(TRequest).Name;
-
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Long running request: {RequestName} ({ElapsedMilliseconds}ms)",
-                requestName,
+                envelope.MessageType,
                 elapsedMilliseconds);
         }
-
-        return response;
     }
 }

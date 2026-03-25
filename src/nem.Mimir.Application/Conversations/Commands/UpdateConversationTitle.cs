@@ -1,6 +1,5 @@
 ﻿using nem.Mimir.Application.Common.Mappings;
 using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -33,7 +32,7 @@ public sealed class UpdateConversationTitleCommandValidator : AbstractValidator<
     }
 }
 
-internal sealed class UpdateConversationTitleCommandHandler : IRequestHandler<UpdateConversationTitleCommand, ConversationDto>
+internal sealed class UpdateConversationTitleCommandHandler
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;

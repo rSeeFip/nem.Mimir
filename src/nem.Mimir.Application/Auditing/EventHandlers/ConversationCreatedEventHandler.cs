@@ -1,11 +1,10 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Interfaces;
+﻿using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Events;
 using nem.Mimir.Domain.ValueObjects;
 
 namespace nem.Mimir.Application.Auditing.EventHandlers;
 
-internal sealed class ConversationCreatedEventHandler : INotificationHandler<ConversationCreatedEvent>
+internal sealed class ConversationCreatedEventHandler
 {
     private readonly IAuditService _auditService;
 

@@ -1,7 +1,5 @@
-﻿using MediatR;
+﻿namespace nem.Mimir.Domain.Common;
 
-namespace nem.Mimir.Domain.Common;
-
-public interface IDomainEvent : INotification
+public interface IDomainEvent
 {
 }

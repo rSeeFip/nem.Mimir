@@ -1,8 +1,6 @@
 ﻿using System.Reflection;
 using FluentValidation;
-using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using nem.Mimir.Application.Common.Behaviours;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Agents;
 using nem.Mimir.Application.Tasks;
@@ -16,7 +14,7 @@ namespace nem.Mimir.Application;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Adds Application layer services including MediatR, FluentValidation, and Mapperly.
+    /// Adds Application layer services including FluentValidation and Mapperly.
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -27,16 +25,6 @@ public static class DependencyInjection
         services.AddSingleton<MimirMapper>();
 
         services.AddValidatorsFromAssembly(assembly);
-
-        services.AddMediatR(cfg =>
-        {
-            cfg.RegisterServicesFromAssembly(assembly);
-
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(UnhandledExceptionBehavior<,>));
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
-            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-        });
 
         services.AddAgentOrchestration();
         services.AddBackgroundTaskExecution();

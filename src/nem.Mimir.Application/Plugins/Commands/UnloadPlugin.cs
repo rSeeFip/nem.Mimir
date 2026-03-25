@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 
 namespace nem.Mimir.Application.Plugins.Commands;
@@ -22,7 +21,7 @@ public sealed class UnloadPluginCommandValidator : AbstractValidator<UnloadPlugi
     }
 }
 
-internal sealed class UnloadPluginCommandHandler : IRequestHandler<UnloadPluginCommand>
+internal sealed class UnloadPluginCommandHandler
 {
     private readonly IPluginService _pluginService;
 

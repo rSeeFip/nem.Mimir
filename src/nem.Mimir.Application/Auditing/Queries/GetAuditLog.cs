@@ -1,6 +1,5 @@
 ﻿using nem.Mimir.Application.Common.Mappings;
 using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -40,7 +39,7 @@ public sealed class GetAuditLogQueryValidator : AbstractValidator<GetAuditLogQue
     }
 }
 
-internal sealed class GetAuditLogQueryHandler : IRequestHandler<GetAuditLogQuery, PaginatedList<AuditEntryDto>>
+internal sealed class GetAuditLogQueryHandler
 {
     private readonly IAuditRepository _auditRepository;
     private readonly ICurrentUserService _currentUserService;

@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
@@ -33,7 +32,7 @@ public sealed class UpdateUserRoleCommandValidator : AbstractValidator<UpdateUse
     }
 }
 
-internal sealed class UpdateUserRoleCommandHandler : IRequestHandler<UpdateUserRoleCommand, UserDto>
+internal sealed class UpdateUserRoleCommandHandler
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;

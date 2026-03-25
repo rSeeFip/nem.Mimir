@@ -1,5 +1,4 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Exceptions;
+﻿using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Domain.ValueObjects;
@@ -15,7 +14,7 @@ public sealed record RenderSystemPromptQuery(
     SystemPromptId Id,
     IDictionary<string, string> Variables) : IQuery<string>;
 
-internal sealed class RenderSystemPromptQueryHandler : IRequestHandler<RenderSystemPromptQuery, string>
+internal sealed class RenderSystemPromptQueryHandler
 {
     private readonly ISystemPromptRepository _repository;
     private readonly ISystemPromptService _systemPromptService;

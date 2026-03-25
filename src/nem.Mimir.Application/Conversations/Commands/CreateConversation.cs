@@ -1,6 +1,5 @@
 ﻿using nem.Mimir.Application.Common.Mappings;
 using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -37,7 +36,7 @@ internal sealed class CreateConversationCommandHandler(
     IConversationRepository repository,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork,
-    MimirMapper mapper) : IRequestHandler<CreateConversationCommand, ConversationDto>
+    MimirMapper mapper)
 {
 
     public async Task<ConversationDto> Handle(CreateConversationCommand request, CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Auditing.Queries;
@@ -21,15 +21,15 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class AdminController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AdminController"/> class.
     /// </summary>
-    /// <param name="sender">The MediatR sender for dispatching commands and queries.</param>
-    public AdminController(ISender sender)
+    /// <param name="bus">The Wolverine message bus for dispatching commands and queries.</param>
+    public AdminController(IMessageBus bus)
     {
-        _sender = sender;
+        _bus = bus;
     }
 
     /// <summary>
@@ -52,7 +52,7 @@ public sealed class AdminController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetAllUsersQuery(pageNumber, pageSize);
-        var result = await _sender.Send(query, cancellationToken);
+        var result = await _bus.InvokeAsync<PaginatedList<UserDto>>(query, cancellationToken);
         return Ok(result);
     }
 
@@ -74,7 +74,7 @@ public sealed class AdminController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetUserByIdQuery(id);
-        var result = await _sender.Send(query, cancellationToken);
+        var result = await _bus.InvokeAsync<UserDto>(query, cancellationToken);
         return Ok(result);
     }
 
@@ -103,7 +103,7 @@ public sealed class AdminController : ControllerBase
         }
 
         var command = new UpdateUserRoleCommand(id, role);
-        await _sender.Send(command, cancellationToken);
+        await _bus.InvokeAsync(command, cancellationToken);
         return NoContent();
     }
 
@@ -125,7 +125,7 @@ public sealed class AdminController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var command = new DeactivateUserCommand(id);
-        await _sender.Send(command, cancellationToken);
+        await _bus.InvokeAsync(command, cancellationToken);
         return NoContent();
     }
 
@@ -157,7 +157,7 @@ public sealed class AdminController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetAuditLogQuery(userId.HasValue ? UserId.From(userId.Value) : null, action, from, to, pageNumber, pageSize);
-        var result = await _sender.Send(query, cancellationToken);
+        var result = await _bus.InvokeAsync<PaginatedList<AuditEntryDto>>(query, cancellationToken);
         return Ok(result);
     }
 
@@ -185,7 +185,7 @@ public sealed class AdminController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var command = new RestoreEntityCommand(entityType, id);
-        await _sender.Send(command, cancellationToken);
+        await _bus.InvokeAsync(command, cancellationToken);
         return NoContent();
     }
 }

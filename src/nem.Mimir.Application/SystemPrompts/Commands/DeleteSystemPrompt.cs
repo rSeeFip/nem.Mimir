@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
@@ -25,7 +24,7 @@ public sealed class DeleteSystemPromptCommandValidator : AbstractValidator<Delet
     }
 }
 
-internal sealed class DeleteSystemPromptCommandHandler : IRequestHandler<DeleteSystemPromptCommand>
+internal sealed class DeleteSystemPromptCommandHandler
 {
     private readonly ISystemPromptRepository _repository;
     private readonly IUnitOfWork _unitOfWork;

@@ -1,39 +1,23 @@
-﻿using MediatR;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace nem.Mimir.Application.Common.Behaviours;
 
 /// <summary>
-/// MediatR pipeline behavior that catches and logs unhandled exceptions from downstream handlers.
+/// Wolverine middleware that catches and logs unhandled exceptions from downstream handlers.
+/// Applied globally via <c>opts.Policies.AddMiddleware&lt;UnhandledExceptionMiddleware&gt;()</c>.
 /// </summary>
-/// <typeparam name="TRequest">The type of the request.</typeparam>
-/// <typeparam name="TResponse">The type of the response.</typeparam>
-public sealed class UnhandledExceptionBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : notnull
+/// <remarks>
+/// Uses the <c>Finally</c> convention to execute in a finally block after handler completion.
+/// Only logs when an exception is present; does not suppress the exception.
+/// </remarks>
+public static class UnhandledExceptionMiddleware
 {
-    private readonly ILogger<UnhandledExceptionBehavior<TRequest, TResponse>> _logger;
-
-    public UnhandledExceptionBehavior(ILogger<UnhandledExceptionBehavior<TRequest, TResponse>> logger)
+    public static void Finally(Exception? ex, ILogger logger, Envelope envelope)
     {
-        _logger = logger;
-    }
-
-    public async Task<TResponse> Handle(
-        TRequest request,
-        RequestHandlerDelegate<TResponse> next,
-        CancellationToken cancellationToken)
-    {
-        try
+        if (ex is not null)
         {
-            return await next();
-        }
-        catch (Exception ex)
-        {
-            var requestName = typeof(TRequest).Name;
-
-            _logger.LogError(ex, "Unhandled exception for request {RequestName}", requestName);
-
-            throw;
+            logger.LogError(ex, "Unhandled exception for request {RequestName}", envelope.MessageType);
         }
     }
 }

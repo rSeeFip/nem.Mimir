@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
@@ -24,7 +23,7 @@ public sealed class DeleteConversationCommandValidator : AbstractValidator<Delet
     }
 }
 
-internal sealed class DeleteConversationCommandHandler : IRequestHandler<DeleteConversationCommand>
+internal sealed class DeleteConversationCommandHandler
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;

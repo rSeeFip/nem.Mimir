@@ -24,6 +24,7 @@ using nem.Contracts.AspNetCore.Classification;
 using nem.Contracts.AspNetCore.DataRetention;
 using nem.Contracts.AspNetCore.Cors;
 using nem.Contracts.AspNetCore.Api;
+using Wolverine.FluentValidation;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -50,6 +51,14 @@ try
     // ── Wolverine Messaging ────────────────────────────────────────────────
     builder.UseWolverine(opts =>
     {
+        opts.UseFluentValidation();
+
+        opts.Discovery.IncludeAssembly(typeof(nem.Mimir.Application.DependencyInjection).Assembly);
+
+        opts.Policies.AddMiddleware(typeof(nem.Mimir.Application.Common.Behaviours.LoggingMiddleware));
+        opts.Policies.AddMiddleware(typeof(nem.Mimir.Application.Common.Behaviours.PerformanceMiddleware));
+        opts.Policies.AddMiddleware(typeof(nem.Mimir.Application.Common.Behaviours.UnhandledExceptionMiddleware));
+
         opts.AddMimirMessaging(builder.Configuration);
     });
 

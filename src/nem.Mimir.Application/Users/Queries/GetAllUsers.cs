@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
@@ -31,7 +30,7 @@ public sealed class GetAllUsersQueryValidator : AbstractValidator<GetAllUsersQue
     }
 }
 
-internal sealed class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PaginatedList<UserDto>>
+internal sealed class GetAllUsersQueryHandler
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;

@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
@@ -38,7 +37,7 @@ public sealed class CreateSystemPromptCommandValidator : AbstractValidator<Creat
     }
 }
 
-internal sealed class CreateSystemPromptCommandHandler : IRequestHandler<CreateSystemPromptCommand, SystemPromptDto>
+internal sealed class CreateSystemPromptCommandHandler
 {
     private readonly ISystemPromptRepository _repository;
     private readonly IUnitOfWork _unitOfWork;

@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
@@ -24,7 +23,7 @@ public sealed class ArchiveConversationCommandValidator : AbstractValidator<Arch
     }
 }
 
-internal sealed class ArchiveConversationCommandHandler : IRequestHandler<ArchiveConversationCommand>
+internal sealed class ArchiveConversationCommandHandler
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;

@@ -1,5 +1,4 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Interfaces;
+﻿using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Plugins;
 
 namespace nem.Mimir.Application.Plugins.Queries;
@@ -9,7 +8,7 @@ namespace nem.Mimir.Application.Plugins.Queries;
 /// </summary>
 public sealed record ListPluginsQuery() : IQuery<IReadOnlyList<PluginMetadata>>;
 
-internal sealed class ListPluginsQueryHandler : IRequestHandler<ListPluginsQuery, IReadOnlyList<PluginMetadata>>
+internal sealed class ListPluginsQueryHandler
 {
     private readonly IPluginService _pluginService;
 

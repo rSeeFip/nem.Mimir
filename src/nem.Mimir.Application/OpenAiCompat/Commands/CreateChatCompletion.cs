@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Application.OpenAiCompat.Models;
@@ -20,7 +19,6 @@ public sealed record CreateChatCompletionCommand(
 /// and returning the completion result with timing metrics.
 /// </summary>
 internal sealed class CreateChatCompletionCommandHandler
-    : IRequestHandler<CreateChatCompletionCommand, ChatCompletionResultDto>
 {
     private readonly ILlmService _llmService;
 

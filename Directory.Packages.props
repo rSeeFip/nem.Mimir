@@ -1,8 +1,8 @@
 <Project>
   <ItemGroup>
     <!-- Application packages -->
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
-    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageVersion Include="FluentValidation" Version="12.0.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
     <PackageVersion Include="MediatR" Version="12.4.1" />
     <PackageVersion Include="MediatR.Contracts" Version="2.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.3" />
@@ -12,8 +12,9 @@
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
 
   <!-- Wolverine -->
- <PackageVersion Include="WolverineFx" Version="5.16.4" />
- <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.16.4" />
+  <PackageVersion Include="WolverineFx" Version="5.16.4" />
+  <PackageVersion Include="WolverineFx.FluentValidation" Version="5.16.4" />
+  <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.16.4" />
 
     <!-- OpenTelemetry packages -->
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />

@@ -1,5 +1,4 @@
-﻿using MediatR;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
 
@@ -8,7 +7,7 @@ namespace nem.Mimir.Application.ChannelEvents;
 internal sealed class IngestChannelEventHandler(
     IChannelEventRepository repository,
     IUnitOfWork unitOfWork,
-    ILogger<IngestChannelEventHandler> logger) : IRequestHandler<IngestChannelEventCommand, ChannelEventResult>
+    ILogger<IngestChannelEventHandler> logger)
 {
     public async Task<ChannelEventResult> Handle(IngestChannelEventCommand request, CancellationToken cancellationToken)
     {

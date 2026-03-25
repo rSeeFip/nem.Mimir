@@ -1,5 +1,4 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Exceptions;
+﻿using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
@@ -12,7 +11,7 @@ namespace nem.Mimir.Application.Users.Queries;
 /// </summary>
 public sealed record GetCurrentUserQuery : IQuery<UserDto>;
 
-internal sealed class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, UserDto>
+internal sealed class GetCurrentUserQueryHandler
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;

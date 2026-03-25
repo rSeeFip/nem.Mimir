@@ -1,12 +1,11 @@
 ﻿using System.Text.Json;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Events;
 using nem.Mimir.Domain.ValueObjects;
 
 namespace nem.Mimir.Application.Auditing.EventHandlers;
 
-internal sealed class MessageSentEventHandler : INotificationHandler<MessageSentEvent>
+internal sealed class MessageSentEventHandler
 {
     private readonly IAuditService _auditService;
     private readonly ICurrentUserService _currentUserService;

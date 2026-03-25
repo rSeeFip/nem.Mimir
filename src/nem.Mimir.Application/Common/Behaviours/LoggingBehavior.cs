@@ -1,37 +1,28 @@
-﻿using System.Diagnostics;
-using MediatR;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace nem.Mimir.Application.Common.Behaviours;
 
 /// <summary>
-/// MediatR pipeline behavior that logs request and response information using structured logging.
+/// Wolverine middleware that logs request and response information using structured logging.
+/// Applied globally via <c>opts.Policies.AddMiddleware&lt;LoggingMiddleware&gt;()</c>.
 /// </summary>
-/// <typeparam name="TRequest">The type of the request.</typeparam>
-/// <typeparam name="TResponse">The type of the response.</typeparam>
-public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : notnull
+public sealed class LoggingMiddleware
 {
-    private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;
+    private readonly ILogger<LoggingMiddleware> _logger;
 
-    public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger)
+    public LoggingMiddleware(ILogger<LoggingMiddleware> logger)
     {
         _logger = logger;
     }
 
-    public async Task<TResponse> Handle(
-        TRequest request,
-        RequestHandlerDelegate<TResponse> next,
-        CancellationToken cancellationToken)
+    public void Before(Envelope envelope)
     {
-        var requestName = typeof(TRequest).Name;
+        _logger.LogInformation("Handling {RequestName}", envelope.MessageType);
+    }
 
-        _logger.LogInformation("Handling {RequestName}", requestName);
-
-        var response = await next();
-
-        _logger.LogInformation("Handled {RequestName}", requestName);
-
-        return response;
+    public void After(Envelope envelope)
+    {
+        _logger.LogInformation("Handled {RequestName}", envelope.MessageType);
     }
 }

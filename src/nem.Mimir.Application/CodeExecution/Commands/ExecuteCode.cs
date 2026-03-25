@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -60,7 +59,7 @@ public sealed class ExecuteCodeCommandValidator : AbstractValidator<ExecuteCodeC
     }
 }
 
-internal sealed class ExecuteCodeCommandHandler : IRequestHandler<ExecuteCodeCommand, CodeExecutionResultDto>
+internal sealed class ExecuteCodeCommandHandler
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly ICurrentUserService _currentUserService;

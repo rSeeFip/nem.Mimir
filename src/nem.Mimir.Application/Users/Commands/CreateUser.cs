@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
@@ -36,7 +35,7 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
     }
 }
 
-internal sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, UserDto>
+internal sealed class CreateUserCommandHandler
 {
     private readonly IUserRepository _repository;
     private readonly IUnitOfWork _unitOfWork;

@@ -1,5 +1,4 @@
-﻿using MediatR;
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -11,7 +10,7 @@ namespace nem.Mimir.Application.Models.Queries;
 /// </summary>
 public sealed record GetModelsQuery : IQuery<IReadOnlyList<LlmModelInfoDto>>;
 
-internal sealed class GetModelsQueryHandler : IRequestHandler<GetModelsQuery, IReadOnlyList<LlmModelInfoDto>>
+internal sealed class GetModelsQueryHandler
 {
     private const string ModelsListCacheKey = "available-models";
     private const int CacheExpirationSeconds = 60;

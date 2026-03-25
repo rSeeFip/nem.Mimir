@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 
@@ -38,7 +37,7 @@ public sealed class RestoreEntityCommandValidator : AbstractValidator<RestoreEnt
     }
 }
 
-internal sealed class RestoreEntityCommandHandler : IRequestHandler<RestoreEntityCommand>
+internal sealed class RestoreEntityCommandHandler
 {
     private readonly IEntityRestoreRepository _restoreRepository;
     private readonly IUnitOfWork _unitOfWork;

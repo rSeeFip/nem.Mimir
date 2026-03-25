@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using nem.Mimir.Application.Common.Mappings;
 using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -38,7 +37,7 @@ public sealed class SendMessageCommandValidator : AbstractValidator<SendMessageC
     }
 }
 
-internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, MessageDto>
+internal sealed class SendMessageCommandHandler
 {
     private const string DefaultModel = "phi-4-mini";
 

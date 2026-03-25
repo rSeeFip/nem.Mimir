@@ -1,6 +1,5 @@
 ﻿using nem.Mimir.Application.Common.Mappings;
 using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -37,7 +36,7 @@ public sealed class GetConversationMessagesQueryValidator : AbstractValidator<Ge
     }
 }
 
-internal sealed class GetConversationMessagesQueryHandler : IRequestHandler<GetConversationMessagesQuery, PaginatedList<MessageDto>>
+internal sealed class GetConversationMessagesQueryHandler
 {
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;

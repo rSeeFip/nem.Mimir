@@ -11,6 +11,8 @@ public class Conversation : BaseAuditableEntity<Guid>
     public string Title { get; private set; } = string.Empty;
     public ConversationStatus Status { get; private set; }
     public ConversationSettings? Settings { get; private set; }
+    public Guid? ParentConversationId { get; private set; }
+    public string? ForkReason { get; private set; }
 
     private readonly List<Message> _messages = [];
     public IReadOnlyCollection<Message> Messages => _messages.AsReadOnly();
@@ -68,5 +70,28 @@ public class Conversation : BaseAuditableEntity<Guid>
     public void UpdateSettings(ConversationSettings settings)
     {
         Settings = settings;
+    }
+
+    public Conversation Fork(Guid userId, string forkReason)
+    {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("User ID cannot be empty.", nameof(userId));
+
+        if (string.IsNullOrWhiteSpace(forkReason))
+            throw new ArgumentException("Fork reason cannot be empty.", nameof(forkReason));
+
+        var forked = new Conversation
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Title = $"{Title} (fork)",
+            Status = ConversationStatus.Active,
+            ParentConversationId = Id,
+            ForkReason = forkReason,
+        };
+
+        forked.AddDomainEvent(new ConversationForkedEvent(forked.Id, Id, forkReason, userId));
+
+        return forked;
     }
 }

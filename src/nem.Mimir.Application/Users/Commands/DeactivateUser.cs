@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
@@ -24,7 +23,7 @@ public sealed class DeactivateUserCommandValidator : AbstractValidator<Deactivat
     }
 }
 
-internal sealed class DeactivateUserCommandHandler : IRequestHandler<DeactivateUserCommand>
+internal sealed class DeactivateUserCommandHandler
 {
     private readonly IUserRepository _repository;
     private readonly ICurrentUserService _currentUserService;

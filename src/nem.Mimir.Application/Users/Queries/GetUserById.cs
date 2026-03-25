@@ -1,5 +1,4 @@
-﻿using MediatR;
-using nem.Mimir.Application.Common.Exceptions;
+﻿using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
@@ -13,7 +12,7 @@ namespace nem.Mimir.Application.Users.Queries;
 /// <param name="UserId">The unique identifier of the user to retrieve.</param>
 public sealed record GetUserByIdQuery(Guid UserId) : IQuery<UserDto>;
 
-internal sealed class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto>
+internal sealed class GetUserByIdQueryHandler
 {
     private readonly IUserRepository _repository;
     private readonly MimirMapper _mapper;

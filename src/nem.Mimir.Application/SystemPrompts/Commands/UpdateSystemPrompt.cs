@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.Entities;
@@ -43,7 +42,7 @@ public sealed class UpdateSystemPromptCommandValidator : AbstractValidator<Updat
     }
 }
 
-internal sealed class UpdateSystemPromptCommandHandler : IRequestHandler<UpdateSystemPromptCommand>
+internal sealed class UpdateSystemPromptCommandHandler
 {
     private readonly ISystemPromptRepository _repository;
     private readonly IUnitOfWork _unitOfWork;

@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MediatR;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
@@ -30,7 +29,7 @@ public sealed class ListSystemPromptsQueryValidator : AbstractValidator<ListSyst
     }
 }
 
-internal sealed class ListSystemPromptsQueryHandler : IRequestHandler<ListSystemPromptsQuery, PaginatedList<SystemPromptDto>>
+internal sealed class ListSystemPromptsQueryHandler
 {
     private readonly ISystemPromptRepository _repository;
     private readonly MimirMapper _mapper;
