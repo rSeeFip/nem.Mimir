@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.CodeExecution.Commands;
@@ -14,15 +14,15 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class CodeExecutionController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CodeExecutionController"/> class.
     /// </summary>
-    /// <param name="sender">The MediatR sender for dispatching commands.</param>
-    public CodeExecutionController(ISender sender)
+    /// <param name="bus">Wolverine message bus for dispatching commands.</param>
+    public CodeExecutionController(IMessageBus bus)
     {
-        _sender = sender;
+        _bus = bus;
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public sealed class CodeExecutionController : ControllerBase
         [FromBody] ExecuteCodeRequest request,
         CancellationToken ct)
     {
-        var result = await _sender.Send(
+        var result = await _bus.InvokeAsync<CodeExecutionResultDto>(
             new ExecuteCodeCommand(request.Language, request.Code, conversationId), ct);
 
         return Ok(result);

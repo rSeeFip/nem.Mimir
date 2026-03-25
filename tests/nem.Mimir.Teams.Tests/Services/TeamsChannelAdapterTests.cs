@@ -1,7 +1,7 @@
 ﻿namespace nem.Mimir.Teams.Tests.Services;
 
 using System.Text.Json;
-using MediatR;
+using Wolverine;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,7 +16,7 @@ using Shouldly;
 
 public sealed class TeamsChannelAdapterTests
 {
-    private readonly IMediator _mediator = Substitute.For<IMediator>();
+    private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
     private readonly ActivityConverter _activityConverter = new();
     private readonly AdaptiveCardBuilder _cardBuilder = new();
     private readonly AadClaimMapper _claimMapper = new();
@@ -31,7 +31,7 @@ public sealed class TeamsChannelAdapterTests
 
         return new TeamsChannelAdapter(
             opts,
-            _mediator,
+            _bus,
             _activityConverter,
             _cardBuilder,
             _claimMapper,
@@ -83,7 +83,7 @@ public sealed class TeamsChannelAdapterTests
     public async Task OnTurnAsync_MessageActivity_DispatchesIngestCommand()
     {
         var adapter = CreateAdapter();
-        _mediator.Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>())
+        _bus.InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
             .Returns(new ChannelEventResult(Guid.NewGuid(), true));
 
         var activity = new Activity
@@ -100,12 +100,13 @@ public sealed class TeamsChannelAdapterTests
 
         await adapter.OnTurnAsync(turnContext, TestContext.Current.CancellationToken);
 
-        await _mediator.Received(1).Send(
+        await _bus.Received(1).InvokeAsync<ChannelEventResult>(
             Arg.Is<IngestChannelEventCommand>(cmd =>
                 cmd.Channel == ChannelType.Teams &&
                 cmd.ExternalChannelId == "conv-123" &&
                 cmd.ExternalUserId == "user-456"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
     }
 
     [Fact]
@@ -124,9 +125,10 @@ public sealed class TeamsChannelAdapterTests
 
         await adapter.OnTurnAsync(turnContext, TestContext.Current.CancellationToken);
 
-        await _mediator.DidNotReceive().Send(
-            Arg.Any<IngestChannelEventCommand>(),
-            Arg.Any<CancellationToken>());
+        await _bus.DidNotReceive().InvokeAsync<ChannelEventResult>(
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
     }
 
     [Fact]
@@ -140,7 +142,7 @@ public sealed class TeamsChannelAdapterTests
             return Task.CompletedTask;
         };
 
-        _mediator.Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>())
+        _bus.InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
             .Returns(new ChannelEventResult(Guid.NewGuid(), true));
 
         var activity = new Activity

@@ -4,7 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using MediatR;
+using Wolverine;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using nem.Mimir.Application.ChannelEvents;
@@ -26,10 +26,10 @@ public sealed class WhatsAppChannelAdapterTests
         ApiBaseUrl = "https://graph.facebook.com/v21.0",
     };
 
-    private WhatsAppChannelAdapter CreateAdapter(ISender? mediator = null, IHttpClientFactory? httpClientFactory = null)
+    private WhatsAppChannelAdapter CreateAdapter(IMessageBus? bus = null, IHttpClientFactory? httpClientFactory = null)
     {
-        mediator ??= Substitute.For<ISender>();
-        mediator.Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>())
+        bus ??= Substitute.For<IMessageBus>();
+        bus.InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
             .Returns(new ChannelEventResult(Guid.NewGuid(), true));
 
         httpClientFactory ??= CreateStubHttpClientFactory();
@@ -37,7 +37,7 @@ public sealed class WhatsAppChannelAdapterTests
         return new WhatsAppChannelAdapter(
             Options.Create(_settings),
             httpClientFactory,
-            mediator,
+            bus,
             NullLogger<WhatsAppChannelAdapter>.Instance);
     }
 
@@ -55,7 +55,7 @@ public sealed class WhatsAppChannelAdapterTests
         var adapter = new WhatsAppChannelAdapter(
             Options.Create(settings),
             CreateStubHttpClientFactory(),
-            Substitute.For<ISender>(),
+            Substitute.For<IMessageBus>(),
             NullLogger<WhatsAppChannelAdapter>.Instance);
 
         await adapter.StartAsync(TestContext.Current.CancellationToken);
@@ -67,10 +67,10 @@ public sealed class WhatsAppChannelAdapterTests
     public async Task ProcessWebhookPayloadAsync_TextMessage_DispatchesIngestCommand()
     {
         // Arrange
-        var mediator = Substitute.For<ISender>();
-        mediator.Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>())
+        var bus = Substitute.For<IMessageBus>();
+        bus.InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
             .Returns(new ChannelEventResult(Guid.NewGuid(), true));
-        var adapter = CreateAdapter(mediator);
+        var adapter = CreateAdapter(bus);
 
         var payload = CreateTextMessagePayload("15551234567", "Hello!");
 
@@ -78,31 +78,32 @@ public sealed class WhatsAppChannelAdapterTests
         await adapter.ProcessWebhookPayloadAsync(payload, TestContext.Current.CancellationToken);
 
         // Assert
-        await mediator.Received(1).Send(
+        await bus.Received(1).InvokeAsync<ChannelEventResult>(
             Arg.Is<IngestChannelEventCommand>(cmd =>
                 cmd.Channel == ChannelType.WhatsApp &&
                 cmd.ExternalUserId == "15551234567"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
     }
 
     [Fact]
     public async Task ProcessWebhookPayloadAsync_NullEntry_DoesNothing()
     {
-        var mediator = Substitute.For<ISender>();
-        var adapter = CreateAdapter(mediator);
+        var bus = Substitute.For<IMessageBus>();
+        var adapter = CreateAdapter(bus);
 
         var payload = new WhatsAppWebhookPayload { Object = "whatsapp_business_account", Entry = null };
 
         await adapter.ProcessWebhookPayloadAsync(payload, TestContext.Current.CancellationToken);
 
-        await mediator.DidNotReceive().Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>());
+        await bus.DidNotReceive().InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>());
     }
 
     [Fact]
     public async Task ProcessWebhookPayloadAsync_StatusUpdate_DoesNotDispatch()
     {
-        var mediator = Substitute.For<ISender>();
-        var adapter = CreateAdapter(mediator);
+        var bus = Substitute.For<IMessageBus>();
+        var adapter = CreateAdapter(bus);
 
         var payload = new WhatsAppWebhookPayload
         {
@@ -130,7 +131,7 @@ public sealed class WhatsAppChannelAdapterTests
 
         await adapter.ProcessWebhookPayloadAsync(payload, TestContext.Current.CancellationToken);
 
-        await mediator.DidNotReceive().Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>());
+        await bus.DidNotReceive().InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>());
     }
 
     [Fact]

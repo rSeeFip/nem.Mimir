@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" />
-    <PackageReference Include="MediatR" />
   </ItemGroup>
 
   <ItemGroup>

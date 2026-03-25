@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using MediatR;
+using Wolverine;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
@@ -18,7 +18,7 @@ internal sealed class TeamsChannelAdapter :
     IBot
 {
     private readonly TeamsSettings _settings;
-    private readonly IMediator _mediator;
+    private readonly IMessageBus _bus;
     private readonly ActivityConverter _activityConverter;
     private readonly AdaptiveCardBuilder _cardBuilder;
     private readonly ILogger<TeamsChannelAdapter> _logger;
@@ -27,14 +27,14 @@ internal sealed class TeamsChannelAdapter :
 
     public TeamsChannelAdapter(
         IOptions<TeamsSettings> settings,
-        IMediator mediator,
+        IMessageBus bus,
         ActivityConverter activityConverter,
         AdaptiveCardBuilder cardBuilder,
         AadClaimMapper claimMapper,
         ILogger<TeamsChannelAdapter> logger)
     {
         _settings = settings.Value;
-        _mediator = mediator;
+        _bus = bus;
         _activityConverter = activityConverter;
         _cardBuilder = cardBuilder;
         ClaimMapper = claimMapper;
@@ -140,6 +140,6 @@ internal sealed class TeamsChannelAdapter :
             Content: contentPayload,
             Timestamp: timestamp);
 
-        await _mediator.Send(command, cancellationToken);
+        await _bus.InvokeAsync<ChannelEventResult>(command, cancellationToken);
     }
 }

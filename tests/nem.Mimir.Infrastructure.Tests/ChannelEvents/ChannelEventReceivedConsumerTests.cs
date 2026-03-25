@@ -1,6 +1,6 @@
 ﻿namespace nem.Mimir.Infrastructure.Tests.ChannelEvents;
 
-using MediatR;
+using Wolverine;
 using nem.Mimir.Application.ChannelEvents;
 using NSubstitute;
 using Shouldly;
@@ -11,10 +11,10 @@ using nem.Contracts.Events.Integration;
 public sealed class ChannelEventReceivedConsumerTests
 {
     [Fact]
-    public async Task Handle_MapsIntegrationEventToIngestChannelEventCommand_AndSendsViaMediatR()
+    public async Task Handle_MapsIntegrationEventToIngestChannelEventCommand_AndSendsViaMessageBus()
     {
-        var sender = Substitute.For<ISender>();
-        sender.Send(Arg.Any<IngestChannelEventCommand>(), Arg.Any<CancellationToken>())
+        var bus = Substitute.For<IMessageBus>();
+        bus.InvokeAsync<ChannelEventResult>(Arg.Any<object>(), Arg.Any<CancellationToken>(), Arg.Any<TimeSpan?>())
             .Returns(new ChannelEventResult(Guid.NewGuid(), true));
 
         var inbound = new ChannelEventReceivedIntegrationEvent(
@@ -26,15 +26,16 @@ public sealed class ChannelEventReceivedConsumerTests
             new DateTimeOffset(2026, 03, 10, 10, 0, 0, TimeSpan.Zero),
             "{\"raw\":true}");
 
-        await ChannelEventReceivedConsumer.Handle(inbound, sender, CancellationToken.None);
+        await ChannelEventReceivedConsumer.Handle(inbound, bus, CancellationToken.None);
 
-        await sender.Received(1).Send(
+        await bus.Received(1).InvokeAsync<ChannelEventResult>(
             Arg.Is<IngestChannelEventCommand>(x =>
                 x.Channel == ChannelType.Teams
                 && x.ExternalChannelId == "chat-77"
                 && x.ExternalUserId == "user-9"
                 && x.Timestamp == inbound.Timestamp
                 && x.Content.Equals(new TextContent("hello from teams") { CreatedAt = inbound.Timestamp })),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<TimeSpan?>());
     }
 }

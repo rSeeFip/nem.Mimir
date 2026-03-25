@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
-using MediatR;
+using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Api.Models.OpenAi;
@@ -30,7 +30,7 @@ public sealed class OpenAiCompatController : ControllerBase
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
     private readonly ILlmService _llmService;
     private readonly IMimirEventPublisher _eventPublisher;
     private readonly ICurrentUserService _currentUserService;
@@ -39,19 +39,19 @@ public sealed class OpenAiCompatController : ControllerBase
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenAiCompatController"/> class.
     /// </summary>
-    /// <param name="sender">MediatR sender for dispatching queries and commands.</param>
+    /// <param name="bus">Wolverine message bus for dispatching queries and commands.</param>
     /// <param name="llmService">Service for LLM operations (used by the streaming path).</param>
     /// <param name="eventPublisher">Publisher for Wolverine events.</param>
     /// <param name="currentUserService">Service to retrieve the current authenticated user.</param>
     /// <param name="logger">Logger instance.</param>
     public OpenAiCompatController(
-        ISender sender,
+        IMessageBus bus,
         ILlmService llmService,
         IMimirEventPublisher eventPublisher,
         ICurrentUserService currentUserService,
         ILogger<OpenAiCompatController> logger)
     {
-        _sender = sender;
+        _bus = bus;
         _llmService = llmService;
         _eventPublisher = eventPublisher;
         _currentUserService = currentUserService;
@@ -120,7 +120,7 @@ public sealed class OpenAiCompatController : ControllerBase
     {
         _logger.LogDebug("Listing models in OpenAI-compatible format");
 
-        var models = await _sender.Send(new ListOpenAiModelsQuery(), cancellationToken);
+        var models = await _bus.InvokeAsync<List<OpenAiModelDto>>(new ListOpenAiModelsQuery(), cancellationToken);
 
         var response = new OpenAiModelsResponse
         {
@@ -235,7 +235,7 @@ public sealed class OpenAiCompatController : ControllerBase
             request.Model,
             request.Messages.Select(m => new ChatMessageDto(m.Role, m.Content)).ToList());
 
-        var dto = await _sender.Send(command, cancellationToken);
+        var dto = await _bus.InvokeAsync<ChatCompletionResultDto>(command, cancellationToken);
 
         var result = new ChatCompletionResult
         {

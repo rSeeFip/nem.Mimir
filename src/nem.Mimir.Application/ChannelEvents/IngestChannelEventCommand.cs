@@ -1,6 +1,6 @@
-﻿using MediatR;
-using nem.Contracts.Channels;
+﻿using nem.Contracts.Channels;
 using nem.Contracts.Content;
+using nem.Mimir.Application.Common.Interfaces;
 
 namespace nem.Mimir.Application.ChannelEvents;
 
@@ -17,7 +17,7 @@ public sealed record IngestChannelEventCommand(
     string ExternalChannelId,
     string ExternalUserId,
     IContentPayload Content,
-    DateTimeOffset Timestamp) : IRequest<ChannelEventResult>;
+    DateTimeOffset Timestamp) : ICommand<ChannelEventResult>;
 
 /// <summary>
 /// Result of ingesting a channel event.

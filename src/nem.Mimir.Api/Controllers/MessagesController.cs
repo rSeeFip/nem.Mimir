@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Common.Models;
@@ -16,15 +16,15 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class MessagesController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MessagesController"/> class.
     /// </summary>
-    /// <param name="sender">The MediatR sender for dispatching commands and queries.</param>
-    public MessagesController(ISender sender)
+    /// <param name="bus">Wolverine message bus for dispatching commands and queries.</param>
+    public MessagesController(IMessageBus bus)
     {
-        _sender = sender;
+        _bus = bus;
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ public sealed class MessagesController : ControllerBase
         [FromBody] SendMessageRequest request,
         CancellationToken ct)
     {
-        var result = await _sender.Send(
+        var result = await _bus.InvokeAsync<MessageDto>(
             new SendMessageCommand(conversationId, request.Content, request.Model), ct);
 
         return StatusCode(StatusCodes.Status201Created, result);
@@ -68,7 +68,7 @@ public sealed class MessagesController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _sender.Send(
+        var result = await _bus.InvokeAsync<PaginatedList<MessageDto>>(
             new GetConversationMessagesQuery(conversationId, pageNumber, pageSize), ct);
 
         return Ok(result);

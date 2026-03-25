@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Plugins.Commands;
@@ -16,15 +16,15 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class PluginsController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PluginsController"/> class.
     /// </summary>
-    /// <param name="sender">MediatR sender for dispatching commands and queries.</param>
-    public PluginsController(ISender sender)
+    /// <param name="bus">Wolverine message bus for dispatching commands and queries.</param>
+    public PluginsController(IMessageBus bus)
     {
-        _sender = sender;
+        _bus = bus;
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public sealed class PluginsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Load([FromBody] LoadPluginRequest request, CancellationToken ct)
     {
-        var result = await _sender.Send(new LoadPluginCommand(request.AssemblyPath), ct);
+        var result = await _bus.InvokeAsync<PluginMetadata>(new LoadPluginCommand(request.AssemblyPath), ct);
         return CreatedAtAction(nameof(List), result);
     }
 
@@ -56,7 +56,7 @@ public sealed class PluginsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> List(CancellationToken ct)
     {
-        var result = await _sender.Send(new ListPluginsQuery(), ct);
+        var result = await _bus.InvokeAsync<IReadOnlyList<PluginMetadata>>(new ListPluginsQuery(), ct);
         return Ok(result);
     }
 
@@ -74,7 +74,7 @@ public sealed class PluginsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Execute(string id, [FromBody] ExecutePluginRequest request, CancellationToken ct)
     {
-        var result = await _sender.Send(
+        var result = await _bus.InvokeAsync<PluginResult>(
             new ExecutePluginCommand(id, request.UserId, request.Parameters), ct);
         return Ok(result);
     }
@@ -93,7 +93,7 @@ public sealed class PluginsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Unload(string id, CancellationToken ct)
     {
-        await _sender.Send(new UnloadPluginCommand(id), ct);
+        await _bus.InvokeAsync(new UnloadPluginCommand(id), ct);
         return NoContent();
     }
 }

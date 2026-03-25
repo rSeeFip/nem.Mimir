@@ -385,7 +385,7 @@ public sealed class CrossServiceIntegrationTests
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    private static MediatR.IRequestHandler<ExecuteCodeCommand, CodeExecutionResultDto> CreateExecuteCodeHandler(
+    private static dynamic CreateExecuteCodeHandler(
         IConversationRepository conversationRepository,
         ICurrentUserService currentUserService,
         ISandboxService sandboxService,
@@ -395,7 +395,7 @@ public sealed class CrossServiceIntegrationTests
             .GetTypes()
             .Single(t => t.Name == "ExecuteCodeCommandHandler");
 
-        return (MediatR.IRequestHandler<ExecuteCodeCommand, CodeExecutionResultDto>)Activator.CreateInstance(
+        return Activator.CreateInstance(
             handlerType,
             conversationRepository,
             currentUserService,

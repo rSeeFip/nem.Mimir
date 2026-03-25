@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using nem.Mimir.WhatsApp.Configuration;
 using nem.Mimir.WhatsApp.Health;
 using nem.Mimir.WhatsApp.Services;
+using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,8 +38,10 @@ builder.Services.AddHttpClient(WhatsAppMediaDownloader.HttpClientName, client =>
 builder.Services.AddHealthChecks()
     .AddCheck<WhatsAppHealthCheck>("whatsapp", tags: ["ready"]);
 
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(nem.Mimir.Application.ChannelEvents.IngestChannelEventCommand).Assembly));
+builder.Host.UseWolverine(opts =>
+{
+    opts.Discovery.IncludeAssembly(typeof(nem.Mimir.Application.ChannelEvents.IngestChannelEventCommand).Assembly);
+});
 
 var app = builder.Build();
 

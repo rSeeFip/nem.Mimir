@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Common.Models;
@@ -15,17 +15,17 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class ModelsController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
     private readonly ILogger<ModelsController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModelsController"/> class.
     /// </summary>
-    /// <param name="sender">MediatR sender for dispatching commands and queries.</param>
+    /// <param name="bus">Wolverine message bus for dispatching commands and queries.</param>
     /// <param name="logger">Logger instance.</param>
-    public ModelsController(ISender sender, ILogger<ModelsController> logger)
+    public ModelsController(IMessageBus bus, ILogger<ModelsController> logger)
     {
-        _sender = sender;
+        _bus = bus;
         _logger = logger;
     }
 
@@ -42,7 +42,7 @@ public sealed class ModelsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetModels(CancellationToken cancellationToken)
     {
-        var models = await _sender.Send(new GetModelsQuery(), cancellationToken);
+        var models = await _bus.InvokeAsync<IReadOnlyList<LlmModelInfoDto>>(new GetModelsQuery(), cancellationToken);
         return Ok(models);
     }
 
@@ -62,7 +62,7 @@ public sealed class ModelsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetModelStatus(string modelId, CancellationToken cancellationToken)
     {
-        var model = await _sender.Send(new GetModelStatusQuery(modelId), cancellationToken);
+        var model = await _bus.InvokeAsync<LlmModelInfoDto?>(new GetModelStatusQuery(modelId), cancellationToken);
 
         if (model is null)
         {

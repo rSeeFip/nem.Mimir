@@ -3,7 +3,7 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
-using MediatR;
+using Wolverine;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,7 +16,7 @@ using nem.Contracts.Content;
 internal sealed class WhatsAppChannelAdapter(
     IOptions<WhatsAppSettings> settings,
     IHttpClientFactory httpClientFactory,
-    ISender mediator,
+    IMessageBus bus,
     ILogger<WhatsAppChannelAdapter> logger) : BackgroundService, IChannelEventSource, nem.Mimir.Application.ChannelEvents.IChannelMessageSender
 {
     internal static readonly ActivitySource ActivitySource = new("nem.Mimir.WhatsApp");
@@ -93,7 +93,7 @@ internal sealed class WhatsAppChannelAdapter(
                 content,
                 timestamp);
 
-            var result = await mediator.Send(command, ct);
+            var result = await bus.InvokeAsync<ChannelEventResult>(command, ct);
 
             logger.LogInformation(
                 "Ingested WhatsApp message {MessageId} from {Sender}, EventId={EventId}",

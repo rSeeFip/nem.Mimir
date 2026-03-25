@@ -1,6 +1,6 @@
-﻿using MediatR;
-using nem.Contracts.Channels;
+﻿using nem.Contracts.Channels;
 using nem.Contracts.Content;
+using nem.Mimir.Application.Common.Interfaces;
 
 namespace nem.Mimir.Application.ChannelEvents;
 
@@ -13,7 +13,7 @@ namespace nem.Mimir.Application.ChannelEvents;
 public sealed record SendChannelMessageCommand(
     ChannelType Channel,
     string ExternalChannelId,
-    IContentPayload Content) : IRequest<SendChannelMessageResult>;
+    IContentPayload Content) : ICommand<SendChannelMessageResult>;
 
 /// <summary>
 /// Result of sending a channel message.

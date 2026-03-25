@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.ChannelEvents;
@@ -15,11 +15,11 @@ namespace nem.Mimir.Api.Controllers;
 [Produces("application/json")]
 public sealed class ChannelEventsController : ControllerBase
 {
-    private readonly ISender _sender;
+    private readonly IMessageBus _bus;
 
-    public ChannelEventsController(ISender sender)
+    public ChannelEventsController(IMessageBus bus)
     {
-        _sender = sender;
+        _bus = bus;
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public sealed class ChannelEventsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> IngestEvent([FromBody] IngestChannelEventCommand command, CancellationToken ct)
     {
-        var result = await _sender.Send(command, ct);
+        var result = await _bus.InvokeAsync<ChannelEventResult>(command, ct);
         return Created(string.Empty, result);
     }
 
@@ -48,7 +48,7 @@ public sealed class ChannelEventsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> SendMessage([FromBody] SendChannelMessageCommand command, CancellationToken ct)
     {
-        var result = await _sender.Send(command, ct);
+        var result = await _bus.InvokeAsync<SendChannelMessageResult>(command, ct);
         return Ok(result);
     }
 }
