@@ -62,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IModelProfileRepository, ModelProfileRepository>();
         services.AddScoped<IArenaConfigRepository, ArenaConfigRepository>();
+        services.AddScoped<IUserMemoryRepository, UserMemoryRepository>();
         services.AddScoped<IKnowledgeCollectionRepository, KnowledgeCollectionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();

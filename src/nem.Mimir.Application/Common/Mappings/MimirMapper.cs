@@ -36,6 +36,13 @@ public sealed partial class MimirMapper
     [MapperIgnoreSource(nameof(SystemPrompt.DomainEvents))]
     public partial SystemPromptDto MapToSystemPromptDto(SystemPrompt entity);
 
+    [MapperIgnoreSource(nameof(UserMemory.CreatedBy))]
+    [MapperIgnoreSource(nameof(UserMemory.UpdatedBy))]
+    [MapperIgnoreSource(nameof(UserMemory.IsDeleted))]
+    [MapperIgnoreSource(nameof(UserMemory.DeletedAt))]
+    [MapperIgnoreSource(nameof(UserMemory.DomainEvents))]
+    public partial UserMemoryDto MapToUserMemoryDto(UserMemory entity);
+
     [MapperIgnoreSource(nameof(PromptTemplate.CreatedBy))]
     [MapperIgnoreSource(nameof(PromptTemplate.UpdatedBy))]
     [MapperIgnoreSource(nameof(PromptTemplate.IsDeleted))]
@@ -55,6 +62,8 @@ public sealed partial class MimirMapper
     private Guid MapSystemPromptId(SystemPromptId id) => id.Value;
 
     private Guid MapAuditEntryId(AuditEntryId id) => id.Value;
+
+    private Guid MapUserMemoryId(UserMemoryId id) => id.Value;
 
     private Guid MapUserId(UserId id) => id.Value;
 
