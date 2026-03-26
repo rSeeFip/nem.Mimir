@@ -88,6 +88,29 @@ public sealed class ConversationsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{id:guid}/fork")]
+    [ProducesResponseType(typeof(ConversationDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Fork(Guid id, [FromBody] ForkConversationRequest request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ConversationDto>(
+            new ForkConversationCommand(id, request.ForkReason), ct);
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    [HttpGet("{id:guid}/lineage")]
+    [ProducesResponseType(typeof(LineageGraphDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetLineage(Guid id, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<LineageGraphDto>(new GetLineageGraphQuery(id), ct);
+        return Ok(result);
+    }
+
     /// <summary>
     /// Updates the title of an existing conversation.
     /// </summary>
@@ -138,6 +161,77 @@ public sealed class ConversationsController : ControllerBase
         await _bus.InvokeAsync(new DeleteConversationCommand(id), ct);
         return NoContent();
     }
+
+    [HttpPost("{id:guid}/pin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Pin(Guid id, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new PinConversationCommand(id), ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/unpin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Unpin(Guid id, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new UnpinConversationCommand(id), ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/share")]
+    [ProducesResponseType(typeof(ConversationShareDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Share(Guid id, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ConversationShareDto>(new ShareConversationCommand(id), ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/share")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Unshare(Guid id, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new UnshareConversationCommand(id), ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/tags")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Tag(Guid id, [FromBody] TagConversationRequest request, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new TagConversationCommand(id, request.Tag), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("{id:guid}/tags/{tag}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Untag(Guid id, string tag, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new UntagConversationCommand(id, tag), ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/folder")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MoveToFolder(Guid id, [FromBody] MoveConversationToFolderRequest request, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new MoveConversationToFolderCommand(id, request.FolderId), ct);
+        return NoContent();
+    }
 }
 
 /// <summary>
@@ -156,3 +250,9 @@ public sealed record CreateConversationRequest(
 /// </summary>
 /// <param name="Title">The new title for the conversation.</param>
 public sealed record UpdateConversationTitleRequest(string Title);
+
+public sealed record ForkConversationRequest(string? ForkReason);
+
+public sealed record TagConversationRequest(string Tag);
+
+public sealed record MoveConversationToFolderRequest(Guid? FolderId);

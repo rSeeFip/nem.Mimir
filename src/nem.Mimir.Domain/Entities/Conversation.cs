@@ -11,11 +11,17 @@ public class Conversation : BaseAuditableEntity<Guid>
     public string Title { get; private set; } = string.Empty;
     public ConversationStatus Status { get; private set; }
     public ConversationSettings? Settings { get; private set; }
+    public Guid? FolderId { get; private set; }
+    public bool IsPinned { get; private set; }
+    public string? ShareId { get; private set; }
     public Guid? ParentConversationId { get; private set; }
     public string? ForkReason { get; private set; }
 
     private readonly List<Message> _messages = [];
     public IReadOnlyCollection<Message> Messages => _messages.AsReadOnly();
+
+    private readonly List<string> _tags = [];
+    public IReadOnlyCollection<string> Tags => _tags.AsReadOnly();
 
     private Conversation() { }
 
@@ -70,6 +76,59 @@ public class Conversation : BaseAuditableEntity<Guid>
     public void UpdateSettings(ConversationSettings settings)
     {
         Settings = settings;
+    }
+
+    public void Pin()
+    {
+        IsPinned = true;
+    }
+
+    public void Unpin()
+    {
+        IsPinned = false;
+    }
+
+    public void Share()
+    {
+        if (!string.IsNullOrWhiteSpace(ShareId))
+        {
+            return;
+        }
+
+        ShareId = Guid.NewGuid().ToString("N")[..12];
+    }
+
+    public void Unshare()
+    {
+        ShareId = null;
+    }
+
+    public void AddTag(string tag)
+    {
+        var normalizedTag = ConversationTag.Create(tag).Value;
+        if (_tags.Any(existing => string.Equals(existing, normalizedTag, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        _tags.Add(normalizedTag);
+    }
+
+    public void RemoveTag(string tag)
+    {
+        var normalizedTag = ConversationTag.Create(tag).Value;
+        var existingTag = _tags.FirstOrDefault(existing => string.Equals(existing, normalizedTag, StringComparison.OrdinalIgnoreCase));
+        if (existingTag is null)
+        {
+            return;
+        }
+
+        _tags.Remove(existingTag);
+    }
+
+    public void MoveToFolder(Guid? folderId)
+    {
+        FolderId = folderId;
     }
 
     public Conversation Fork(Guid userId, string forkReason)

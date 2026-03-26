@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/src/">
     <Project Path="../nem.Contracts/src/nem.Contracts/nem.Contracts.csproj" />
+    <Project Path="src/nem.Mimir.McpServer/nem.Mimir.McpServer.csproj" />
     <Project Path="src/nem.Mimir.Signal/nem.Mimir.Signal.csproj" />
     <Project Path="src/nem.Mimir.Sync/nem.Mimir.Sync.csproj" />
     <Project Path="src/nem.Mimir.Teams/nem.Mimir.Teams.csproj" />
@@ -18,6 +19,7 @@
     <Project Path="tests/nem.Mimir.Api.Tests/nem.Mimir.Api.Tests.csproj" />
     <Project Path="tests/nem.Mimir.E2E.Tests/nem.Mimir.E2E.Tests.csproj" />
     <Project Path="tests/nem.Mimir.IntegrationTests/nem.Mimir.IntegrationTests.csproj" />
+    <Project Path="tests/nem.Mimir.McpServer.Tests/nem.Mimir.McpServer.Tests.csproj" />
     <Project Path="tests/nem.Mimir.PerformanceTests/nem.Mimir.PerformanceTests.csproj" />
     <Project Path="tests/nem.Mimir.Signal.Tests/nem.Mimir.Signal.Tests.csproj" />
     <Project Path="tests/nem.Mimir.Sync.Tests/nem.Mimir.Sync.Tests.csproj" />

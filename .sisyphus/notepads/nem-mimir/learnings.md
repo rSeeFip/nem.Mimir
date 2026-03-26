@@ -1399,3 +1399,10 @@ src/Mimir.WhatsApp/
 - For constrained cache size with `ConcurrentDictionary`, simple oldest-by-created-at trimming is sufficient and keeps implementation dependency-free.
 - Lazy TTL eviction on `GetAsync`/`GetStatsAsync` is enough for correctness in this service and avoids background cleanup complexity.
 - Full-solution `dotnet build nem.Mimir.sln --verbosity minimal` is the final compatibility check for contract visibility (`nem.Contracts.TokenOptimization`) across infra + tests.
+
+## F4: Handler scope-fidelity audit learnings (2026-03-25)
+
+- Shape-only migration validation is strongest when comparing sampled handlers against a known pre-migration baseline commit (`e3313c`) rather than relying only on current-file inspection.
+- Controller migration fidelity can be assessed by holding routes/response contracts constant and confirming only dispatch abstraction changed (`ISender.Send` → `IMessageBus.InvokeAsync<T>`).
+- `git diff HEAD~N` is too coarse for strict scope audits in active branches; per-file `git show <baseline>:<path>` avoids unrelated-noise commits.
+- Plan middleware filenames may drift from repository filenames; inventory behaviour directory first, then inspect equivalent middleware classes (`LoggingMiddleware`, `PerformanceMiddleware`, `UnhandledExceptionMiddleware`) even when housed in `*Behavior.cs` files.

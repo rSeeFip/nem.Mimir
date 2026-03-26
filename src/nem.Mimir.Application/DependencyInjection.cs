@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using nem.Mimir.Application.Common.Mappings;
@@ -53,6 +53,10 @@ public static class DependencyInjection
         // T30: Model Cascade
         services.AddSingleton<global::nem.Mimir.Application.Llm.ModelCascadeOptions>();
         services.AddSingleton<nem.Contracts.TokenOptimization.IModelCascade, global::nem.Mimir.Application.Llm.ModelCascadeService>();
+        // T23: MCP Tool Catalog
+        services.AddSingleton<global::nem.Mimir.Application.Mcp.McpToolCatalogOptions>();
+        services.AddSingleton<global::nem.Mimir.Application.Mcp.IPersonaToolFilter, global::nem.Mimir.Application.Mcp.DefaultPersonaToolFilter>();
+        services.AddScoped<global::nem.Mimir.Application.Mcp.IMcpToolCatalogService, global::nem.Mimir.Application.Mcp.McpToolCatalogService>();
 
         return services;
     }

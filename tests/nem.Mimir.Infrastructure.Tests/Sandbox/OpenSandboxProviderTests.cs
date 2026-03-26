@@ -1,6 +1,7 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using Microsoft.Extensions.Options;
+using nem.Contracts.Sandbox;
 using nem.Mimir.Infrastructure.Sandbox;
 using Shouldly;
 
@@ -23,7 +24,7 @@ public sealed class OpenSandboxProviderTests
 
         var provider = CreateProvider(handler);
 
-        var session = await provider.CreateSessionAsync(new("python:3.12"));
+        var session = await provider.CreateSessionAsync(new("python:3.12"), SandboxPolicyClass.CreationLocked);
 
         session.SessionId.ShouldBe("session-1");
         session.Config.Image.ShouldBe("python:3.12");

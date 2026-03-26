@@ -21,6 +21,7 @@ using nem.Mimir.Infrastructure.Agents;
 using nem.Mimir.Infrastructure.Tasks;
 using nem.Mimir.Infrastructure.Knowledge;
 using nem.Mimir.Infrastructure.Cache;
+using nem.Mimir.Infrastructure.Mcp;
 using nem.Contracts.AspNetCore.Classification;
 using nem.Contracts.Classification;
 using nem.Contracts.Lifecycle;
@@ -52,9 +53,12 @@ public static class DependencyInjection
         // Repositories and Unit of Work
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<IChannelEventRepository, ChannelEventRepository>();
         services.AddScoped<IAuditRepository, AuditRepository>();
         services.AddScoped<ISystemPromptRepository, SystemPromptRepository>();
+        services.AddScoped<IPromptTemplateRepository, PromptTemplateRepository>();
+        services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
 
@@ -160,6 +164,7 @@ public static class DependencyInjection
 
         services.AddAgentCommunicationBus();
         services.AddBackgroundTaskInfrastructure(configuration);
+        services.AddMcpClient(configuration);
         services.AddKnowHubIntegration(configuration);
 
         services.AddSingleton<SemanticCacheOptions>();

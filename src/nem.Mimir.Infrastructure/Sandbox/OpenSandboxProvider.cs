@@ -1,4 +1,4 @@
-﻿namespace nem.Mimir.Infrastructure.Sandbox;
+namespace nem.Mimir.Infrastructure.Sandbox;
 
 using System.Net;
 using System.Net.Http.Json;
@@ -21,7 +21,7 @@ public sealed class OpenSandboxProvider : ISandboxProvider
         _options = options;
     }
 
-    public async Task<ISandboxSession> CreateSessionAsync(SandboxConfig config, CancellationToken cancellationToken = default)
+    public async Task<ISandboxSession> CreateSessionAsync(SandboxConfig config, SandboxPolicyClass policyClass, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -31,7 +31,8 @@ public sealed class OpenSandboxProvider : ISandboxProvider
             CpuLimit: config.CpuLimit,
             TimeoutSeconds: config.TimeoutSeconds,
             IsolationLevel: config.IsolationLevel.ToString(),
-            NetworkPolicy: config.NetworkPolicy);
+            NetworkPolicy: config.NetworkPolicy,
+            PolicyClass: policyClass.ToString());
 
         using var response = await _httpClientFactory
             .CreateClient(HttpClientName)
@@ -249,5 +250,6 @@ public sealed class OpenSandboxProvider : ISandboxProvider
         double CpuLimit,
         int TimeoutSeconds,
         string IsolationLevel,
-        string NetworkPolicy);
+        string NetworkPolicy,
+        string PolicyClass);
 }

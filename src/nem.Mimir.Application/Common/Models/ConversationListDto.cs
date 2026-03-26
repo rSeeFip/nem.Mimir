@@ -13,6 +13,10 @@
 public sealed record ConversationListDto(
     Guid Id,
     Guid UserId,
+    Guid? FolderId,
+    bool IsPinned,
+    string? ShareId,
+    IReadOnlyList<string> Tags,
     string Title,
     string Status,
     int MessageCount,

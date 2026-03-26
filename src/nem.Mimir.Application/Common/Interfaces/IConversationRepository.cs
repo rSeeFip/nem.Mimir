@@ -30,6 +30,10 @@ public interface IConversationRepository
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Conversation>> GetAllByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Creates a new conversation in the repository.
     /// </summary>

@@ -14,3 +14,9 @@
 
 - No blocking issues after fix.
 - Observed fragility point: strict `<` token assertion at boundary can fail when optimizer output equals input estimate; adjusted to non-flaky boundary-safe check.
+
+## 2026-03-25 — F4 scope fidelity audit
+
+- Build still fails with known pre-existing error in `src/nem.Mimir.Infrastructure/Sandbox/OpenSandboxProvider.cs` (CS0535), unrelated to handler-shape migration.
+- Scope-fidelity violation detected in `SendMessageCommandHandler`: addition of `IMessageBus` dependency and `PublishAsync(new MessageCreatedEvent(...))` introduces business-logic behavior beyond shape/interface conversion.
+- Middleware filenames in plan (`*Middleware.cs`) do not exist; equivalent files are `LoggingBehavior.cs`, `PerformanceBehavior.cs`, `UnhandledExceptionBehavior.cs` and contain Wolverine middleware classes.

@@ -41,6 +41,20 @@ internal sealed class ConversationRepository(MimirDbContext context) : IConversa
         return new PaginatedList<Conversation>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
     }
 
+    public async Task<IReadOnlyList<Conversation>> GetAllByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var conversations = await context.Conversations
+            .AsNoTracking()
+            .Where(c => c.UserId == userId)
+            .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return conversations.AsReadOnly();
+    }
+
     public async Task<Conversation> CreateAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         await context.Conversations

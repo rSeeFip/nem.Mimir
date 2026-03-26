@@ -1,4 +1,4 @@
-﻿namespace nem.Mimir.Infrastructure.Sandbox;
+namespace nem.Mimir.Infrastructure.Sandbox;
 
 using System.Collections.Concurrent;
 using nem.Contracts.Sandbox;
@@ -15,7 +15,7 @@ public sealed class OpenSandboxPoolManager
         _provider = provider;
     }
 
-    public async Task WarmPoolAsync(int count, SandboxConfig config, CancellationToken cancellationToken = default)
+    public async Task WarmPoolAsync(int count, SandboxConfig config, SandboxPolicyClass policyClass = SandboxPolicyClass.CreationLocked, CancellationToken cancellationToken = default)
     {
         if (count <= 0)
         {
@@ -24,20 +24,20 @@ public sealed class OpenSandboxPoolManager
 
         for (var i = 0; i < count; i++)
         {
-            var session = await _provider.CreateSessionAsync(config, cancellationToken).ConfigureAwait(false);
+            var session = await _provider.CreateSessionAsync(config, policyClass, cancellationToken).ConfigureAwait(false);
             _pool.Add(session);
             Interlocked.Increment(ref _totalCreated);
         }
     }
 
-    public Task<ISandboxSession> AcquireSessionAsync(SandboxConfig config, CancellationToken cancellationToken = default)
+    public Task<ISandboxSession> AcquireSessionAsync(SandboxConfig config, SandboxPolicyClass policyClass = SandboxPolicyClass.CreationLocked, CancellationToken cancellationToken = default)
     {
         if (_pool.TryTake(out var session))
         {
             return Task.FromResult(session);
         }
 
-        return CreateNewSessionAsync(config, cancellationToken);
+        return CreateNewSessionAsync(config, policyClass, cancellationToken);
     }
 
     public Task ReleaseSessionAsync(ISandboxSession session, CancellationToken cancellationToken = default)
@@ -72,9 +72,9 @@ public sealed class OpenSandboxPoolManager
         }
     }
 
-    private async Task<ISandboxSession> CreateNewSessionAsync(SandboxConfig config, CancellationToken cancellationToken)
+    private async Task<ISandboxSession> CreateNewSessionAsync(SandboxConfig config, SandboxPolicyClass policyClass, CancellationToken cancellationToken)
     {
-        var session = await _provider.CreateSessionAsync(config, cancellationToken).ConfigureAwait(false);
+        var session = await _provider.CreateSessionAsync(config, policyClass, cancellationToken).ConfigureAwait(false);
         Interlocked.Increment(ref _totalCreated);
         return session;
     }

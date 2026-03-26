@@ -17,6 +17,9 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<ChannelEvent> ChannelEvents => Set<ChannelEvent>();
     public DbSet<BackgroundTask> BackgroundTasks => Set<BackgroundTask>();
     public DbSet<SystemPrompt> SystemPrompts => Set<SystemPrompt>();
+    public DbSet<PromptTemplate> PromptTemplates => Set<PromptTemplate>();
+    public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
+    public DbSet<Folder> Folders => Set<Folder>();
     public DbSet<ActorIdentityDocument> ActorIdentities => Set<ActorIdentityDocument>();
     public DbSet<ChannelIdentityLinkDocument> ChannelIdentityLinks => Set<ChannelIdentityLinkDocument>();
 
@@ -33,6 +36,12 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
         foreach (var (idType, valueType) in typeof(ITypedId<>).Assembly.GetTypedIds())
         {
             var converterType = typeof(TypedIdValueConverter<,>).MakeGenericType(idType, valueType);
+            configurationBuilder.Properties(idType).HaveConversion(converterType);
+        }
+
+        foreach (var (idType, valueType) in typeof(nem.Contracts.Identity.ITypedId<>).Assembly.GetTypedIds())
+        {
+            var converterType = typeof(ContractsTypedIdValueConverter<,>).MakeGenericType(idType, valueType);
             configurationBuilder.Properties(idType).HaveConversion(converterType);
         }
     }
