@@ -12,6 +12,7 @@ public sealed class Channel : BaseAuditableEntity<ChannelId>
     public string? Description { get; private set; }
     public Guid OwnerId { get; private set; }
     public ChannelType Type { get; private set; }
+    public Guid? SourceConversationId { get; private set; }
 
     private readonly List<ChannelMember> _members = [];
     public IReadOnlyCollection<ChannelMember> Members => _members.AsReadOnly();
@@ -120,5 +121,15 @@ public sealed class Channel : BaseAuditableEntity<ChannelId>
         _messages.Add(message);
         AddDomainEvent(new ChannelMessageSentEvent(message.Id, Id, senderId));
         return message;
+    }
+
+    public void SetSourceConversation(Guid conversationId)
+    {
+        if (conversationId == Guid.Empty)
+        {
+            throw new ArgumentException("Conversation ID cannot be empty.", nameof(conversationId));
+        }
+
+        SourceConversationId = conversationId;
     }
 }

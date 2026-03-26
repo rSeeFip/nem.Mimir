@@ -19,6 +19,11 @@ public interface IChannelRepository
         int pageSize,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Channel>> GetBySourceConversationIdAsync(
+        Guid sourceConversationId,
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task<Channel> CreateAsync(Channel channel, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(Channel channel, CancellationToken cancellationToken = default);

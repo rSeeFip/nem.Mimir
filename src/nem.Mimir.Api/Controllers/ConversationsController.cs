@@ -314,6 +314,28 @@ public sealed class ConversationsController : ControllerBase
         var result = await _bus.InvokeAsync<ConversationContextDto>(new GetConversationContextQuery(id, query, maxResults), ct);
         return Ok(result);
     }
+
+    [HttpPost("{id:guid}/convert-to-channel")]
+    [ProducesResponseType(typeof(ConvertConversationToChannelDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConvertToChannel(Guid id, [FromBody] ConvertConversationToChannelRequest? request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ConvertConversationToChannelDto>(
+            new ConvertConversationToChannelCommand(id, request?.ChannelName), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/share-to-channel")]
+    [ProducesResponseType(typeof(ShareConversationToChannelDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ShareToChannel(Guid id, [FromBody] ShareConversationToChannelRequest request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ShareConversationToChannelDto>(
+            new ShareConversationToChannelCommand(id, request.ChannelId, request.MessageId), ct);
+        return Ok(result);
+    }
 }
 
 /// <summary>
@@ -344,3 +366,7 @@ public sealed record RegenerateMessageRequest(string? Model);
 public sealed record MessageReactionRequest(string Emoji);
 
 public sealed record EditMessageRequest(string Content);
+
+public sealed record ConvertConversationToChannelRequest(string? ChannelName);
+
+public sealed record ShareConversationToChannelRequest(Guid ChannelId, Guid? MessageId);

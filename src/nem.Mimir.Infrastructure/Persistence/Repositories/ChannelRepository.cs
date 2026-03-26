@@ -59,6 +59,24 @@ internal sealed class ChannelRepository(MimirDbContext context) : IChannelReposi
         return new PaginatedList<Channel>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
     }
 
+    public async Task<IReadOnlyList<Channel>> GetBySourceConversationIdAsync(
+        Guid sourceConversationId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var channels = await context.Channels
+            .AsNoTracking()
+            .Include(channel => channel.Members)
+            .Where(channel =>
+                channel.SourceConversationId == sourceConversationId &&
+                channel.Members.Any(member => member.UserId == userId && member.LeftAt == null))
+            .OrderByDescending(channel => channel.UpdatedAt ?? channel.CreatedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return channels;
+    }
+
     public async Task<Channel> CreateAsync(Channel channel, CancellationToken cancellationToken = default)
     {
         await context.Channels.AddAsync(channel, cancellationToken).ConfigureAwait(false);

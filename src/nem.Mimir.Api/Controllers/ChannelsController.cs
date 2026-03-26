@@ -50,6 +50,14 @@ public sealed class ChannelsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("related/{conversationId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<ChannelListDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRelatedChannels(Guid conversationId, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<IReadOnlyList<ChannelListDto>>(new GetRelatedChannelsQuery(conversationId), ct);
+        return Ok(result);
+    }
+
     [HttpPut("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateChannelRequest request, CancellationToken ct)

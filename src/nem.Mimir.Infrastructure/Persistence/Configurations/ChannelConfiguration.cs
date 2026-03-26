@@ -36,6 +36,9 @@ public class ChannelConfiguration : IEntityTypeConfiguration<Channel>
             .HasMaxLength(32)
             .IsRequired();
 
+        builder.Property(channel => channel.SourceConversationId)
+            .HasColumnName("source_conversation_id");
+
         builder.Property(channel => channel.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -78,6 +81,9 @@ public class ChannelConfiguration : IEntityTypeConfiguration<Channel>
 
         builder.HasIndex(channel => new { channel.Type, channel.Name })
             .HasDatabaseName("ix_channels_type_name");
+
+        builder.HasIndex(channel => channel.SourceConversationId)
+            .HasDatabaseName("ix_channels_source_conversation_id");
 
         builder.Ignore(channel => channel.DomainEvents);
     }
