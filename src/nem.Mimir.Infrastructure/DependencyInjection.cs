@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IArenaConfigRepository, ArenaConfigRepository>();
         services.AddScoped<IUserMemoryRepository, UserMemoryRepository>();
         services.AddScoped<IKnowledgeCollectionRepository, KnowledgeCollectionRepository>();
+        services.AddScoped<IUsageStatsReadDbContext>(sp => sp.GetRequiredService<MimirDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
 

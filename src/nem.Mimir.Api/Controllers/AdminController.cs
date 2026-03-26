@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Auditing.Queries;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Application.Admin.Commands;
+using nem.Mimir.Application.Admin.Queries;
 using nem.Mimir.Application.Users.Commands;
 using nem.Mimir.Application.Users.Queries;
 using nem.Mimir.Domain.Enums;
@@ -127,6 +128,38 @@ public sealed class AdminController : ControllerBase
         var command = new DeactivateUserCommand(id);
         await _bus.InvokeAsync(command, cancellationToken);
         return NoContent();
+    }
+
+    [HttpGet("config")]
+    [ProducesResponseType(typeof(SystemConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetSystemConfig(CancellationToken cancellationToken = default)
+    {
+        var result = await _bus.InvokeAsync<SystemConfigDto>(new GetSystemConfigQuery(), cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPut("config")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateSystemConfig(
+        [FromBody] SystemConfigDto config,
+        CancellationToken cancellationToken = default)
+    {
+        await _bus.InvokeAsync(new UpdateSystemConfigCommand(config), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpGet("stats")]
+    [ProducesResponseType(typeof(UsageStatsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUsageStats(CancellationToken cancellationToken = default)
+    {
+        var result = await _bus.InvokeAsync<UsageStatsDto>(new GetUsageStatsQuery(), cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>

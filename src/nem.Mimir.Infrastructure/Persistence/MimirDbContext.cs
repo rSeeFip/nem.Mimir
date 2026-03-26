@@ -4,10 +4,11 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using nem.Mimir.Domain.Common;
 using nem.Mimir.Domain.Entities;
+using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Infrastructure.Identity;
 using nem.Mimir.Infrastructure.Persistence.Converters;
 
-public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContext(options)
+public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContext(options), IUsageStatsReadDbContext
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -26,6 +27,10 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<KnowledgeCollection> KnowledgeCollections => Set<KnowledgeCollection>();
     public DbSet<ActorIdentityDocument> ActorIdentities => Set<ActorIdentityDocument>();
     public DbSet<ChannelIdentityLinkDocument> ChannelIdentityLinks => Set<ChannelIdentityLinkDocument>();
+
+    IQueryable<User> IUsageStatsReadDbContext.Users => Users;
+    IQueryable<Conversation> IUsageStatsReadDbContext.Conversations => Conversations;
+    IQueryable<Message> IUsageStatsReadDbContext.Messages => Messages;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
