@@ -70,6 +70,10 @@ public sealed partial class MimirMapper
 
     private Guid MapUserPreferenceId(UserPreferenceId id) => id.Value;
 
+    private Guid MapModelProfileId(ModelProfileId id) => id.Value;
+
+    private Guid MapArenaConfigId(ArenaConfigId id) => id.Value;
+
     public UserDto MapToUserDto(User entity) =>
         new(
             entity.Id,
@@ -143,4 +147,31 @@ public sealed partial class MimirMapper
             entity.CreatedAt,
             entity.UpdatedAt);
     }
+
+    public ModelProfileDto MapToModelProfileDto(ModelProfile entity) =>
+        new(
+            entity.Id.Value,
+            entity.UserId,
+            entity.Name,
+            entity.ModelId,
+            entity.Parameters.Temperature,
+            entity.Parameters.TopP,
+            entity.Parameters.MaxTokens,
+            entity.Parameters.FrequencyPenalty,
+            entity.Parameters.PresencePenalty,
+            entity.Parameters.StopSequences.ToList(),
+            entity.Parameters.SystemPromptOverride,
+            entity.Parameters.ResponseFormat,
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public ArenaConfigDto MapToArenaConfigDto(ArenaConfig entity) =>
+        new(
+            entity.Id.Value,
+            entity.UserId,
+            entity.ModelIds.ToList(),
+            entity.IsBlindComparisonEnabled,
+            entity.ShowModelNamesAfterVote,
+            entity.CreatedAt,
+            entity.UpdatedAt);
 }

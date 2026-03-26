@@ -59,6 +59,8 @@ public static class DependencyInjection
         services.AddScoped<ISystemPromptRepository, SystemPromptRepository>();
         services.AddScoped<IPromptTemplateRepository, PromptTemplateRepository>();
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
+        services.AddScoped<IModelProfileRepository, ModelProfileRepository>();
+        services.AddScoped<IArenaConfigRepository, ArenaConfigRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
 

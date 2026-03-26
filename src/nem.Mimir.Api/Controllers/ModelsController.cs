@@ -2,7 +2,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nem.Mimir.Application.Common.Models;
+using nem.Mimir.Application.Models.Commands;
 using nem.Mimir.Application.Models.Queries;
+using nem.Mimir.Domain.ValueObjects;
 
 namespace nem.Mimir.Api.Controllers;
 
@@ -42,7 +44,7 @@ public sealed class ModelsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetModels(CancellationToken cancellationToken)
     {
-        var models = await _bus.InvokeAsync<IReadOnlyList<LlmModelInfoDto>>(new GetModelsQuery(), cancellationToken);
+        var models = await _bus.InvokeAsync<IReadOnlyList<LlmModelInfoDto>>(new GetModelsQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(models);
     }
 
@@ -62,7 +64,7 @@ public sealed class ModelsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetModelStatus(string modelId, CancellationToken cancellationToken)
     {
-        var model = await _bus.InvokeAsync<LlmModelInfoDto?>(new GetModelStatusQuery(modelId), cancellationToken);
+        var model = await _bus.InvokeAsync<LlmModelInfoDto?>(new GetModelStatusQuery(modelId), cancellationToken).ConfigureAwait(false);
 
         if (model is null)
         {
@@ -71,4 +73,131 @@ public sealed class ModelsController : ControllerBase
 
         return Ok(model);
     }
+
+    [HttpGet("profiles")]
+    [ProducesResponseType(typeof(IReadOnlyList<ModelProfileDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetProfiles(CancellationToken cancellationToken)
+    {
+        var profiles = await _bus.InvokeAsync<IReadOnlyList<ModelProfileDto>>(new GetModelProfilesQuery(), cancellationToken).ConfigureAwait(false);
+        return Ok(profiles);
+    }
+
+    [HttpPost("profiles")]
+    [ProducesResponseType(typeof(ModelProfileDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateProfile([FromBody] CreateModelProfileRequest request, CancellationToken cancellationToken)
+    {
+        var profile = await _bus.InvokeAsync<ModelProfileDto>(
+            new CreateModelProfileCommand(
+                request.Name,
+                request.ModelId,
+                request.Temperature,
+                request.TopP,
+                request.MaxTokens,
+                request.FrequencyPenalty,
+                request.PresencePenalty,
+                request.StopSequences,
+                request.SystemPromptOverride,
+                request.ResponseFormat),
+            cancellationToken).ConfigureAwait(false);
+
+        return CreatedAtAction(nameof(GetProfiles), new { id = profile.Id }, profile);
+    }
+
+    [HttpPut("profiles/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateProfile(ModelProfileId id, [FromBody] UpdateModelProfileRequest request, CancellationToken cancellationToken)
+    {
+        await _bus.InvokeAsync(
+            new UpdateModelProfileCommand(
+                id,
+                request.Name,
+                request.ModelId,
+                request.Temperature,
+                request.TopP,
+                request.MaxTokens,
+                request.FrequencyPenalty,
+                request.PresencePenalty,
+                request.StopSequences,
+                request.SystemPromptOverride,
+                request.ResponseFormat),
+            cancellationToken).ConfigureAwait(false);
+
+        return NoContent();
+    }
+
+    [HttpDelete("profiles/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteProfile(ModelProfileId id, CancellationToken cancellationToken)
+    {
+        await _bus.InvokeAsync(new DeleteModelProfileCommand(id), cancellationToken).ConfigureAwait(false);
+        return NoContent();
+    }
+
+    [HttpGet("{modelId}/capabilities")]
+    [ProducesResponseType(typeof(ModelCapabilityDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetModelCapabilities(string modelId, CancellationToken cancellationToken)
+    {
+        var capabilities = await _bus.InvokeAsync<ModelCapabilityDto>(new GetModelCapabilitiesQuery(modelId), cancellationToken).ConfigureAwait(false);
+        return Ok(capabilities);
+    }
+
+    [HttpGet("arena-config")]
+    [ProducesResponseType(typeof(ArenaConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetArenaConfig(CancellationToken cancellationToken)
+    {
+        var config = await _bus.InvokeAsync<ArenaConfigDto>(new GetArenaConfigQuery(), cancellationToken).ConfigureAwait(false);
+        return Ok(config);
+    }
+
+    [HttpPut("arena-config")]
+    [ProducesResponseType(typeof(ArenaConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SetArenaConfig([FromBody] SetArenaConfigRequest request, CancellationToken cancellationToken)
+    {
+        var config = await _bus.InvokeAsync<ArenaConfigDto>(
+            new SetArenaConfigCommand(
+                request.ModelIds,
+                request.IsBlindComparisonEnabled,
+                request.ShowModelNamesAfterVote),
+            cancellationToken).ConfigureAwait(false);
+
+        return Ok(config);
+    }
 }
+
+public sealed record CreateModelProfileRequest(
+    string Name,
+    string ModelId,
+    decimal? Temperature,
+    decimal? TopP,
+    int? MaxTokens,
+    decimal? FrequencyPenalty,
+    decimal? PresencePenalty,
+    IReadOnlyList<string>? StopSequences,
+    string? SystemPromptOverride,
+    string? ResponseFormat);
+
+public sealed record UpdateModelProfileRequest(
+    string Name,
+    string ModelId,
+    decimal? Temperature,
+    decimal? TopP,
+    int? MaxTokens,
+    decimal? FrequencyPenalty,
+    decimal? PresencePenalty,
+    IReadOnlyList<string>? StopSequences,
+    string? SystemPromptOverride,
+    string? ResponseFormat);
+
+public sealed record SetArenaConfigRequest(
+    IReadOnlyList<string> ModelIds,
+    bool IsBlindComparisonEnabled,
+    bool ShowModelNamesAfterVote);
