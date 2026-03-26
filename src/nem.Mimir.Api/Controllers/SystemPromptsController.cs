@@ -39,7 +39,7 @@ public sealed class SystemPromptsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create([FromBody] CreateSystemPromptRequest request, CancellationToken ct)
     {
-        var result = await _bus.InvokeAsync(
+        var result = await _bus.InvokeAsync<SystemPromptDto>(
             new CreateSystemPromptCommand(request.Name, request.Template, request.Description ?? string.Empty), ct);
 
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
@@ -60,7 +60,7 @@ public sealed class SystemPromptsController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _bus.InvokeAsync(new ListSystemPromptsQuery(pageNumber, pageSize), ct);
+        var result = await _bus.InvokeAsync<PaginatedList<SystemPromptDto>>(new ListSystemPromptsQuery(pageNumber, pageSize), ct);
         return Ok(result);
     }
 
@@ -76,7 +76,7 @@ public sealed class SystemPromptsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(SystemPromptId id, CancellationToken ct)
     {
-        var result = await _bus.InvokeAsync(new GetSystemPromptByIdQuery(id), ct);
+        var result = await _bus.InvokeAsync<SystemPromptDto>(new GetSystemPromptByIdQuery(id), ct);
         return Ok(result);
     }
 
@@ -125,7 +125,7 @@ public sealed class SystemPromptsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Render(SystemPromptId id, [FromBody] RenderSystemPromptRequest request, CancellationToken ct)
     {
-        var result = await _bus.InvokeAsync(
+        var result = await _bus.InvokeAsync<string>(
             new RenderSystemPromptQuery(id, request.Variables ?? new Dictionary<string, string>()), ct);
         return Ok(new RenderSystemPromptResponse(result));
     }
