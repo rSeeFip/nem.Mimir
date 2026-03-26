@@ -242,6 +242,20 @@ public sealed partial class MimirMapper
             entity.CreatedAt,
             entity.UpdatedAt);
 
+    public ImageGenerationDto MapToImageGenerationDto(ImageGeneration entity) =>
+        new(
+            entity.Id.Value,
+            entity.UserId,
+            entity.Prompt,
+            entity.NegativePrompt,
+            entity.Model,
+            entity.Size,
+            entity.Status.ToString(),
+            entity.ImageUrl,
+            entity.ErrorMessage,
+            entity.CreatedAt,
+            entity.CompletedAt);
+
     public ConversationListDto MapToConversationListDto(Conversation entity) =>
         new(
             entity.Id,

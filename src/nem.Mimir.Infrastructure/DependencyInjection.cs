@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IChannelRepository, ChannelRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<IEvaluationRepository, EvaluationRepository>();
+        services.AddScoped<IImageGenerationRepository, ImageGenerationRepository>();
         services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<IChannelEventRepository, ChannelEventRepository>();
         services.AddScoped<IAuditRepository, AuditRepository>();
@@ -71,6 +72,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
         services.AddScoped<nem.Mimir.Application.Notes.Services.YjsDocumentStore>();
+        services.AddScoped<IImageGenerationService, ImageGenerationService>();
 
         // Actor identity services
         services.AddScoped<nem.Contracts.Identity.IActorIdentityResolver, EfCoreActorIdentityResolver>();
