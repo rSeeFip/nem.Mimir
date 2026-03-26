@@ -232,6 +232,56 @@ public sealed class ConversationsController : ControllerBase
         await _bus.InvokeAsync(new MoveConversationToFolderCommand(id, request.FolderId), ct);
         return NoContent();
     }
+
+    [HttpPost("{id:guid}/messages/{msgId:guid}/regenerate")]
+    [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RegenerateMessage(Guid id, Guid msgId, [FromBody] RegenerateMessageRequest? request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<MessageDto>(new RegenerateMessageCommand(id, msgId, request?.Model), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/messages/{msgId:guid}/reactions")]
+    [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddReaction(Guid id, Guid msgId, [FromBody] MessageReactionRequest request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<MessageDto>(new AddReactionCommand(id, msgId, request.Emoji), ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/messages/{msgId:guid}/reactions/{emoji}")]
+    [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveReaction(Guid id, Guid msgId, string emoji, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<MessageDto>(new RemoveReactionCommand(id, msgId, emoji), ct);
+        return Ok(result);
+    }
+
+    [HttpPut("{id:guid}/messages/{msgId:guid}")]
+    [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EditMessage(Guid id, Guid msgId, [FromBody] EditMessageRequest request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<MessageDto>(new EditMessageCommand(id, msgId, request.Content), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/messages/{msgId:guid}/branch/{branchIndex:int}")]
+    [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SwitchBranch(Guid id, Guid msgId, int branchIndex, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<MessageDto>(new SwitchBranchCommand(id, msgId, branchIndex), ct);
+        return Ok(result);
+    }
 }
 
 /// <summary>
@@ -256,3 +306,9 @@ public sealed record ForkConversationRequest(string? ForkReason);
 public sealed record TagConversationRequest(string Tag);
 
 public sealed record MoveConversationToFolderRequest(Guid? FolderId);
+
+public sealed record RegenerateMessageRequest(string? Model);
+
+public sealed record MessageReactionRequest(string Emoji);
+
+public sealed record EditMessageRequest(string Content);

@@ -110,7 +110,13 @@ public sealed partial class MimirMapper
             entity.Content,
             entity.Model,
             entity.TokenCount,
-            entity.CreatedAt);
+            entity.CreatedAt,
+            entity.ParentMessageId,
+            entity.BranchIndex,
+            entity.IsRegenerated,
+            entity.Reactions
+                .Select(reaction => new ConversationMessageReactionDto(reaction.Emoji, reaction.UserId, reaction.ReactedAt))
+                .ToList());
 
     public ChannelDto MapToChannelDto(Channel entity) =>
         new(

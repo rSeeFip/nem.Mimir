@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Domain.Enums;
+using nem.Mimir.Domain.ValueObjects;
 using nem.Contracts.Content;
 using nem.Contracts.Versioning;
 
@@ -48,6 +49,19 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasColumnName("created_at")
             .IsRequired();
 
+        builder.Property(m => m.ParentMessageId)
+            .HasColumnName("parent_message_id");
+
+        builder.Property(m => m.BranchIndex)
+            .HasColumnName("branch_index")
+            .HasDefaultValue(0)
+            .IsRequired();
+
+        builder.Property(m => m.IsRegenerated)
+            .HasColumnName("is_regenerated")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         var jsonOptions = NemJsonSerializerOptions.CreateOptions();
 
         builder.Property(m => m.ContentPayload)
@@ -66,8 +80,23 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasColumnName("content_type")
             .HasMaxLength(50);
 
+        builder.Property<List<MessageReaction>>("_reactions")
+            .HasColumnName("reactions")
+            .HasColumnType("jsonb")
+            .HasConversion(
+                new ValueConverter<List<MessageReaction>, string>(
+                    value => JsonSerializer.Serialize(value, jsonOptions),
+                    value => JsonSerializer.Deserialize<List<MessageReaction>>(value, jsonOptions) ?? new List<MessageReaction>()),
+                new ValueComparer<List<MessageReaction>>(
+                    (left, right) => JsonSerializer.Serialize(left, jsonOptions) == JsonSerializer.Serialize(right, jsonOptions),
+                    value => JsonSerializer.Serialize(value, jsonOptions).GetHashCode(),
+                    value => JsonSerializer.Deserialize<List<MessageReaction>>(JsonSerializer.Serialize(value, jsonOptions), jsonOptions) ?? new List<MessageReaction>()));
+
         builder.HasIndex(m => m.ConversationId)
             .HasDatabaseName("ix_messages_conversation_id");
+
+        builder.HasIndex(m => m.ParentMessageId)
+            .HasDatabaseName("ix_messages_parent_message_id");
 
         builder.HasIndex(m => m.ContentType)
             .HasDatabaseName("ix_messages_content_type");

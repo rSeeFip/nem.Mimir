@@ -17,4 +17,13 @@ public sealed record MessageDto(
     string Content,
     string? Model,
     int? TokenCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? ParentMessageId,
+    int BranchIndex,
+    bool IsRegenerated,
+    IReadOnlyList<ConversationMessageReactionDto> Reactions);
+
+public sealed record ConversationMessageReactionDto(
+    string Emoji,
+    Guid UserId,
+    DateTimeOffset ReactedAt);

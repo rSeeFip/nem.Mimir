@@ -17,8 +17,10 @@ public sealed class MimirConversationResourceTests
         var conversationId = Guid.NewGuid();
         var messages = new List<MessageDto>
         {
-            new(Guid.NewGuid(), conversationId, "User", "Hello", null, null, DateTimeOffset.UtcNow),
-            new(Guid.NewGuid(), conversationId, "Assistant", "Hi there!", "phi-4-mini", 5, DateTimeOffset.UtcNow)
+            new(Guid.NewGuid(), conversationId, "User", "Hello", null, null, DateTimeOffset.UtcNow,
+                null, 0, false, []),
+            new(Guid.NewGuid(), conversationId, "Assistant", "Hi there!", "phi-4-mini", 5, DateTimeOffset.UtcNow,
+                null, 0, false, [])
         };
         var expected = new ConversationDto(
             conversationId, Guid.NewGuid(), null, false, null, [], "Test", "Active", messages, DateTimeOffset.UtcNow, null);
