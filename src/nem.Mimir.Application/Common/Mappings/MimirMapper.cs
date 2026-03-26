@@ -116,6 +116,9 @@ public sealed partial class MimirMapper
             entity.IsRegenerated,
             entity.Reactions
                 .Select(reaction => new ConversationMessageReactionDto(reaction.Emoji, reaction.UserId, reaction.ReactedAt))
+                .ToList(),
+            entity.KnowledgeSources
+                .Select(source => new MessageKnowledgeSourceDto(source.DocumentId, source.ChunkText, source.Similarity, source.EntityType, source.EntityId))
                 .ToList());
 
     public ChannelDto MapToChannelDto(Channel entity) =>

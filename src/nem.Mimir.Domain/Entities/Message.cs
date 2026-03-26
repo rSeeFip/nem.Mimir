@@ -8,6 +8,7 @@ using nem.Contracts.Content;
 public class Message : BaseEntity<Guid>
 {
     private readonly List<MessageReaction> _reactions = [];
+    private readonly List<MessageKnowledgeSource> _knowledgeSources = [];
 
     public Guid ConversationId { get; private set; }
     public MessageRole Role { get; private set; }
@@ -19,6 +20,7 @@ public class Message : BaseEntity<Guid>
     public int BranchIndex { get; private set; }
     public bool IsRegenerated { get; private set; }
     public IReadOnlyCollection<MessageReaction> Reactions => _reactions.AsReadOnly();
+    public IReadOnlyCollection<MessageKnowledgeSource> KnowledgeSources => _knowledgeSources.AsReadOnly();
     public IContentPayload? ContentPayload { get; private set; }
     public string? ContentType { get; private set; }
 
@@ -128,5 +130,13 @@ public class Message : BaseEntity<Guid>
         ParentMessageId = parentId;
         BranchIndex = branchIndex;
         IsRegenerated = branchIndex > 0;
+    }
+
+    public void SetKnowledgeSources(IEnumerable<MessageKnowledgeSource> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        _knowledgeSources.Clear();
+        _knowledgeSources.AddRange(sources);
     }
 }

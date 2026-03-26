@@ -282,6 +282,38 @@ public sealed class ConversationsController : ControllerBase
         var result = await _bus.InvokeAsync<MessageDto>(new SwitchBranchCommand(id, msgId, branchIndex), ct);
         return Ok(result);
     }
+
+    [HttpPost("{id:guid}/attach-file")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
+    [ProducesResponseType(typeof(ConversationAttachmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AttachFile(Guid id, [FromForm] IFormFile file, CancellationToken ct)
+    {
+        if (file.Length <= 0)
+        {
+            return BadRequest("File is required.");
+        }
+
+        await using var stream = file.OpenReadStream();
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream, ct);
+
+        var result = await _bus.InvokeAsync<ConversationAttachmentDto>(
+            new AttachFileToConversationCommand(id, file.FileName, file.ContentType, memoryStream.ToArray()), ct);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}/rag-context")]
+    [ProducesResponseType(typeof(ConversationContextDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRagContext(Guid id, [FromQuery] string query, [FromQuery] int maxResults = 10, CancellationToken ct = default)
+    {
+        var result = await _bus.InvokeAsync<ConversationContextDto>(new GetConversationContextQuery(id, query, maxResults), ct);
+        return Ok(result);
+    }
 }
 
 /// <summary>

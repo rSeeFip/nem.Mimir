@@ -21,9 +21,17 @@ public sealed record MessageDto(
     Guid? ParentMessageId,
     int BranchIndex,
     bool IsRegenerated,
-    IReadOnlyList<ConversationMessageReactionDto> Reactions);
+    IReadOnlyList<ConversationMessageReactionDto> Reactions,
+    IReadOnlyList<MessageKnowledgeSourceDto> KnowledgeSources);
 
 public sealed record ConversationMessageReactionDto(
     string Emoji,
     Guid UserId,
     DateTimeOffset ReactedAt);
+
+public sealed record MessageKnowledgeSourceDto(
+    Guid DocumentId,
+    string ChunkText,
+    float Similarity,
+    string? EntityType,
+    string? EntityId);

@@ -23,6 +23,7 @@ using nem.Mimir.Infrastructure.Knowledge;
 using nem.Mimir.Infrastructure.Cache;
 using nem.Mimir.Infrastructure.Mcp;
 using nem.Mimir.Application.Knowledge;
+using nem.Mimir.Application.Conversations.Services;
 using nem.Contracts.AspNetCore.Classification;
 using nem.Contracts.Classification;
 using nem.Contracts.Lifecycle;
@@ -189,6 +190,8 @@ public static class DependencyInjection
 
         // Conversation archive service
         services.AddScoped<IConversationArchiveService, ConversationArchiveService>();
+        services.AddScoped<IConversationKnowledgeProvider, ConversationKnowledgeProvider>();
+        services.AddScoped<IConversationContextService, ConversationRagService>();
 
         services.AddAgentCommunicationBus();
         services.AddBackgroundTaskInfrastructure(configuration);

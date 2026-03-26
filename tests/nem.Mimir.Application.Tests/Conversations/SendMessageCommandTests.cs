@@ -3,6 +3,7 @@ using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Application.Conversations.Commands;
+using nem.Mimir.Application.Conversations.Services;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Domain.Enums;
 using NSubstitute;
@@ -18,6 +19,7 @@ public sealed class SendMessageCommandTests
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
+    private readonly IConversationContextService _conversationRagService;
     private readonly MimirMapper _mapper;
     private readonly IMessageBus _messageBus;
     private readonly SendMessageCommandHandler _handler;
@@ -29,7 +31,12 @@ public sealed class SendMessageCommandTests
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _llmService = Substitute.For<ILlmService>();
         _contextWindowService = Substitute.For<IContextWindowService>();
+        _conversationRagService = Substitute.For<IConversationContextService>();
         _messageBus = Substitute.For<IMessageBus>();
+
+        _conversationRagService
+            .GetRagContextAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<KnowledgeSearchResultDto>());
 
         // Default: BuildLlmMessagesAsync returns a basic message list
         _contextWindowService.BuildLlmMessagesAsync(
@@ -51,7 +58,7 @@ public sealed class SendMessageCommandTests
         _mapper = new MimirMapper();
 
         _handler = new SendMessageCommandHandler(
-            _repository, _currentUserService, _unitOfWork, _llmService, _contextWindowService, _mapper, _messageBus);
+            _repository, _currentUserService, _unitOfWork, _llmService, _contextWindowService, _conversationRagService, _mapper, _messageBus);
     }
 
     [Fact]

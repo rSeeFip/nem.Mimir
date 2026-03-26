@@ -17,7 +17,7 @@ public sealed class MimirChatToolTests
         var conversationId = Guid.NewGuid();
         var expected = new MessageDto(
             Guid.NewGuid(), conversationId, "Assistant", "Hello!", "phi-4-mini", 10, DateTimeOffset.UtcNow,
-            null, 0, false, []);
+            null, 0, false, [], []);
 
         _messageBus
             .InvokeAsync<MessageDto>(Arg.Any<SendMessageCommand>(), Arg.Any<CancellationToken>())
@@ -44,7 +44,7 @@ public sealed class MimirChatToolTests
         var conversationId = Guid.NewGuid();
         var expected = new MessageDto(
             Guid.NewGuid(), conversationId, "Assistant", "Response", null, null, DateTimeOffset.UtcNow,
-            null, 0, false, []);
+            null, 0, false, [], []);
 
         _messageBus
             .InvokeAsync<MessageDto>(Arg.Any<SendMessageCommand>(), Arg.Any<CancellationToken>())

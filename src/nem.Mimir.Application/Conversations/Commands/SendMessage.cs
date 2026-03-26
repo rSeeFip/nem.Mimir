@@ -4,7 +4,9 @@ using FluentValidation;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
+using nem.Mimir.Application.Conversations.Services;
 using nem.Mimir.Domain.Enums;
+using nem.Mimir.Domain.ValueObjects;
 using nem.Contracts.Events.Integration;
 using Wolverine;
 
@@ -46,6 +48,7 @@ internal sealed class SendMessageCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
+    private readonly IConversationContextService _conversationRagService;
     private readonly MimirMapper _mapper;
     private readonly IMessageBus _messageBus;
 
@@ -55,6 +58,7 @@ internal sealed class SendMessageCommandHandler
         IUnitOfWork unitOfWork,
         ILlmService llmService,
         IContextWindowService contextWindowService,
+        IConversationContextService conversationRagService,
         MimirMapper mapper,
         IMessageBus messageBus)
     {
@@ -63,6 +67,7 @@ internal sealed class SendMessageCommandHandler
         _unitOfWork = unitOfWork;
         _llmService = llmService;
         _contextWindowService = contextWindowService;
+        _conversationRagService = conversationRagService;
         _mapper = mapper;
         _messageBus = messageBus;
     }
@@ -81,9 +86,21 @@ internal sealed class SendMessageCommandHandler
             throw new NotFoundException(nameof(Domain.Entities.Conversation), request.ConversationId);
 
         var model = request.Model ?? DefaultModel;
+        var ragSources = await _conversationRagService
+            .GetRagContextAsync(request.ConversationId, request.Content, cancellationToken)
+            .ConfigureAwait(false);
+
+        var ragContextPrefix = string.Empty;
+        if (ragSources.Count > 0)
+        {
+            var serializedContext = string.Join("\n", ragSources.Select(source => $"[{source.DocumentId}] {source.ChunkText}"));
+            ragContextPrefix = $"Use the following retrieved context when answering:\n{serializedContext}\n\n";
+        }
 
         // Build LLM messages with context window management (before adding to entity)
-        var llmMessages = await _contextWindowService.BuildLlmMessagesAsync(conversation, request.Content, model, cancellationToken);
+        var llmMessages = await _contextWindowService
+            .BuildLlmMessagesAsync(conversation, $"{ragContextPrefix}{request.Content}", model, cancellationToken)
+            .ConfigureAwait(false);
 
         // Add user message to conversation (persisted later)
         conversation.AddMessage(MessageRole.User, request.Content);
@@ -98,6 +115,12 @@ internal sealed class SendMessageCommandHandler
 
         // Add assistant message to conversation
         var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);
+        assistantMessage.SetKnowledgeSources(ragSources.Select(source => new MessageKnowledgeSource(
+            source.DocumentId,
+            source.ChunkText,
+            source.Similarity,
+            source.EntityType,
+            source.EntityId)));
 
         // Estimate and set token count on assistant message
         var tokenCount = _contextWindowService.EstimateTokenCount(fullResponse);

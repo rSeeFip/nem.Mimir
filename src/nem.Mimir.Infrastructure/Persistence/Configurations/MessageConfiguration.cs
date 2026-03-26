@@ -92,6 +92,18 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
                     value => JsonSerializer.Serialize(value, jsonOptions).GetHashCode(),
                     value => JsonSerializer.Deserialize<List<MessageReaction>>(JsonSerializer.Serialize(value, jsonOptions), jsonOptions) ?? new List<MessageReaction>()));
 
+        builder.Property<List<MessageKnowledgeSource>>("_knowledgeSources")
+            .HasColumnName("knowledge_sources")
+            .HasColumnType("jsonb")
+            .HasConversion(
+                new ValueConverter<List<MessageKnowledgeSource>, string>(
+                    value => JsonSerializer.Serialize(value, jsonOptions),
+                    value => JsonSerializer.Deserialize<List<MessageKnowledgeSource>>(value, jsonOptions) ?? new List<MessageKnowledgeSource>()),
+                new ValueComparer<List<MessageKnowledgeSource>>(
+                    (left, right) => JsonSerializer.Serialize(left, jsonOptions) == JsonSerializer.Serialize(right, jsonOptions),
+                    value => JsonSerializer.Serialize(value, jsonOptions).GetHashCode(),
+                    value => JsonSerializer.Deserialize<List<MessageKnowledgeSource>>(JsonSerializer.Serialize(value, jsonOptions), jsonOptions) ?? new List<MessageKnowledgeSource>()));
+
         builder.HasIndex(m => m.ConversationId)
             .HasDatabaseName("ix_messages_conversation_id");
 
