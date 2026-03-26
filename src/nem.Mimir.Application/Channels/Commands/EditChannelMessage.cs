@@ -1,25 +1,27 @@
 ﻿using FluentValidation;
 using ChannelTypedId = nem.Contracts.Identity.ChannelId;
+using ChannelMessageTypedId = nem.Contracts.Identity.ChannelMessageId;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
-using nem.Mimir.Domain.Events;
-using Wolverine;
 
 namespace nem.Mimir.Application.Channels.Commands;
 
-public sealed record SendChannelMessageCommand(
+public sealed record EditChannelMessageCommand(
     Guid ChannelId,
-    string Content,
-    Guid? ParentMessageId) : ICommand<ChannelMessageDto>;
+    Guid MessageId,
+    string Content) : ICommand<ChannelMessageDto>;
 
-public sealed class SendChannelMessageCommandValidator : AbstractValidator<SendChannelMessageCommand>
+public sealed class EditChannelMessageCommandValidator : AbstractValidator<EditChannelMessageCommand>
 {
-    public SendChannelMessageCommandValidator()
+    public EditChannelMessageCommandValidator()
     {
         RuleFor(x => x.ChannelId)
             .NotEmpty().WithMessage("Channel ID is required.");
+
+        RuleFor(x => x.MessageId)
+            .NotEmpty().WithMessage("Message ID is required.");
 
         RuleFor(x => x.Content)
             .NotEmpty().WithMessage("Message content is required.")
@@ -27,14 +29,13 @@ public sealed class SendChannelMessageCommandValidator : AbstractValidator<SendC
     }
 }
 
-public sealed class SendChannelMessageHandler
+public sealed class EditChannelMessageHandler
 {
     public async Task<ChannelMessageDto> Handle(
-        SendChannelMessageCommand command,
+        EditChannelMessageCommand command,
         IChannelRepository repository,
         ICurrentUserService currentUser,
         IUnitOfWork unitOfWork,
-        IMessageBus messageBus,
         MimirMapper mapper,
         CancellationToken cancellationToken)
     {
@@ -44,23 +45,20 @@ public sealed class SendChannelMessageHandler
         if (!Guid.TryParse(userId, out var userGuid))
             throw new ForbiddenAccessException("User identity could not be determined.");
 
-        var channel = await repository.GetWithMembersAsync(ChannelTypedId.From(command.ChannelId), cancellationToken)
+        var message = await repository.GetMessageByIdAsync(
+                ChannelTypedId.From(command.ChannelId),
+                ChannelMessageTypedId.From(command.MessageId),
+                cancellationToken)
             .ConfigureAwait(false)
-            ?? throw new NotFoundException(nameof(Domain.Entities.Channel), command.ChannelId);
+            ?? throw new NotFoundException("ChannelMessage", command.MessageId);
 
-        var message = channel.AddMessage(userGuid, command.Content, command.ParentMessageId);
+        if (message.SenderId != userGuid)
+            throw new ForbiddenAccessException();
 
-        await repository.UpdateAsync(channel, cancellationToken).ConfigureAwait(false);
+        message.Edit(command.Content);
+
+        await repository.UpdateMessageAsync(message, cancellationToken).ConfigureAwait(false);
         await unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-        var sentEvent = channel.DomainEvents
-            .OfType<ChannelMessageSentEvent>()
-            .LastOrDefault(evt => evt.MessageId == message.Id);
-
-        if (sentEvent is not null)
-        {
-            await messageBus.PublishAsync(sentEvent).ConfigureAwait(false);
-        }
 
         return mapper.MapToChannelMessageDto(message);
     }

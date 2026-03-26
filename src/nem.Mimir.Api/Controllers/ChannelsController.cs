@@ -114,6 +114,44 @@ public sealed class ChannelsController : ControllerBase
 
         return CreatedAtAction(nameof(GetMessages), new { id }, result);
     }
+
+    [HttpPut("{channelId:guid}/messages/{messageId:guid}")]
+    [ProducesResponseType(typeof(ChannelMessageDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> EditMessage(
+        Guid channelId,
+        Guid messageId,
+        [FromBody] EditChannelMessageRequest request,
+        CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ChannelMessageDto>(
+            new EditChannelMessageCommand(channelId, messageId, request.Content),
+            ct);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("{channelId:guid}/messages/{messageId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeleteMessage(Guid channelId, Guid messageId, CancellationToken ct)
+    {
+        await _bus.InvokeAsync(new DeleteChannelMessageCommand(channelId, messageId), ct);
+        return NoContent();
+    }
+
+    [HttpPost("{channelId:guid}/messages/{messageId:guid}/reactions")]
+    [ProducesResponseType(typeof(ChannelMessageDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ReactToMessage(
+        Guid channelId,
+        Guid messageId,
+        [FromBody] ReactToChannelMessageRequest request,
+        CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ChannelMessageDto>(
+            new ReactToChannelMessageCommand(channelId, messageId, request.Emoji),
+            ct);
+
+        return Ok(result);
+    }
 }
 
 public sealed record CreateChannelRequest(string Name, string? Description, string Type);
@@ -121,3 +159,7 @@ public sealed record CreateChannelRequest(string Name, string? Description, stri
 public sealed record UpdateChannelRequest(string Name, string? Description);
 
 public sealed record SendChannelMessageRequest(string Content, Guid? ParentMessageId);
+
+public sealed record EditChannelMessageRequest(string Content);
+
+public sealed record ReactToChannelMessageRequest(string Emoji);

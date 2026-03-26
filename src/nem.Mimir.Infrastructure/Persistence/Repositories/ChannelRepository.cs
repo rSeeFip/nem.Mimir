@@ -1,6 +1,7 @@
 ﻿namespace nem.Mimir.Infrastructure.Persistence.Repositories;
 
 using ChannelId = nem.Contracts.Identity.ChannelId;
+using ChannelMessageId = nem.Contracts.Identity.ChannelMessageId;
 using Microsoft.EntityFrameworkCore;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -100,5 +101,29 @@ internal sealed class ChannelRepository(MimirDbContext context) : IChannelReposi
             .ConfigureAwait(false);
 
         return new PaginatedList<ChannelMessage>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
+    }
+
+    public async Task<ChannelMessage?> GetMessageByIdAsync(
+        ChannelId channelId,
+        ChannelMessageId messageId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.ChannelMessages
+            .FirstOrDefaultAsync(
+                message => message.ChannelId == channelId && message.Id == messageId,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public Task UpdateMessageAsync(ChannelMessage message, CancellationToken cancellationToken = default)
+    {
+        context.ChannelMessages.Update(message);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteMessageAsync(ChannelMessage message, CancellationToken cancellationToken = default)
+    {
+        context.ChannelMessages.Remove(message);
+        return Task.CompletedTask;
     }
 }
