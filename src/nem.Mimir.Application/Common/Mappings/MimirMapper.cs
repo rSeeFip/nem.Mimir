@@ -115,6 +115,47 @@ public sealed partial class MimirMapper
             entity.TokenCount,
             entity.CreatedAt);
 
+    public ChannelDto MapToChannelDto(Channel entity) =>
+        new(
+            entity.Id.Value,
+            entity.OwnerId,
+            entity.Name,
+            entity.Description,
+            entity.Type.ToString(),
+            entity.Members.Count,
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public ChannelListDto MapToChannelListDto(Channel entity) =>
+        new(
+            entity.Id.Value,
+            entity.Name,
+            entity.Description,
+            entity.Type.ToString(),
+            entity.Members.Count,
+            entity.CreatedAt);
+
+    public ChannelMemberDto MapToChannelMemberDto(ChannelMember entity) =>
+        new(
+            entity.UserId,
+            entity.Role.ToString(),
+            entity.JoinedAt);
+
+    public ChannelMessageDto MapToChannelMessageDto(ChannelMessage entity) =>
+        new(
+            entity.Id.Value,
+            entity.ChannelId.Value,
+            entity.SenderId,
+            entity.Content,
+            entity.ParentMessageId?.Value,
+            entity.IsPinned,
+            entity.Reactions
+                .GroupBy(reaction => reaction.Emoji)
+                .Select(group => new MessageReactionDto(group.Key, group.Count(), false))
+                .ToList(),
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
     public ConversationDto MapToConversationDto(Conversation entity) =>
         new(
             entity.Id,
