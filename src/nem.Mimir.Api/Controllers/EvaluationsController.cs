@@ -98,6 +98,30 @@ public sealed class EvaluationsController : ControllerBase
         var result = await _bus.InvokeAsync<EvaluationDto>(new GetEvaluationByIdQuery(id), ct);
         return Ok(result);
     }
+
+    [HttpPost("arena/start")]
+    [ProducesResponseType(typeof(ArenaSessionDto), StatusCodes.Status201Created)]
+    public async Task<IActionResult> StartArena([FromBody] StartArenaSessionRequest request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ArenaSessionDto>(new StartArenaSessionCommand(request.Prompt), ct);
+        return CreatedAtAction(nameof(GetArenaSession), new { sessionId = result.SessionId }, result);
+    }
+
+    [HttpPost("arena/{sessionId:guid}/vote")]
+    [ProducesResponseType(typeof(ArenaSessionDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> VoteArena(Guid sessionId, [FromBody] VoteArenaSessionRequest request, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ArenaSessionDto>(new VoteArenaSessionCommand(sessionId, request.Winner), ct);
+        return Ok(result);
+    }
+
+    [HttpGet("arena/{sessionId:guid}")]
+    [ProducesResponseType(typeof(ArenaSessionDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetArenaSession(Guid sessionId, CancellationToken ct)
+    {
+        var result = await _bus.InvokeAsync<ArenaSessionDto>(new GetArenaSessionQuery(sessionId), ct);
+        return Ok(result);
+    }
 }
 
 public sealed record CreateEvaluationRequest(
@@ -115,3 +139,7 @@ public sealed record SubmitFeedbackRequest(
     int Relevance,
     int Accuracy,
     string? Comment);
+
+public sealed record StartArenaSessionRequest(string Prompt);
+
+public sealed record VoteArenaSessionRequest(string Winner);

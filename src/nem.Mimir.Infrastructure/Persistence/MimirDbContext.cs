@@ -22,6 +22,7 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<Evaluation> Evaluations => Set<Evaluation>();
     public DbSet<LeaderboardEntry> LeaderboardEntries => Set<LeaderboardEntry>();
     public DbSet<EvaluationFeedback> EvaluationFeedbacks => Set<EvaluationFeedback>();
+    public DbSet<ArenaSession> ArenaSessions => Set<ArenaSession>();
     public DbSet<ImageGeneration> ImageGenerations => Set<ImageGeneration>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<AgentMessage> AgentMessages => Set<AgentMessage>();

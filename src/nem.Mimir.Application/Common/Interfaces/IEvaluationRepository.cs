@@ -16,13 +16,19 @@ public interface IEvaluationRepository
 
     Task<PaginatedList<EvaluationFeedback>> GetFeedbackForModelAsync(Guid modelId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
+    Task<ArenaSession?> GetArenaSessionByIdAsync(Guid sessionId, CancellationToken cancellationToken = default);
+
     Task<Evaluation> CreateEvaluationAsync(Evaluation evaluation, CancellationToken cancellationToken = default);
+
+    Task<ArenaSession> CreateArenaSessionAsync(ArenaSession session, CancellationToken cancellationToken = default);
 
     Task<LeaderboardEntry> CreateLeaderboardEntryAsync(LeaderboardEntry entry, CancellationToken cancellationToken = default);
 
     Task<EvaluationFeedback> CreateFeedbackAsync(EvaluationFeedback feedback, CancellationToken cancellationToken = default);
 
     Task UpdateEvaluationAsync(Evaluation evaluation, CancellationToken cancellationToken = default);
+
+    Task UpdateArenaSessionAsync(ArenaSession session, CancellationToken cancellationToken = default);
 
     Task UpdateLeaderboardEntryAsync(LeaderboardEntry entry, CancellationToken cancellationToken = default);
 }

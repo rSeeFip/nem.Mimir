@@ -97,10 +97,23 @@ internal sealed class EvaluationRepository(MimirDbContext context) : IEvaluation
         return new PaginatedList<EvaluationFeedback>(items.AsReadOnly(), pageNumber, totalPages, totalCount);
     }
 
+    public async Task<ArenaSession?> GetArenaSessionByIdAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        return await context.ArenaSessions
+            .FirstOrDefaultAsync(session => session.Id == sessionId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<Evaluation> CreateEvaluationAsync(Evaluation evaluation, CancellationToken cancellationToken = default)
     {
         await context.Evaluations.AddAsync(evaluation, cancellationToken).ConfigureAwait(false);
         return evaluation;
+    }
+
+    public async Task<ArenaSession> CreateArenaSessionAsync(ArenaSession session, CancellationToken cancellationToken = default)
+    {
+        await context.ArenaSessions.AddAsync(session, cancellationToken).ConfigureAwait(false);
+        return session;
     }
 
     public async Task<LeaderboardEntry> CreateLeaderboardEntryAsync(LeaderboardEntry entry, CancellationToken cancellationToken = default)
@@ -118,6 +131,12 @@ internal sealed class EvaluationRepository(MimirDbContext context) : IEvaluation
     public Task UpdateEvaluationAsync(Evaluation evaluation, CancellationToken cancellationToken = default)
     {
         context.Evaluations.Update(evaluation);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateArenaSessionAsync(ArenaSession session, CancellationToken cancellationToken = default)
+    {
+        context.ArenaSessions.Update(session);
         return Task.CompletedTask;
     }
 
