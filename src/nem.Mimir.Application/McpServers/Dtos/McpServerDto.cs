@@ -57,3 +57,39 @@ public sealed record McpServerHealthDto(
     Guid ServerId,
     bool IsHealthy,
     string? ErrorMessage);
+
+public sealed record McpResourceDto(
+    string Uri,
+    string Name,
+    string? Description,
+    string? MimeType);
+
+public sealed record McpResourceTemplateDto(
+    string UriTemplate,
+    string Name,
+    string? Description,
+    string? MimeType);
+
+public sealed record McpResourceContentDto(
+    string Uri,
+    string? MimeType,
+    string? Text,
+    string? Blob);
+
+public sealed record McpPromptDto(
+    string Name,
+    string? Description,
+    IReadOnlyList<McpPromptArgumentDto>? Arguments);
+
+public sealed record McpPromptArgumentDto(
+    string Name,
+    string? Description,
+    bool Required);
+
+public sealed record McpPromptResultDto(
+    string? Description,
+    IReadOnlyList<McpPromptMessageDto> Messages);
+
+public sealed record McpPromptMessageDto(
+    string Role,
+    string Content);

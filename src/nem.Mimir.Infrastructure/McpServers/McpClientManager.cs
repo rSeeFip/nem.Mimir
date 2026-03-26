@@ -184,6 +184,87 @@ internal sealed class McpClientManager : IMcpClientManager, IAsyncDisposable
         }
     }
 
+    // ── Resources primitive ──────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<McpResourceDefinition>> ListResourcesAsync(Guid serverId, CancellationToken ct = default)
+    {
+        var entry = GetEntryOrThrow(serverId);
+        var resources = await entry.Client.ListResourcesAsync(cancellationToken: ct);
+
+        return resources
+            .Select(r => new McpResourceDefinition(r.Uri, r.Name, r.Description, r.MimeType))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<McpResourceTemplateDefinition>> ListResourceTemplatesAsync(Guid serverId, CancellationToken ct = default)
+    {
+        var entry = GetEntryOrThrow(serverId);
+        var templates = await entry.Client.ListResourceTemplatesAsync(cancellationToken: ct);
+
+        return templates
+            .Select(t => new McpResourceTemplateDefinition(t.UriTemplate, t.Name, t.Description, t.MimeType))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<McpResourceContent>> ReadResourceAsync(Guid serverId, string uri, CancellationToken ct = default)
+    {
+        var entry = GetEntryOrThrow(serverId);
+        var result = await entry.Client.ReadResourceAsync(uri, cancellationToken: ct);
+
+        return result.Contents
+            .Select(c => c switch
+            {
+                TextResourceContents text => new McpResourceContent(text.Uri, text.MimeType, text.Text, null),
+                BlobResourceContents blob => new McpResourceContent(blob.Uri, blob.MimeType, null, Convert.ToBase64String(blob.Blob.Span)),
+                _ => new McpResourceContent(c.Uri, c.MimeType, null, null),
+            })
+            .ToList();
+    }
+
+    // ── Prompts primitive ────────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<McpPromptDefinition>> ListPromptsAsync(Guid serverId, CancellationToken ct = default)
+    {
+        var entry = GetEntryOrThrow(serverId);
+        var prompts = await entry.Client.ListPromptsAsync(cancellationToken: ct);
+
+        return prompts
+            .Select(p => new McpPromptDefinition(
+                p.Name,
+                p.Description,
+                p.ProtocolPrompt.Arguments?
+                    .Select(a => new McpPromptArgument(a.Name, a.Description, a.Required == true))
+                    .ToList()))
+            .ToList();
+    }
+
+    public async Task<McpPromptResult> GetPromptAsync(Guid serverId, string promptName, IReadOnlyDictionary<string, string>? arguments = null, CancellationToken ct = default)
+    {
+        var entry = GetEntryOrThrow(serverId);
+
+        Dictionary<string, object?>? sdkArgs = null;
+        if (arguments is { Count: > 0 })
+        {
+            sdkArgs = arguments.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value);
+        }
+
+        var result = await entry.Client.GetPromptAsync(promptName, sdkArgs, cancellationToken: ct);
+
+        var messages = result.Messages
+            .Select(m =>
+            {
+                var text = m.Content switch
+                {
+                    TextContentBlock textBlock => textBlock.Text,
+                    _ => m.Content?.ToString() ?? string.Empty,
+                };
+                return new McpPromptMessage(m.Role.ToString(), text);
+            })
+            .ToList();
+
+        return new McpPromptResult(result.Description, messages);
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (var entry in _clients.Values)

@@ -188,6 +188,67 @@ public sealed class McpServersController : ControllerBase
         var result = await _sender.Send(new GetMcpAuditLogsQuery(serverId, page, pageSize), ct);
         return Ok(result);
     }
+
+    // ── Resources primitive ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists resources and resource templates exposed by a connected MCP server.
+    /// </summary>
+    [HttpGet("{id:guid}/resources")]
+    [ProducesResponseType(typeof(GetMcpResourcesResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetResources(Guid id, CancellationToken ct)
+    {
+        var result = await _sender.Send(new GetMcpResourcesQuery(id), ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Reads a specific resource from a connected MCP server by URI.
+    /// </summary>
+    [HttpGet("{id:guid}/resources/read")]
+    [ProducesResponseType(typeof(IReadOnlyList<McpResourceContentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReadResource(Guid id, [FromQuery] string uri, CancellationToken ct)
+    {
+        var result = await _sender.Send(new ReadMcpResourceQuery(id, uri), ct);
+        return Ok(result);
+    }
+
+    // ── Prompts primitive ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists prompts exposed by a connected MCP server.
+    /// </summary>
+    [HttpGet("{id:guid}/prompts")]
+    [ProducesResponseType(typeof(IReadOnlyList<McpPromptDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPrompts(Guid id, CancellationToken ct)
+    {
+        var result = await _sender.Send(new GetMcpPromptsQuery(id), ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Gets a specific prompt from a connected MCP server, optionally with arguments.
+    /// </summary>
+    [HttpPost("{id:guid}/prompts/{name}")]
+    [ProducesResponseType(typeof(McpPromptResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPrompt(Guid id, string name, [FromBody] GetMcpPromptRequest? request, CancellationToken ct)
+    {
+        var result = await _sender.Send(new GetMcpPromptQuery(id, name, request?.Arguments), ct);
+        return Ok(result);
+    }
 }
 
 /// <summary>
@@ -224,3 +285,8 @@ public sealed record ToggleMcpServerRequest(bool IsEnabled);
 /// Request body for updating the tool whitelist of an MCP server.
 /// </summary>
 public sealed record UpdateToolWhitelistRequest(IReadOnlyList<ToolWhitelistEntry> Entries);
+
+/// <summary>
+/// Request body for getting a prompt with optional arguments.
+/// </summary>
+public sealed record GetMcpPromptRequest(IReadOnlyDictionary<string, string>? Arguments);
