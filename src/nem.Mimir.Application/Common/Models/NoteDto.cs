@@ -20,6 +20,20 @@ public sealed record NoteListDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);
 
+public sealed record NoteVersionDto(
+    Guid Id,
+    Guid NoteId,
+    string Content,
+    string? ChangeDescription,
+    Guid CreatedByUserId,
+    DateTimeOffset CreatedAt);
+
+public sealed record NoteCollaboratorDto(
+    Guid UserId,
+    string Permission,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
+
 public sealed class NoteDtoValidator : AbstractValidator<NoteDto>
 {
     public NoteDtoValidator()
@@ -33,5 +47,29 @@ public sealed class NoteDtoValidator : AbstractValidator<NoteDto>
 
         RuleFor(x => x.AccessLevel)
             .NotEmpty().WithMessage("Access level is required.");
+    }
+}
+
+public sealed class NoteVersionDtoValidator : AbstractValidator<NoteVersionDto>
+{
+    public NoteVersionDtoValidator()
+    {
+        RuleFor(x => x.NoteId)
+            .NotEmpty().WithMessage("Note ID is required.");
+
+        RuleFor(x => x.Content)
+            .NotEmpty().WithMessage("Version content is required.");
+    }
+}
+
+public sealed class NoteCollaboratorDtoValidator : AbstractValidator<NoteCollaboratorDto>
+{
+    public NoteCollaboratorDtoValidator()
+    {
+        RuleFor(x => x.UserId)
+            .NotEmpty().WithMessage("Collaborator user ID is required.");
+
+        RuleFor(x => x.Permission)
+            .NotEmpty().WithMessage("Collaborator permission is required.");
     }
 }

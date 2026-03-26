@@ -16,6 +16,9 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<Channel> Channels => Set<Channel>();
     public DbSet<ChannelMessage> ChannelMessages => Set<ChannelMessage>();
     public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
+    public DbSet<Note> Notes => Set<Note>();
+    public DbSet<NoteVersion> NoteVersions => Set<NoteVersion>();
+    public DbSet<NoteCollaborator> NoteCollaborators => Set<NoteCollaborator>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<AgentMessage> AgentMessages => Set<AgentMessage>();
     public DbSet<ChannelEvent> ChannelEvents => Set<ChannelEvent>();

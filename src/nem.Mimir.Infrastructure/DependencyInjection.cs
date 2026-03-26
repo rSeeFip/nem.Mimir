@@ -55,6 +55,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
         services.AddScoped<IChannelRepository, ChannelRepository>();
+        services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<IFolderRepository, FolderRepository>();
         services.AddScoped<IChannelEventRepository, ChannelEventRepository>();
         services.AddScoped<IAuditRepository, AuditRepository>();
@@ -68,6 +69,7 @@ public static class DependencyInjection
         services.AddScoped<IUsageStatsReadDbContext>(sp => sp.GetRequiredService<MimirDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
+        services.AddScoped<nem.Mimir.Application.Notes.Services.YjsDocumentStore>();
 
         // Actor identity services
         services.AddScoped<nem.Contracts.Identity.IActorIdentityResolver, EfCoreActorIdentityResolver>();

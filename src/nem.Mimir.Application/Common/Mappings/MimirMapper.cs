@@ -156,6 +156,42 @@ public sealed partial class MimirMapper
             entity.CreatedAt,
             entity.UpdatedAt);
 
+    public NoteDto MapToNoteDto(Note entity) =>
+        new(
+            entity.Id.Value,
+            entity.OwnerId,
+            entity.Title,
+            DecodeBytes(entity.Content),
+            entity.Tags.ToList(),
+            DetermineAccessLevel(entity),
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public NoteListDto MapToNoteListDto(Note entity) =>
+        new(
+            entity.Id.Value,
+            entity.Title,
+            entity.Tags.ToList(),
+            DetermineAccessLevel(entity),
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public NoteVersionDto MapToNoteVersionDto(NoteVersion entity) =>
+        new(
+            entity.Id,
+            entity.NoteId.Value,
+            DecodeBytes(entity.ContentSnapshot),
+            entity.ChangeDescription,
+            entity.CreatedByUserId,
+            entity.CreatedAt);
+
+    public NoteCollaboratorDto MapToNoteCollaboratorDto(NoteCollaborator entity) =>
+        new(
+            entity.UserId,
+            entity.Permission.ToString(),
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
     public ConversationDto MapToConversationDto(Conversation entity) =>
         new(
             entity.Id,
@@ -236,4 +272,24 @@ public sealed partial class MimirMapper
             entity.ShowModelNamesAfterVote,
             entity.CreatedAt,
             entity.UpdatedAt);
+
+    private static string DecodeBytes(byte[] bytes)
+    {
+        if (bytes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return Convert.ToBase64String(bytes);
+    }
+
+    private static string DetermineAccessLevel(Note note)
+    {
+        if (note.Collaborators.Count <= 1)
+        {
+            return "Private";
+        }
+
+        return "Shared";
+    }
 }
