@@ -2,12 +2,9 @@ using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Domain.Entities;
 using ChannelId = nem.Contracts.Identity.ChannelId;
 using ChannelMessageId = nem.Contracts.Identity.ChannelMessageId;
-using EvaluationId = nem.Contracts.Identity.EvaluationId;
-using FeedbackId = nem.Contracts.Identity.FeedbackId;
 using FolderId = nem.Contracts.Identity.FolderId;
 using ImageGenerationId = nem.Contracts.Identity.ImageGenerationId;
 using KnowledgeCollectionId = nem.Mimir.Domain.ValueObjects.KnowledgeCollectionId;
-using LeaderboardEntryId = nem.Contracts.Identity.LeaderboardEntryId;
 using NoteId = nem.Contracts.Identity.NoteId;
 using PromptTemplateId = nem.Contracts.Identity.PromptTemplateId;
 using UserPreferenceId = nem.Contracts.Identity.UserPreferenceId;
@@ -73,9 +70,9 @@ public sealed partial class MimirMapper
 
     private Guid MapNoteId(NoteId id) => id.Value;
 
-    private Guid MapEvaluationId(EvaluationId id) => id.Value;
+    private Guid MapEvaluationId(nem.Mimir.Domain.ValueObjects.EvaluationId id) => id.Value;
 
-    private Guid MapFeedbackId(FeedbackId id) => id.Value;
+    private Guid MapEvaluationFeedbackId(nem.Mimir.Domain.ValueObjects.EvaluationFeedbackId id) => id.Value;
 
     private Guid MapFolderId(FolderId id) => id.Value;
 
@@ -85,7 +82,7 @@ public sealed partial class MimirMapper
 
     private Guid MapPromptTemplateId(PromptTemplateId id) => id.Value;
 
-    private Guid MapLeaderboardEntryId(LeaderboardEntryId id) => id.Value;
+    private Guid MapLeaderboardEntryId(nem.Mimir.Domain.ValueObjects.LeaderboardEntryId id) => id.Value;
 
     private Guid MapUserPreferenceId(UserPreferenceId id) => id.Value;
 
@@ -203,6 +200,45 @@ public sealed partial class MimirMapper
             entity.Title,
             entity.Status.ToString(),
             entity.Messages.Select(MapToMessageDto).ToList(),
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public EvaluationDto MapToEvaluationDto(Evaluation entity) =>
+        new(
+            entity.Id.Value,
+            entity.ModelAId,
+            entity.ModelBId,
+            entity.Prompt,
+            entity.ResponseA,
+            entity.ResponseB,
+            entity.Winner.ToString(),
+            entity.Status.ToString(),
+            entity.UserId,
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public LeaderboardEntryDto MapToLeaderboardEntryDto(LeaderboardEntry entity) =>
+        new(
+            entity.Id.Value,
+            entity.ModelId,
+            entity.EloScore,
+            entity.Wins,
+            entity.Losses,
+            entity.Draws,
+            entity.TotalEvaluations,
+            entity.CreatedAt,
+            entity.UpdatedAt);
+
+    public EvaluationFeedbackDto MapToEvaluationFeedbackDto(EvaluationFeedback entity) =>
+        new(
+            entity.Id.Value,
+            entity.EvaluationId.Value,
+            entity.UserId,
+            entity.Quality,
+            entity.Relevance,
+            entity.Accuracy,
+            entity.Score,
+            entity.Comment,
             entity.CreatedAt,
             entity.UpdatedAt);
 

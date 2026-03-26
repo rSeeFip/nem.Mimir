@@ -19,6 +19,9 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<Note> Notes => Set<Note>();
     public DbSet<NoteVersion> NoteVersions => Set<NoteVersion>();
     public DbSet<NoteCollaborator> NoteCollaborators => Set<NoteCollaborator>();
+    public DbSet<Evaluation> Evaluations => Set<Evaluation>();
+    public DbSet<LeaderboardEntry> LeaderboardEntries => Set<LeaderboardEntry>();
+    public DbSet<EvaluationFeedback> EvaluationFeedbacks => Set<EvaluationFeedback>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<AgentMessage> AgentMessages => Set<AgentMessage>();
     public DbSet<ChannelEvent> ChannelEvents => Set<ChannelEvent>();

@@ -4,61 +4,87 @@ namespace nem.Mimir.Application.Common.Models;
 
 public sealed record EvaluationDto(
     Guid Id,
-    Guid UserId,
-    IReadOnlyList<Guid> ModelIds,
+    Guid ModelAId,
+    Guid ModelBId,
+    string Prompt,
+    string ResponseA,
+    string ResponseB,
+    string Winner,
     string Status,
-    EvaluationResultDto? Result,
+    Guid UserId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? CompletedAt);
-
-public sealed record EvaluationResultDto(
-    Guid WinnerModelId,
-    string Reason);
+    DateTimeOffset? UpdatedAt);
 
 public sealed record LeaderboardEntryDto(
     Guid Id,
     Guid ModelId,
-    string ModelName,
-    double EloRating,
-    int WinCount,
-    int LossCount,
-    int DrawCount,
-    DateTimeOffset LastUpdatedAt);
+    decimal EloScore,
+    int Wins,
+    int Losses,
+    int Draws,
+    int TotalEvaluations,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
 
-public sealed record FeedbackDto(
+public sealed record EvaluationFeedbackDto(
     Guid Id,
-    Guid UserId,
     Guid EvaluationId,
-    string Rating,
+    Guid UserId,
+    int Quality,
+    int Relevance,
+    int Accuracy,
+    decimal Score,
     string? Comment,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
 
 public sealed class EvaluationDtoValidator : AbstractValidator<EvaluationDto>
 {
     public EvaluationDtoValidator()
     {
-        RuleFor(x => x.ModelIds)
-            .NotEmpty().WithMessage("At least one model is required for an evaluation.");
+        RuleFor(x => x.ModelAId)
+            .NotEmpty().WithMessage("Model A is required.");
+
+        RuleFor(x => x.ModelBId)
+            .NotEmpty().WithMessage("Model B is required.");
+
+        RuleFor(x => x.Prompt)
+            .NotEmpty().WithMessage("Prompt is required.");
 
         RuleFor(x => x.Status)
             .NotEmpty().WithMessage("Evaluation status is required.");
     }
 }
 
-public sealed class EvaluationResultDtoValidator : AbstractValidator<EvaluationResultDto>
+public sealed class LeaderboardEntryDtoValidator : AbstractValidator<LeaderboardEntryDto>
 {
-    public EvaluationResultDtoValidator()
+    public LeaderboardEntryDtoValidator()
     {
-        RuleFor(x => x.Reason)
-            .NotEmpty().WithMessage("Evaluation result reason is required.");
+        RuleFor(x => x.ModelId)
+            .NotEmpty().WithMessage("Model ID is required.");
+
+        RuleFor(x => x.EloScore)
+            .GreaterThan(0m).WithMessage("Elo score must be positive.");
     }
 }
 
-public sealed class FeedbackDtoValidator : AbstractValidator<FeedbackDto>
+public sealed class EvaluationFeedbackDtoValidator : AbstractValidator<EvaluationFeedbackDto>
 {
-    public FeedbackDtoValidator()
+    public EvaluationFeedbackDtoValidator()
     {
-        RuleFor(x => x.Rating)
-            .NotEmpty().WithMessage("Feedback rating is required.");
+        RuleFor(x => x.EvaluationId)
+            .NotEmpty().WithMessage("Evaluation ID is required.");
+
+        RuleFor(x => x.UserId)
+            .NotEmpty().WithMessage("User ID is required.");
+
+        RuleFor(x => x.Quality)
+            .InclusiveBetween(1, 5).WithMessage("Quality rating must be between 1 and 5.");
+
+        RuleFor(x => x.Relevance)
+            .InclusiveBetween(1, 5).WithMessage("Relevance rating must be between 1 and 5.");
+
+        RuleFor(x => x.Accuracy)
+            .InclusiveBetween(1, 5).WithMessage("Accuracy rating must be between 1 and 5.");
     }
 }
