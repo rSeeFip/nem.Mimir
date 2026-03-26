@@ -6,6 +6,7 @@ using EvaluationId = nem.Contracts.Identity.EvaluationId;
 using FeedbackId = nem.Contracts.Identity.FeedbackId;
 using FolderId = nem.Contracts.Identity.FolderId;
 using ImageGenerationId = nem.Contracts.Identity.ImageGenerationId;
+using KnowledgeCollectionId = nem.Mimir.Domain.ValueObjects.KnowledgeCollectionId;
 using LeaderboardEntryId = nem.Contracts.Identity.LeaderboardEntryId;
 using NoteId = nem.Contracts.Identity.NoteId;
 using PromptTemplateId = nem.Contracts.Identity.PromptTemplateId;
@@ -42,6 +43,15 @@ public sealed partial class MimirMapper
     [MapperIgnoreSource(nameof(PromptTemplate.DomainEvents))]
     public partial PromptTemplateDto MapToPromptTemplateDto(PromptTemplate entity);
 
+    [MapperIgnoreSource(nameof(KnowledgeCollection.CreatedBy))]
+    [MapperIgnoreSource(nameof(KnowledgeCollection.UpdatedBy))]
+    [MapperIgnoreSource(nameof(KnowledgeCollection.IsDeleted))]
+    [MapperIgnoreSource(nameof(KnowledgeCollection.DeletedAt))]
+    [MapperIgnoreSource(nameof(KnowledgeCollection.DomainEvents))]
+    public partial KnowledgeCollectionDto MapToKnowledgeCollectionDto(KnowledgeCollection entity);
+
+    public partial KnowledgeDocumentDto MapToKnowledgeDocumentDto(KnowledgeDocument entity);
+
     private Guid MapSystemPromptId(SystemPromptId id) => id.Value;
 
     private Guid MapAuditEntryId(AuditEntryId id) => id.Value;
@@ -69,6 +79,8 @@ public sealed partial class MimirMapper
     private Guid MapLeaderboardEntryId(LeaderboardEntryId id) => id.Value;
 
     private Guid MapUserPreferenceId(UserPreferenceId id) => id.Value;
+
+    private Guid MapKnowledgeCollectionId(KnowledgeCollectionId id) => id.Value;
 
     private Guid MapModelProfileId(ModelProfileId id) => id.Value;
 

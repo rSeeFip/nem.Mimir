@@ -22,6 +22,7 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<Folder> Folders => Set<Folder>();
     public DbSet<ModelProfile> ModelProfiles => Set<ModelProfile>();
     public DbSet<ArenaConfig> ArenaConfigs => Set<ArenaConfig>();
+    public DbSet<KnowledgeCollection> KnowledgeCollections => Set<KnowledgeCollection>();
     public DbSet<ActorIdentityDocument> ActorIdentities => Set<ActorIdentityDocument>();
     public DbSet<ChannelIdentityLinkDocument> ChannelIdentityLinks => Set<ChannelIdentityLinkDocument>();
 

@@ -22,6 +22,7 @@ using nem.Mimir.Infrastructure.Tasks;
 using nem.Mimir.Infrastructure.Knowledge;
 using nem.Mimir.Infrastructure.Cache;
 using nem.Mimir.Infrastructure.Mcp;
+using nem.Mimir.Application.Knowledge;
 using nem.Contracts.AspNetCore.Classification;
 using nem.Contracts.Classification;
 using nem.Contracts.Lifecycle;
@@ -61,6 +62,7 @@ public static class DependencyInjection
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
         services.AddScoped<IModelProfileRepository, ModelProfileRepository>();
         services.AddScoped<IArenaConfigRepository, ArenaConfigRepository>();
+        services.AddScoped<IKnowledgeCollectionRepository, KnowledgeCollectionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
 
@@ -80,6 +82,8 @@ public static class DependencyInjection
         // LiteLLM options
         services.Configure<LiteLlmOptions>(configuration.GetSection(LiteLlmOptions.SectionName));
         services.Configure<ClassificationOptions>(configuration.GetSection(ClassificationOptions.SectionName));
+        services.Configure<SearxngOptions>(configuration.GetSection(SearxngOptions.SectionName));
+        services.Configure<MediaHubOptions>(configuration.GetSection(MediaHubOptions.SectionName));
         services.AddScoped<IClassificationContext, ClassificationContext>();
 
         // LiteLLM HTTP client with Polly resilience
@@ -135,6 +139,20 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         });
+
+        var searxngSection = configuration.GetSection(SearxngOptions.SectionName);
+        var searxngBaseUrl = searxngSection.GetValue<string>(nameof(SearxngOptions.BaseUrl)) ?? "http://localhost:8081";
+        var searxngTimeoutSeconds = searxngSection.GetValue<int?>(nameof(SearxngOptions.TimeoutSeconds)) ?? 10;
+
+        services.AddHttpClient<ISearxngClient, SearxngClient>(client =>
+        {
+            client.BaseAddress = new Uri(searxngBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(searxngTimeoutSeconds);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
+
+        services.AddSingleton<IMediaHubClient, MediaHubClient>();
+        services.AddSingleton<IKnowledgeIngestionService, KnowHubIngestionService>();
 
         // Request queue (singleton — one queue for the whole app)
         services.AddSingleton<LlmRequestQueue>();
