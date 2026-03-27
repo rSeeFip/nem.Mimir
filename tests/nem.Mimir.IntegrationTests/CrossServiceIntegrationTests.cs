@@ -376,7 +376,9 @@ public sealed class CrossServiceIntegrationTests
         var command = new ExecuteCodeCommand("python", "print('hi')", conversation.Id);
 
         // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var handleMethod = handler.GetType().GetMethod("Handle")!;
+        var resultTask = (Task<CodeExecutionResultDto>)handleMethod.Invoke(handler, [command, CancellationToken.None])!;
+        var result = await resultTask;
 
         // Assert
         result.ExitCode.ShouldBe(0);
@@ -385,7 +387,7 @@ public sealed class CrossServiceIntegrationTests
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    private static dynamic CreateExecuteCodeHandler(
+    private static object CreateExecuteCodeHandler(
         IConversationRepository conversationRepository,
         ICurrentUserService currentUserService,
         ISandboxService sandboxService,

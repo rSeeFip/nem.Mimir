@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using nem.Mimir.Domain.Common;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Application.Common.Interfaces;
+using nem.Mimir.Domain.ValueObjects;
 using nem.Mimir.Infrastructure.Identity;
 using nem.Mimir.Infrastructure.Persistence.Converters;
 
@@ -47,6 +48,11 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        modelBuilder.Ignore<KnowledgeDocument>();
+        modelBuilder.Ignore<PromptTemplateVersionEntry>();
+        modelBuilder.Ignore<ChannelMessageReaction>();
+        modelBuilder.Ignore<MessageReaction>();
+        modelBuilder.Ignore<MessageKnowledgeSource>();
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -59,7 +65,7 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
             configurationBuilder.Properties(idType).HaveConversion(converterType);
         }
 
-        foreach (var (idType, valueType) in typeof(nem.Contracts.Identity.ITypedId<>).Assembly.GetTypedIds())
+        foreach (var (idType, valueType) in typeof(nem.Contracts.Identity.ITypedId<>).Assembly.GetTypedIds(typeof(nem.Contracts.Identity.ITypedId<>)))
         {
             var converterType = typeof(ContractsTypedIdValueConverter<,>).MakeGenericType(idType, valueType);
             configurationBuilder.Properties(idType).HaveConversion(converterType);

@@ -92,7 +92,7 @@ public sealed class EpisodicMemoryService : IEpisodicMemory
         var serialized = JsonSerializer.Serialize(document, JsonOptions);
 
         var message = conversation.AddMessage(MessageRole.System, $"{EpisodicMarker}{serialized}");
-        message.SetTokenCount(EstimateTokenCount(serialized));
+        message.SetTokenCount(EpisodicMemoryFallback.EstimateTokenCount(serialized));
 
         await _conversationRepository.UpdateAsync(conversation, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -269,11 +269,11 @@ public sealed class EpisodicMemoryService : IEpisodicMemory
                     .Select(x => x.Outcome)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .Distinct(StringComparer.Ordinal))
-            : BuildFallbackSummary(conversation, messages);
+            : EpisodicMemoryFallback.BuildSummary(conversation, messages);
 
         if (string.IsNullOrWhiteSpace(summary))
         {
-            summary = BuildFallbackSummary(conversation, messages);
+            summary = EpisodicMemoryFallback.BuildSummary(conversation, messages);
         }
 
         var keyTopics = distilledKnowledge
@@ -285,7 +285,7 @@ public sealed class EpisodicMemoryService : IEpisodicMemory
 
         if (keyTopics.Count == 0)
         {
-            keyTopics = ExtractFallbackTopics(messages);
+            keyTopics = EpisodicMemoryFallback.ExtractTopics(messages);
         }
 
         var episode = new Episode(
@@ -445,41 +445,6 @@ public sealed class EpisodicMemoryService : IEpisodicMemory
         }
     }
 
-    private static string BuildFallbackSummary(Conversation conversation, IReadOnlyList<Message> messages)
-    {
-        var latestUserMessage = messages
-            .Where(m => m.Role == MessageRole.User)
-            .Select(m => m.Content)
-            .LastOrDefault(m => !string.IsNullOrWhiteSpace(m));
-
-        if (!string.IsNullOrWhiteSpace(latestUserMessage))
-        {
-            return $"Conversation '{conversation.Title}' focused on: {latestUserMessage.Trim()}";
-        }
-
-        return $"Conversation '{conversation.Title}' contained {messages.Count} messages.";
-    }
-
-    private static List<string> ExtractFallbackTopics(IReadOnlyList<Message> messages)
-    {
-        return messages
-            .SelectMany(m => m.Content.Split([' ', '\t', '\r', '\n', ',', '.', ';', ':', '!', '?'], StringSplitOptions.RemoveEmptyEntries))
-            .Where(x => x.Length >= 4)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(10)
-            .ToList();
-    }
-
-    private static int EstimateTokenCount(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return 0;
-        }
-
-        return (text.Length + 3) / 4;
-    }
-
     private static float CosineSimilarity(float[] left, float[] right)
     {
         var dimensions = Math.Min(left.Length, right.Length);
@@ -510,43 +475,4 @@ public sealed class EpisodicMemoryService : IEpisodicMemory
         return (float)(dot / (Math.Sqrt(leftNorm) * Math.Sqrt(rightNorm)));
     }
 
-    internal sealed class EpisodicMemoryDocument
-    {
-        public Guid Id { get; init; }
-        public string ExternalEpisodeId { get; init; } = string.Empty;
-        public string UserId { get; init; } = string.Empty;
-        public string ConversationId { get; init; } = string.Empty;
-        public string Summary { get; init; } = string.Empty;
-        public IReadOnlyList<string> KeyTopics { get; init; } = [];
-        public DateTimeOffset StartedAt { get; init; }
-        public DateTimeOffset EndedAt { get; init; }
-        public int MessageCount { get; init; }
-        public float[]? EmbeddingVector { get; init; }
-
-        public static EpisodicMemoryDocument FromEpisode(Episode episode, float[]? embedding) => new()
-        {
-            Id = Guid.NewGuid(),
-            ExternalEpisodeId = episode.Id,
-            UserId = episode.UserId,
-            ConversationId = episode.ConversationId,
-            Summary = episode.Summary,
-            KeyTopics = episode.KeyTopics.ToArray(),
-            StartedAt = episode.StartedAt,
-            EndedAt = episode.EndedAt,
-            MessageCount = episode.MessageCount,
-            EmbeddingVector = embedding
-        };
-
-        public Episode ToEpisode() => new(
-            Id: ExternalEpisodeId,
-            UserId: UserId,
-            ConversationId: ConversationId,
-            Summary: Summary,
-            KeyTopics: KeyTopics,
-            StartedAt: StartedAt,
-            EndedAt: EndedAt,
-            MessageCount: MessageCount);
-    }
-
-    private sealed record EpisodeSearchHit(EpisodicMemoryDocument Document, float Score);
 }
