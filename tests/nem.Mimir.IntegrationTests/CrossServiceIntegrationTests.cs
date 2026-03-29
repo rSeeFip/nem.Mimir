@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.Agents.Services;
 using nem.Mimir.Application.CodeExecution.Commands;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -119,7 +120,11 @@ public sealed class CrossServiceIntegrationTests
                 task => new AgentResult(task.Id, "execute-specialist", "Completed", "delegated execution complete"))
         ]);
         var coordinator = new AgentCoordinator(llm);
-        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, llm);
+        var trajectoryRecorder = Substitute.For<ITrajectoryRecorder>();
+        trajectoryRecorder
+            .StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, llm, trajectoryRecorder);
 
         var task = new AgentTask(
             "delegation-1",

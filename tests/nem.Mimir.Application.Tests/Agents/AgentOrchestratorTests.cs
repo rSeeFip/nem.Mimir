@@ -1,4 +1,5 @@
-﻿using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.Agents.Services;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
 using NSubstitute;
@@ -173,7 +174,11 @@ public sealed class AgentOrchestratorTests
 
         var dispatcher = new AgentDispatcher([agent]);
         var coordinator = new AgentCoordinator(_llmService);
-        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService);
+        var trajectoryRecorder = Substitute.For<ITrajectoryRecorder>();
+        trajectoryRecorder
+            .StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, trajectoryRecorder);
 
         var task = new AgentTask("t7", AgentTaskType.Research, "help me", new Dictionary<string, string> { ["strategy"] = "sequential" });
         var result = await orchestrator.DispatchAsync(task);

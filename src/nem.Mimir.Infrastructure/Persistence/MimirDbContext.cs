@@ -26,6 +26,7 @@ public class MimirDbContext(DbContextOptions<MimirDbContext> options) : DbContex
     public DbSet<ArenaSession> ArenaSessions => Set<ArenaSession>();
     public DbSet<ImageGeneration> ImageGenerations => Set<ImageGeneration>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<ExecutionTrajectory> ExecutionTrajectories => Set<ExecutionTrajectory>();
     public DbSet<AgentMessage> AgentMessages => Set<AgentMessage>();
     public DbSet<ChannelEvent> ChannelEvents => Set<ChannelEvent>();
     public DbSet<BackgroundTask> BackgroundTasks => Set<BackgroundTask>();

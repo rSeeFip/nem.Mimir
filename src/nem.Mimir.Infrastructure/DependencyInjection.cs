@@ -22,12 +22,18 @@ using nem.Mimir.Infrastructure.Tasks;
 using nem.Mimir.Infrastructure.Knowledge;
 using nem.Mimir.Infrastructure.Cache;
 using nem.Mimir.Infrastructure.Mcp;
+using nem.Mimir.Finance.McpTools;
 using nem.Mimir.Application.Knowledge;
 using nem.Mimir.Application.Conversations.Services;
 using nem.Contracts.AspNetCore.Classification;
 using nem.Contracts.Classification;
 using nem.Contracts.Lifecycle;
+using nem.Contracts.Inference;
+using nem.Mimir.Application.Analysis;
+using nem.Mimir.Infrastructure.Analysis;
 using nem.Mimir.Infrastructure.Lifecycle;
+using nem.Mimir.Application.Agents.Selection;
+using nem.Mimir.Application.Agents.Services;
 
 public static class DependencyInjection
 {
@@ -84,6 +90,9 @@ public static class DependencyInjection
 
         // Audit service
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<ITrajectoryRecorder, TrajectoryRecorder>();
+        services.AddScoped<ITrajectoryAnalyzer, LlmTrajectoryAnalyzer>();
+        services.AddScoped<ISkillQualityProvider, NoOpSkillQualityProvider>();
 
         // Sanitization service (singleton — stateless)
         services.Configure<SanitizationSettings>(configuration.GetSection(SanitizationSettings.SectionName));
@@ -183,6 +192,7 @@ public static class DependencyInjection
         // Built-in plugins
         services.AddSingleton<CodeRunnerPlugin>();
         services.AddSingleton<WebSearchPlugin>();
+        services.AddSingleton<FinanceToolRegistryPlugin>();
         services.AddHostedService<BuiltInPluginRegistrar>();
 
         // System prompt service (singleton — stateless template rendering)

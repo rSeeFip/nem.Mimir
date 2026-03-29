@@ -21,7 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Observability/TrajectoryTracer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\nem.Mimir.Application\nem.Mimir.Application.csproj" />
+    <ProjectReference Include="..\nem.Mimir.Finance.McpTools\nem.Mimir.Finance.McpTools.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Abstractions\nem.KnowHub.Abstractions.csproj" />

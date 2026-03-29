@@ -31,4 +31,8 @@
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../nem.Mimir.Infrastructure/Observability/TrajectoryTracer.cs" Link="Observability/TrajectoryTracer.cs" />
+  </ItemGroup>
+
 </Project>

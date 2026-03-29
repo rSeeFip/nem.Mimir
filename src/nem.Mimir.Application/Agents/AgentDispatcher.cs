@@ -1,5 +1,7 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using nem.Contracts.Agents;
+using nem.Mimir.Application.Agents.Selection;
+using AppSpecialistAgent = nem.Mimir.Application.Agents.ISpecialistAgent;
 using ContractSpecialistAgent = nem.Contracts.Agents.ISpecialistAgent;
 
 namespace nem.Mimir.Application.Agents;
@@ -7,10 +9,17 @@ namespace nem.Mimir.Application.Agents;
 public sealed class AgentDispatcher
 {
     private readonly ConcurrentDictionary<string, ContractSpecialistAgent> _agents;
+    private readonly IReadOnlyList<ISelectionStep> _selectionSteps;
 
     public AgentDispatcher(IEnumerable<ContractSpecialistAgent> agents)
+        : this(agents, [])
+    {
+    }
+
+    public AgentDispatcher(IEnumerable<ContractSpecialistAgent> agents, IEnumerable<ISelectionStep> selectionSteps)
     {
         _agents = new ConcurrentDictionary<string, ContractSpecialistAgent>(StringComparer.OrdinalIgnoreCase);
+        _selectionSteps = selectionSteps.ToList();
 
         foreach (var agent in agents)
         {
@@ -40,7 +49,7 @@ public sealed class AgentDispatcher
 
     public async Task<IReadOnlyList<ContractSpecialistAgent>> GetCandidatesAsync(AgentTask task, CancellationToken cancellationToken = default)
     {
-        var ranked = new List<(ContractSpecialistAgent Agent, int Score)>();
+        var candidates = new List<ScoredAgent>();
 
         foreach (var agent in _agents.Values)
         {
@@ -51,11 +60,10 @@ public sealed class AgentDispatcher
                 continue;
             }
 
-            var score = ScoreAgent(agent, task);
-            ranked.Add((agent, score));
+            candidates.Add(ScoredAgent.Create(AsApplicationAgent(agent)));
         }
 
-        if (ranked.Count == 0)
+        if (candidates.Count == 0)
         {
             var fallback = ResolveFallbackAgent();
             return fallback is null
@@ -63,10 +71,17 @@ public sealed class AgentDispatcher
                 : new[] { fallback };
         }
 
-        return ranked
+        var context = new SelectionContext(task, candidates);
+        foreach (var step in _selectionSteps)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            context = await step.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+
+        return context.Candidates
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Agent.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(x => x.Agent)
+            .Select(static x => (ContractSpecialistAgent)x.Agent)
             .ToList();
     }
 
@@ -81,42 +96,10 @@ public sealed class AgentDispatcher
         throw new InvalidOperationException("No specialist agents are registered.");
     }
 
-    private static int ScoreAgent(ContractSpecialistAgent agent, AgentTask task)
+    private static AppSpecialistAgent AsApplicationAgent(ContractSpecialistAgent agent)
     {
-        var score = 0;
-        var prompt = task.Prompt;
-
-        foreach (var capability in agent.Capabilities)
-        {
-            score += 10;
-            score += capability switch
-            {
-                AgentCapability.CodeExploration when ContainsAny(prompt, "code", "repository", "refactor", "class", "method") => 20,
-                AgentCapability.KnowledgeRetrieval when ContainsAny(prompt, "find", "lookup", "docs", "knowledge", "retrieve") => 20,
-                AgentCapability.DeepAnalysis when ContainsAny(prompt, "analyze", "reason", "complex", "tradeoff", "architecture") => 20,
-                AgentCapability.CodeExecution when ContainsAny(prompt, "run", "execute", "build", "test", "compile") => 20,
-                AgentCapability.WebResearch when ContainsAny(prompt, "web", "internet", "online", "search", "news") => 20,
-                AgentCapability.DataProcessing when ContainsAny(prompt, "transform", "data", "parse", "aggregate") => 20,
-                AgentCapability.ToolInvocation when ContainsAny(prompt, "tool", "api", "service", "integration") => 20,
-                _ => 0,
-            };
-        }
-
-        score += task.Type switch
-        {
-            AgentTaskType.Explore when agent.Capabilities.Contains(AgentCapability.CodeExploration) => 15,
-            AgentTaskType.Research when agent.Capabilities.Contains(AgentCapability.KnowledgeRetrieval) => 15,
-            AgentTaskType.Analyze when agent.Capabilities.Contains(AgentCapability.DeepAnalysis) => 15,
-            AgentTaskType.Execute when agent.Capabilities.Contains(AgentCapability.CodeExecution) => 15,
-            _ => 0,
-        };
-
-        if (agent.Name.Contains("general", StringComparison.OrdinalIgnoreCase))
-        {
-            score += 1;
-        }
-
-        return score;
+        ArgumentNullException.ThrowIfNull(agent);
+        return agent as AppSpecialistAgent ?? new ContractSpecialistAgentAdapter(agent);
     }
 
     private ContractSpecialistAgent? ResolveFallbackAgent()
@@ -132,16 +115,25 @@ public sealed class AgentDispatcher
         return _agents.Values.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
     }
 
-    private static bool ContainsAny(string value, params string[] tokens)
+    private sealed class ContractSpecialistAgentAdapter : AppSpecialistAgent
     {
-        foreach (var token in tokens)
+        private readonly ContractSpecialistAgent _inner;
+
+        public ContractSpecialistAgentAdapter(ContractSpecialistAgent inner)
         {
-            if (value.Contains(token, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            _inner = inner;
         }
 
-        return false;
+        public string Name => _inner.Name;
+
+        public string Description => _inner.Description;
+
+        public IReadOnlyList<AgentCapability> Capabilities => _inner.Capabilities;
+
+        public Task<AgentResult> ExecuteAsync(AgentTask task, CancellationToken cancellationToken = default)
+            => _inner.ExecuteAsync(task, cancellationToken);
+
+        public Task<bool> CanHandleAsync(AgentTask task, CancellationToken cancellationToken = default)
+            => _inner.CanHandleAsync(task, cancellationToken);
     }
 }
