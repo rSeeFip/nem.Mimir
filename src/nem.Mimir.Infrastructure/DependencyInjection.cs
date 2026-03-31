@@ -129,6 +129,9 @@ public static class DependencyInjection
         services.AddSingleton<CodeRunnerPlugin>();
         services.AddHostedService<BuiltInPluginRegistrar>();
 
+        services.AddSingleton<Health.MimirHealthReportEmitter>();
+        services.AddHostedService(sp => sp.GetRequiredService<Health.MimirHealthReportEmitter>());
+
         services.AddSingleton<IToolAuditLogger, ToolAuditLogger>();
 
         // Tool providers → CompositeToolProvider → AuditingDecorator → IToolProvider
