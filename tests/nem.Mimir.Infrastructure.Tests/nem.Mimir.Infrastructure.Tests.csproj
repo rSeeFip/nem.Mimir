@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\nem.Mimir.Infrastructure\nem.Mimir.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\..\nem.MCP\services\nem.MCP.Core\nem.MCP.Core.csproj" />
     <ProjectReference Include="..\..\..\nem.MCP\services\nem.MCP.Infrastructure\nem.MCP.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Abstractions\nem.KnowHub.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Distillation\nem.KnowHub.Distillation.csproj" />

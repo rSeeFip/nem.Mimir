@@ -16,6 +16,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="Docker.DotNet.Enhanced" />
     <PackageReference Include="WolverineFx" />
   </ItemGroup>
@@ -33,6 +35,7 @@
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Distillation\nem.KnowHub.Distillation.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.GraphRag\nem.KnowHub.GraphRag.csproj" />
     <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Graph\nem.KnowHub.Graph.csproj" />
+    <ProjectReference Include="..\..\..\nem.MCP\services\nem.MCP.Core\nem.MCP.Core.csproj" />
   </ItemGroup>
 
  <ItemGroup>

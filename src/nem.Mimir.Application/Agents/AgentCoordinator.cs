@@ -10,6 +10,7 @@ public enum AgentCoordinationStrategy
     Sequential,
     Parallel,
     Hierarchical,
+    Tiered,
 }
 
 public sealed class AgentCoordinator
@@ -40,6 +41,7 @@ public sealed class AgentCoordinator
             AgentCoordinationStrategy.Sequential => await ExecuteSequentialAsync(context, agents, cancellationToken).ConfigureAwait(false),
             AgentCoordinationStrategy.Parallel => await ExecuteParallelAsync(context, agents, cancellationToken).ConfigureAwait(false),
             AgentCoordinationStrategy.Hierarchical => await ExecuteHierarchicalAsync(context, agents, cancellationToken).ConfigureAwait(false),
+            AgentCoordinationStrategy.Tiered => await ExecuteSequentialAsync(context, agents, cancellationToken).ConfigureAwait(false),
             _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, null),
         };
     }

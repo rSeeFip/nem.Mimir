@@ -1,6 +1,6 @@
 root = true
 
-[*.cs]
+[*.{cs,razor}]
 indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
@@ -31,3 +31,32 @@ dotnet_naming_style.begins_with_i.required_prefix = I
 dotnet_naming_style.begins_with_i.required_suffix =
 dotnet_naming_style.begins_with_i.word_separator =
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
+
+# nem.* analyzer baseline
+[*.{cs,razor}]
+dotnet_analyzer_diagnostic.severity = suggestion
+
+# Critical rules enforced as errors
+dotnet_diagnostic.SA1129.severity = error
+dotnet_diagnostic.CA1031.severity = suggestion
+dotnet_diagnostic.S1186.severity = suggestion
+
+# Initial rollout suppressions/noise controls
+dotnet_diagnostic.SA1633.severity = none
+dotnet_diagnostic.SA1200.severity = none
+dotnet_diagnostic.SA1101.severity = none
+dotnet_diagnostic.SA1309.severity = none
+dotnet_diagnostic.SA1600.severity = suggestion
+dotnet_diagnostic.SA0001.severity = none
+
+# Naming convention: private fields use _camelCase
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_fields.required_modifiers = 
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+dotnet_naming_rule.private_fields_must_be_underscore_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_must_be_underscore_camel.style = underscore_camel_case
+dotnet_naming_rule.private_fields_must_be_underscore_camel.severity = suggestion
+dotnet_diagnostic.S5693.severity = suggestion
+dotnet_diagnostic.S2933.severity = suggestion

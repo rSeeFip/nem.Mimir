@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Agents.Services;
 using nem.Contracts.Agents;
+using nem.Contracts.Inference;
 using nem.Mimir.Domain.ValueObjects;
 using ContractSpecialistAgent = nem.Contracts.Agents.ISpecialistAgent;
 
@@ -12,6 +13,9 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
     private readonly AgentDispatcher _dispatcher;
     private readonly AgentCoordinator _coordinator;
     private readonly ITrajectoryRecorder _trajectoryRecorder;
+    private readonly TierDispatchStrategy _tierDispatchStrategy;
+    private readonly TierConfiguration _tierConfiguration;
+    private readonly ConfidenceEscalationPolicy _escalationPolicy;
     private readonly ConcurrentDictionary<string, AgentResult> _taskStatuses = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _taskCancellation = new(StringComparer.OrdinalIgnoreCase);
 
@@ -19,11 +23,17 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         AgentDispatcher dispatcher,
         AgentCoordinator coordinator,
         ILlmService llmService,
-        ITrajectoryRecorder trajectoryRecorder)
+        ITrajectoryRecorder trajectoryRecorder,
+        TierDispatchStrategy? tierDispatchStrategy = null,
+        TierConfiguration? tierConfiguration = null,
+        ConfidenceEscalationPolicy? escalationPolicy = null)
     {
         _dispatcher = dispatcher;
         _coordinator = coordinator;
         _trajectoryRecorder = trajectoryRecorder;
+        _tierDispatchStrategy = tierDispatchStrategy ?? new TierDispatchStrategy();
+        _tierConfiguration = tierConfiguration ?? new TierConfiguration();
+        _escalationPolicy = escalationPolicy ?? new ConfidenceEscalationPolicy();
         _ = llmService;
     }
 
@@ -80,7 +90,9 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             }
 
             var executionStart = DateTime.UtcNow;
-            var result = await _coordinator.ExecuteAsync(executionContext, candidates, strategy, linkedCts.Token).ConfigureAwait(false);
+            var result = strategy == AgentCoordinationStrategy.Tiered
+                ? await ExecuteTieredAsync(task, executionContext, candidates, linkedCts.Token).ConfigureAwait(false)
+                : await _coordinator.ExecuteAsync(executionContext, candidates, strategy, linkedCts.Token).ConfigureAwait(false);
 
             var isSuccess = result.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
                 || result.Status.Equals("Success", StringComparison.OrdinalIgnoreCase);
@@ -168,6 +180,11 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
 
     public Task RegisterAgentAsync(ContractSpecialistAgent agent, CancellationToken cancellationToken = default)
     {
+        if (!_tierConfiguration.AgentTierAssignments.ContainsKey(agent.Name))
+        {
+            _tierConfiguration.AgentTierAssignments[agent.Name] = _tierDispatchStrategy.InferTierForAgentName(agent.Name);
+        }
+
         return _dispatcher.RegisterAsync(agent, cancellationToken);
     }
 
@@ -222,7 +239,72 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         {
             "parallel" => AgentCoordinationStrategy.Parallel,
             "hierarchical" => AgentCoordinationStrategy.Hierarchical,
+            "tiered" => AgentCoordinationStrategy.Tiered,
             _ => AgentCoordinationStrategy.Sequential,
         };
+    }
+
+    private async Task<AgentResult> ExecuteTieredAsync(
+        AgentTask task,
+        AgentExecutionContext executionContext,
+        IReadOnlyList<ContractSpecialistAgent> candidates,
+        CancellationToken cancellationToken)
+    {
+        if (candidates.Count == 0)
+        {
+            return new AgentResult(task.Id, "orchestrator", "Failed", "No specialist agents available for task.");
+        }
+
+        var orderedCandidates = candidates.ToList();
+        var currentTier = _tierDispatchStrategy.ResolveEntryTier(task, _tierConfiguration);
+        AgentResult? lastResult = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var tierCandidates = _tierDispatchStrategy.SelectCandidatesForTier(orderedCandidates, currentTier, _tierConfiguration);
+            if (tierCandidates.Count == 0)
+            {
+                var nextTier = _escalationPolicy.GetNextTier(currentTier);
+                if (nextTier is null)
+                {
+                    return lastResult ?? new AgentResult(task.Id, "orchestrator", "Failed", "No eligible agent candidates for tiered dispatch.");
+                }
+
+                currentTier = nextTier.Value;
+                continue;
+            }
+
+            var model = _tierConfiguration.GetModel(currentTier);
+            var tierContext = _tierDispatchStrategy.BuildTierContext(task.Context, currentTier, model);
+            var tierTask = task with { Context = tierContext };
+            executionContext.SetTask(tierTask);
+
+            var tierResult = await _coordinator
+                .ExecuteAsync(executionContext, tierCandidates, AgentCoordinationStrategy.Sequential, cancellationToken)
+                .ConfigureAwait(false);
+
+            lastResult = tierResult;
+
+            var confidence = _tierDispatchStrategy.EstimateConfidence(tierResult);
+            if (!_escalationPolicy.ShouldEscalate(confidence))
+            {
+                return tierResult;
+            }
+
+            var escalateTo = _escalationPolicy.GetNextTier(currentTier);
+            if (escalateTo is null)
+            {
+                return tierResult with
+                {
+                    Status = tierResult.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
+                        ? "Escalated"
+                        : tierResult.Status,
+                };
+            }
+
+            currentTier = escalateTo.Value;
+        }
     }
 }

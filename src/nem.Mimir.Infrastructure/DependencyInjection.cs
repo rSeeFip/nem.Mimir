@@ -34,6 +34,7 @@ using nem.Mimir.Infrastructure.Analysis;
 using nem.Mimir.Infrastructure.Lifecycle;
 using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Agents.Services;
+using nem.Mimir.Infrastructure.Adapters;
 
 public static class DependencyInjection
 {
@@ -204,6 +205,7 @@ public static class DependencyInjection
         services.AddScoped<IConversationContextService, ConversationRagService>();
 
         services.AddAgentCommunicationBus();
+        services.AddGlobalWorkspaceAdapter(configuration);
         services.AddBackgroundTaskInfrastructure(configuration);
         services.AddMcpClient(configuration);
         services.AddKnowHubIntegration(configuration);

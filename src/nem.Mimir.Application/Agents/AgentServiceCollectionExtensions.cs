@@ -17,6 +17,9 @@ public static class AgentServiceCollectionExtensions
 
         services.AddScoped<AgentDispatcher>();
         services.AddScoped<AgentCoordinator>();
+        services.TryAddSingleton<TierConfiguration>();
+        services.TryAddSingleton<TierDispatchStrategy>();
+        services.TryAddSingleton<ConfidenceEscalationPolicy>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
 
         return services;

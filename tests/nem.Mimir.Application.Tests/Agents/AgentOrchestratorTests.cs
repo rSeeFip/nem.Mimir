@@ -6,6 +6,7 @@ using NSubstitute;
 using NSubstitute.Core;
 using Shouldly;
 using nem.Contracts.Agents;
+using nem.Contracts.Inference;
 using ContractSpecialistAgent = nem.Contracts.Agents.ISpecialistAgent;
 
 namespace nem.Mimir.Application.Tests.Agents;
@@ -187,6 +188,101 @@ public sealed class AgentOrchestratorTests
         result.Status.ShouldBe("Completed");
         status.ShouldNotBeNull();
         status!.Status.ShouldBe("Completed");
+    }
+
+    [Fact]
+    public async Task Orchestrator_Tiered_ShouldEscalateAcrossTiers_OnLowConfidence()
+    {
+        _llmService.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(new LlmResponse("ok", "phi-4-mini", 1, 1, 2, "stop"));
+
+        var router = new TestAgent(
+            "Explore Agent",
+            [AgentCapability.CodeExploration],
+            static _ => true,
+            static task => new AgentResult(task.Id, "explore", "Completed", "confidence=0.40"));
+
+        var validator = new TestAgent(
+            "Schema Validator",
+            [AgentCapability.KnowledgeRetrieval],
+            static _ => true,
+            static task => new AgentResult(task.Id, "validator", "Completed", "confidence=0.55"));
+
+        var processor = new TestAgent(
+            "Execute Agent",
+            [AgentCapability.CodeExecution],
+            static _ => true,
+            static task => new AgentResult(task.Id, "execute", "Completed", "confidence=0.62"));
+
+        var analyzer = new TestAgent(
+            "Analyze Agent",
+            [AgentCapability.DeepAnalysis],
+            static _ => true,
+            static task => new AgentResult(task.Id, "analyze", "Completed", "confidence=0.88"));
+
+        var dispatcher = new AgentDispatcher([router, validator, processor, analyzer]);
+        var coordinator = new AgentCoordinator(_llmService);
+        var recorder = Substitute.For<ITrajectoryRecorder>();
+        recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, recorder);
+
+        var task = new AgentTask(
+            "tiered-1",
+            AgentTaskType.Explore,
+            "triage this issue",
+            new Dictionary<string, string> { ["strategy"] = "tiered" });
+
+        var result = await orchestrator.DispatchAsync(task);
+
+        result.Status.ShouldBe("Completed");
+        result.AgentId.ShouldBe("analyze");
+    }
+
+    [Fact]
+    public async Task Orchestrator_Tiered_ShouldUseInferenceTierContextForMappedModel()
+    {
+        _llmService.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(new LlmResponse("ok", "phi-4-mini", 1, 1, 2, "stop"));
+
+        IReadOnlyDictionary<string, string>? seenContext = null;
+        var processor = new TestAgent(
+            "Execute Agent",
+            [AgentCapability.CodeExecution],
+            static _ => true,
+            task =>
+            {
+                seenContext = task.Context;
+                return new AgentResult(task.Id, "execute", "Completed", "confidence=0.90");
+            });
+
+        var configuration = new TierConfiguration();
+        configuration.ModelByTier[InferenceTier.Processing] = "processing-model-x";
+
+        var dispatcher = new AgentDispatcher([processor]);
+        var coordinator = new AgentCoordinator(_llmService);
+        var recorder = Substitute.For<ITrajectoryRecorder>();
+        recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
+        var orchestrator = new AgentOrchestrator(
+            dispatcher,
+            coordinator,
+            _llmService,
+            recorder,
+            tierConfiguration: configuration);
+
+        var task = new AgentTask(
+            "tiered-2",
+            AgentTaskType.Execute,
+            "run deployment checks",
+            new Dictionary<string, string> { ["strategy"] = "tiered" });
+
+        var result = await orchestrator.DispatchAsync(task);
+
+        result.Status.ShouldBe("Completed");
+        seenContext.ShouldNotBeNull();
+        seenContext!["inferenceTier"].ShouldBe("Processing");
+        seenContext["inferenceModel"].ShouldBe("processing-model-x");
     }
 
     private sealed class TestAgent : ContractSpecialistAgent
