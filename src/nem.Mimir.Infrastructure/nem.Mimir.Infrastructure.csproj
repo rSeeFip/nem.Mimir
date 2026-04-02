@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\nem.Mimir.Application\nem.Mimir.Application.csproj" />
+    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
   </ItemGroup>
 
  <ItemGroup>

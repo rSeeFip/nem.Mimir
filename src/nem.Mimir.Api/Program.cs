@@ -9,6 +9,7 @@ using nem.Mimir.Api.Services;
 using nem.Mimir.Application;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Infrastructure;
+using nem.Mimir.Infrastructure.Organism;
 using Serilog;
 using nem.Mimir.Api.Hubs;
 using nem.Mimir.Sync.Configuration;
@@ -150,6 +151,7 @@ try
     // ── Application & Infrastructure Services ────────────────────────────────
     builder.Services.AddApplicationServices();
     builder.Services.AddInfrastructureServices(builder.Configuration);
+    builder.Services.AddMimirOrganism();
 
     // ── ProblemDetails (RFC 7807) ─────────────────────────────────────────────
     builder.Services.AddProblemDetails();
