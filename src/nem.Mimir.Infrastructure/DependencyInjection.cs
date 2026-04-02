@@ -35,6 +35,7 @@ using nem.Mimir.Infrastructure.Lifecycle;
 using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Agents.Services;
 using nem.Mimir.Infrastructure.Adapters;
+using nem.Mimir.Infrastructure.Organism.MapeK;
 
 public static class DependencyInjection
 {
@@ -217,6 +218,7 @@ public static class DependencyInjection
         services.AddScoped<IDataSubjectContributor, MimirDataSubjectContributor>();
         services.AddScoped<IReadModelPruningStrategy, MimirReadModelPruningStrategy>();
         services.AddSingleton<MimirRetentionPolicyCache>();
+        services.AddMimirMapeK();
 
         return services;
     }
