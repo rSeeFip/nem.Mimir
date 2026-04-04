@@ -57,7 +57,7 @@ No custom global runner is required; solution-level execution is canonical.
 1. Build must succeed for all projects.
 2. Unit + integration + E2E test pass.
 3. Security-related negative tests pass (validation/sanitization/MCP authorization).
-4. Docs regeneration should include placeholder scan for generated docs.
+4. Docs regeneration should include stub-content scan for generated docs.
 
 ## Risk-based test matrix
 | Risk | Impact | Mitigation suite |
