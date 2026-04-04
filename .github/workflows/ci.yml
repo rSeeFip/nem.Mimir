@@ -184,3 +184,16 @@ jobs:
 
       - name: Check code formatting
         run: dotnet format nem.Mimir.slnx --verify-no-changes
+
+  docs-validation:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint documentation
+        run: |
+          if [ -d "docs" ]; then
+            npx markdownlint-cli2 "docs/**/*.md" || true
+          fi
