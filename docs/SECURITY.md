@@ -1,76 +1,87 @@
-# Security Guide: nem.Mimir
+---
+repo: nem.Mimir
+tier: tier-1
+status: regenerated
+---
 
-Mimir implements a multi-layered security model designed for enterprise AI workloads.
+# Security Documentation: nem.Mimir
 
-## Identity & Authentication
+## Security overview
+Security controls are implemented in API middleware/policies, validator pipelines, sanitization services, and tool-governance components.
 
-Mimir uses **Keycloak** as its primary Identity Provider (IdP).
+Primary trust boundaries:
+- client -> API/SignalR
+- API -> LiteLLM proxy
+- API/Sync -> RabbitMQ
+- API -> PostgreSQL
+- API -> MCP servers
 
-- **Standard**: OpenID Connect (OIDC).
-- **Protocol**: JWT Bearer Authentication.
-- **Workflow**:
-  1. Client authenticates with Keycloak.
-  2. Client receives a JWT.
-  3. Client includes the JWT in the `Authorization` header of API requests.
-  4. Mimir API validates the signature, issuer, audience, and expiration.
+## Authentication and authorization
+- Authentication modes:
+  - Keycloak-based auth via shared contracts integration.
+  - `StandaloneMode` development handler for local admin-only setup.
+- Authorization policies in `Program.cs`:
+  - `RequireAdmin`
+  - `RequireUser`
+- MCP server management endpoints are admin-only.
 
-## Authorization
+## Transport and perimeter controls
+- CORS policy with configured origin allowlist.
+- Security headers appended in middleware:
+  - `X-Content-Type-Options`
+  - `X-Frame-Options`
+  - CSP and related headers
+- HSTS + HTTPS redirection enabled outside development.
 
-Authorization is handled through **Role-Based Access Control (RBAC)** and extensible policies.
+## Input validation and sanitization
+Validation layers:
+- FluentValidation behavior in MediatR pipeline.
+- Endpoint-specific validators for conversations/messages/prompts/OpenAI requests.
 
-### Default Roles
-- `user`: Can create/manage their own conversations and system prompts.
-- `admin`: Full access to user management, audit logs, and plugin lifecycle management.
+Sanitization layers:
+- `SanitizationService` strips dangerous tags, handlers, and common prompt-injection markers.
+- `OutputSanitizationMiddleware` logs suspicious patterns on message-related routes.
 
-### Resource Isolation
-All data access in the `Application` layer is scoped to the `CurrentUserService.UserId`.
-- Users cannot retrieve or modify conversations belonging to other users.
-- `Mimir.Infrastructure` repositories include global query filters for soft-deletion and user-scoping where applicable.
+## Rate limiting and abuse prevention
+- Fixed-window per-user limiter: 100 requests per minute.
+- SignalR max receive message size limited (256 KB).
+- Kestrel request body max size set to 10 MB.
 
-## AI-Specific Security
+## Tool and MCP security
+- Tool access follows default-deny whitelist per MCP server.
+- Tool execution is audited (`McpToolAuditLog`) with latency, success/failure, and payload metadata.
+- `McpToolProvider` re-validates whitelist at execution time (defense in depth).
 
-### Prompt Injection Mitigation
-Mimir implements multiple layers of defense against prompt injection:
-1. **Sanitization**: `SanitizationService` cleans user inputs before they reach the LLM.
-2. **System Prompt Enforcement**: Fixed system prompts (immutable once a conversation starts) provide a "root of trust" for model behavior.
-3. **Output Sanitization**: Middleware scans assistant responses for sensitive patterns (e.g., API keys, secrets) before sending them to the client.
+## Sandbox execution controls
+Code execution endpoint delegates to sandbox service with Docker isolation assumptions and constrained execution profile.
+Repository infrastructure and compose config enforce non-root/read-only/resource-limited patterns for related workers.
 
-### Token Limits
-To prevent resource exhaustion (DoS) via long AI responses:
-- **Global Limits**: Configured in `LiteLlmOptions`.
-- **Per-Request Limits**: Enforced by the `LlmService`.
+## Data protection posture
+- User and conversation access is owner-scoped in handlers.
+- Soft-delete and audit metadata preserve operational traceability.
+- Secrets are expected from environment/OpenBao integration path; not hardcoded in handlers.
 
-## Sandboxed Code Execution
+## Incident-relevant observability
+- Correlation ID middleware enables request traceability.
+- Structured logging via Serilog.
+- Health report emitter publishes service health metrics through message bus.
 
-The `CodeRunner` plugin executes code in a highly restricted environment:
-1. **Container Isolation**: Each execution runs in a disposable Docker container.
-2. **Network Restricted**: Containers have no access to the internal network or the public internet.
-3. **Resource Limits**: CPU and Memory limits are enforced at the Docker level.
-4. **Filesystem**: The container filesystem is read-only, except for a temporary workspace.
+## STRIDE snapshot
+| Threat | Primary mitigation in code |
+| :--- | :--- |
+| Spoofing | JWT auth, policy checks |
+| Tampering | validators + sanitization + controlled persistence |
+| Repudiation | audit entries + event publication + correlation IDs |
+| Information disclosure | ownership checks + admin policy boundaries |
+| Denial of service | rate limiting + body/message size limits |
+| Elevation of privilege | role-based policies + protected admin controllers |
 
-## API Security
+## Known limitations
+- Legacy branch identity model still depends on primitive IDs in several paths.
+- Security posture differs between standalone mode and production auth mode; standalone is for local development only.
 
-- **Rate Limiting**: Per-user rate limiting (100 requests/min) prevents API abuse.
-- **CORS**: Strict Origin validation prevents Cross-Origin Request Forgery.
-- **Security Headers**: The following headers are sent with every response:
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `Content-Security-Policy`: Strict policy allowing only self-connections and SignalR websockets.
-- **Correlation IDs**: Every request is tagged with a unique ID for end-to-end tracing in security audits.
-
-## Data Protection
-
-- **Encryption at Rest**: Provided by the underlying PostgreSQL storage (Transparent Data Encryption).
-- **Encryption in Transit**: All communication between components (Client -> API, API -> LiteLLM) should occur over TLS 1.3.
-- **Soft Deletion**: Accidental data loss is mitigated by a soft-delete policy. Admins can restore deleted entities within a configurable window.
-
-## Audit Logging
-
-The `AuditService` captures all critical security events:
-- Successful/Failed Authentication attempts.
-- Changes to user roles.
-- Conversation creation and deletion.
-- Code execution requests (including the code and the result).
-- Plugin load/unload actions.
-
-Audit logs are immutable once written to the `AuditLog` table.
+## Cross-references
+- [COMPLIANCE](./COMPLIANCE.md)
+- [AI](./AI.md)
+- [QA](./QA.md)
+- [INFRASTRUCTURE](./INFRASTRUCTURE.md)
