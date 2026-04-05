@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using nem.Contracts.Organism;
 using nem.Contracts.AspNetCore.Organism.MapeK;
 using nem.Contracts.Identity;
 
