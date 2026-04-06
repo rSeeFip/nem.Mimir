@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using nem.Contracts.Organism;
 using nem.Contracts.AspNetCore.Organism.MapeK;
 using nem.Mimir.Infrastructure.Organism.MapeK;
 using Shouldly;

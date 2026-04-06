@@ -36,6 +36,7 @@ using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Agents.Services;
 using nem.Mimir.Infrastructure.Adapters;
 using nem.Mimir.Infrastructure.Organism.MapeK;
+using nem.Mimir.Infrastructure.Inference;
 
 public static class DependencyInjection
 {
@@ -150,6 +151,42 @@ public static class DependencyInjection
             });
         });
 
+        services.AddHttpClient(LiteLlmHealthCheck.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+            }
+        })
+        .AddResilienceHandler("LiteLlmHealthResilience", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromSeconds(1),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = static args => ValueTask.FromResult(
+                    args.Outcome.Result?.StatusCode is
+                        System.Net.HttpStatusCode.TooManyRequests or
+                        System.Net.HttpStatusCode.InternalServerError or
+                        System.Net.HttpStatusCode.BadGateway or
+                        System.Net.HttpStatusCode.ServiceUnavailable
+                    || args.Outcome.Exception is HttpRequestException),
+            });
+
+            builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                SamplingDuration = TimeSpan.FromSeconds(30),
+                FailureRatio = 0.5,
+                MinimumThroughput = 5,
+                BreakDuration = TimeSpan.FromSeconds(30),
+            });
+        });
+
         var classificationSection = configuration.GetSection(ClassificationOptions.SectionName);
         var classificationBaseUrl = classificationSection.GetValue<string>(nameof(ClassificationOptions.ClassificationApiBaseUrl)) ?? "http://localhost:5100";
 
@@ -179,6 +216,7 @@ public static class DependencyInjection
 
         // LLM service
         services.AddScoped<ILlmService, LiteLlmClient>();
+        services.AddScoped<IInferenceGateway, InferenceGatewayService>();
 
         // Docker sandbox service
         // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.

@@ -26,6 +26,8 @@ using nem.Contracts.AspNetCore.Cors;
 using nem.Contracts.AspNetCore.Api;
 using nem.Contracts.AspNetCore.Security;
 using Wolverine.FluentValidation;
+using nem.Contracts.AspNetCore.Initialization;
+using nem.Mimir.Api.Initialization;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -149,10 +151,7 @@ try
     var liteLlmBaseUrl = liteLlmSettings.BaseUrl;
     if (!string.IsNullOrWhiteSpace(liteLlmBaseUrl))
     {
-        healthChecksBuilder.AddUrlGroup(
-            new Uri(liteLlmBaseUrl + "/health"),
-            name: "litellm",
-            timeout: TimeSpan.FromSeconds(5));
+        healthChecksBuilder.AddCheck<LiteLlmHealthCheck>("litellm");
     }
 
     // ── Rate Limiting ────────────────────────────────────────────────────────
@@ -245,6 +244,9 @@ try
     // ── Canvas Renderers ───────────────────────────────────────────────────────
     builder.Services.AddSingleton<nem.Contracts.Canvas.ICanvasRenderer, nem.Mimir.Api.Canvas.WebCanvasRenderer>();
 
+    // ── Initialization Manifest ──────────────────────────────────────────────
+    builder.Services.AddNemInitialization<MimirInitManifestProvider>();
+
     // ── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -287,6 +289,7 @@ try
     app.MapHub<ChatHub>("/hubs/chat").RequireRateLimiting("per-user");
     app.MapHub<CollaborationHub>("/hubs/collaboration").RequireRateLimiting("per-user");
     app.MapHub<AdminHub>("/hubs/admin").RequireRateLimiting("per-user");
+    app.MapNemInitialization();
     app.MapHealthChecks("/health", new HealthCheckOptions
     {
         AllowCachingResponses = false

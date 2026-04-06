@@ -12,6 +12,8 @@ public static class MimirMapeKRegistration
 {
     public static IServiceCollection AddMimirMapeK(this IServiceCollection services)
     {
+        services.TryAddSingleton<IHomeostasisAgent, MimirHomeostasisAgent>();
+        services.TryAddSingleton<IAutonomyGate, MimirAutonomyGate>();
         services.AddNemMapeKConfigAgent("nem.Mimir", AutonomyLevel.L1_Suggest);
         services.Replace(ServiceDescriptor.Singleton(_ => new MapeKPlanner(MimirMapeKPlaybooks.Create())));
         return services;
