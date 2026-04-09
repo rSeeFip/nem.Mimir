@@ -2,69 +2,32 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using nem.Contracts.Agents;
 using nem.Contracts.Inference;
+using nem.Mimir.Application.Common.Interfaces;
 using ContractSpecialistAgent = nem.Contracts.Agents.ISpecialistAgent;
 
 namespace nem.Mimir.Application.Agents;
 
 public sealed partial class TierDispatchStrategy
 {
-    public InferenceTier ResolveEntryTier(AgentTask task, TierConfiguration configuration)
+    public InferenceTier ResolveEntryTier(AgentTask task, IOrchestrationPlan plan)
     {
-        if (task.Context is not null
-            && task.Context.TryGetValue("inferenceTier", out var configuredTier)
-            && Enum.TryParse<InferenceTier>(configuredTier, ignoreCase: true, out var explicitTier))
-        {
-            return explicitTier;
-        }
-
-        return configuration.EntryTierByTaskType.TryGetValue(task.Type, out var mapped)
-            ? mapped
-            : InferenceTier.Processing;
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.ResolveEntryTier(task);
     }
 
-    public InferenceTier InferTierForAgentName(string agentName)
+    public InferenceTier InferTierForAgentName(string agentName, IOrchestrationPlan plan)
     {
-        if (string.IsNullOrWhiteSpace(agentName))
-        {
-            return InferenceTier.Processing;
-        }
-
-        var normalized = agentName.Trim().ToLowerInvariant();
-
-        if (normalized.Contains("router", StringComparison.Ordinal)
-            || normalized.Contains("explore", StringComparison.Ordinal))
-        {
-            return InferenceTier.Router;
-        }
-
-        if (normalized.Contains("valid", StringComparison.Ordinal)
-            || normalized.Contains("schema", StringComparison.Ordinal))
-        {
-            return InferenceTier.Validation;
-        }
-
-        if (normalized.Contains("analy", StringComparison.Ordinal)
-            || normalized.Contains("reason", StringComparison.Ordinal))
-        {
-            return InferenceTier.Analysis;
-        }
-
-        if (normalized.Contains("escal", StringComparison.Ordinal)
-            || normalized.Contains("human", StringComparison.Ordinal))
-        {
-            return InferenceTier.Escalation;
-        }
-
-        return InferenceTier.Processing;
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.ResolveTierForAgent(agentName);
     }
 
     public IReadOnlyList<ContractSpecialistAgent> SelectCandidatesForTier(
         IReadOnlyList<ContractSpecialistAgent> candidates,
         InferenceTier tier,
-        TierConfiguration configuration)
+        IOrchestrationPlan plan)
     {
         var matches = candidates
-            .Where(agent => ResolveTier(agent, configuration) == tier)
+            .Where(agent => ResolveTier(agent, plan) == tier)
             .ToList();
 
         return matches;
@@ -102,14 +65,9 @@ public sealed partial class TierDispatchStrategy
             : 0.0d;
     }
 
-    private InferenceTier ResolveTier(ContractSpecialistAgent agent, TierConfiguration configuration)
+    private InferenceTier ResolveTier(ContractSpecialistAgent agent, IOrchestrationPlan plan)
     {
-        if (configuration.AgentTierAssignments.TryGetValue(agent.Name, out var assigned))
-        {
-            return assigned;
-        }
-
-        return InferTierForAgentName(agent.Name);
+        return plan.ResolveTierForAgent(agent.Name);
     }
 
     private static bool TryParseConfidenceFromArtifacts(IReadOnlyList<string>? artifacts, out double confidence)

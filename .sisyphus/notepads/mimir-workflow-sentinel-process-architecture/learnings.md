@@ -41,3 +41,10 @@
 - Built-in plugins should be resolved as DI-managed `IPlugin` instances and registered through the concrete `PluginManager`, never through `IPluginService` downcasts or dynamic built-in activation paths.
 - Plugin lifecycle operations in Mimir need defensive `try/catch` around load, registration initialization, shutdown, and ALC unload so plugin faults are logged without crashing the host.
 - Current `dotnet build nem.Mimir.slnx` and broad `dotnet test ... --filter Category!=Integration` are blocked by pre-existing repo issues outside T2 scope: broken `nem.Mimir.Signal.Tests`, broad E2E/API integration failures, and existing solution-structure expectations in `nem.Mimir.Domain.Tests`.
+
+## T3 orchestration seam learnings
+- `IOrchestrationPlan` can stay minimal if it only exposes the data/decisions consumed by `AgentOrchestrator`, `TierDispatchStrategy`, and `ConfidenceEscalationPolicy`: default max turns, strategy resolution, entry tier, agent tier mapping, model mapping, escalation threshold, and next-tier progression.
+- Preserving orchestration behavior verbatim is easiest when the new default provider owns the prior constants/heuristics directly instead of splitting them across mutable configuration plus fallback branches.
+- `AgentExecutionContext` needed a `SetMaxTurns(int)` seam so the provider can be resolved before default max-turn fallback is applied without changing turn-sharing behavior for child contexts.
+- The new required `IOrchestrationPlanProvider` constructor dependency ripples into integration tests that new up `AgentOrchestrator` directly; update those call sites when introducing the seam.
+- `BackgroundTaskExecutorTests.ProcessTaskAsync_ShouldCompleteAndCacheResult` is timing-sensitive around `IProgress<T>` callbacks; waiting specifically for the `Completed` event is more stable than waiting on a raw event count.

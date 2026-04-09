@@ -124,7 +124,7 @@ public sealed class CrossServiceIntegrationTests
         trajectoryRecorder
             .StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
-        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, llm, trajectoryRecorder);
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, llm, trajectoryRecorder, new DefaultOrchestrationPlanProvider());
 
         var task = new AgentTask(
             "delegation-1",

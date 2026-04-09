@@ -1,8 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using nem.Contracts.Agents;
 using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Agents.Selection.Steps;
+using nem.Mimir.Application.Common.Interfaces;
 
 namespace nem.Mimir.Application.Agents;
 
@@ -17,7 +18,7 @@ public static class AgentServiceCollectionExtensions
 
         services.AddScoped<AgentDispatcher>();
         services.AddScoped<AgentCoordinator>();
-        services.TryAddSingleton<TierConfiguration>();
+        services.TryAddSingleton<IOrchestrationPlanProvider, DefaultOrchestrationPlanProvider>();
         services.TryAddSingleton<TierDispatchStrategy>();
         services.TryAddSingleton<ConfidenceEscalationPolicy>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();

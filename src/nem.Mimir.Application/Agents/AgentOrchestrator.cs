@@ -13,8 +13,8 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
     private readonly AgentDispatcher _dispatcher;
     private readonly AgentCoordinator _coordinator;
     private readonly ITrajectoryRecorder _trajectoryRecorder;
+    private readonly IOrchestrationPlanProvider _planProvider;
     private readonly TierDispatchStrategy _tierDispatchStrategy;
-    private readonly TierConfiguration _tierConfiguration;
     private readonly ConfidenceEscalationPolicy _escalationPolicy;
     private readonly ConcurrentDictionary<string, AgentResult> _taskStatuses = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _taskCancellation = new(StringComparer.OrdinalIgnoreCase);
@@ -24,24 +24,25 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         AgentCoordinator coordinator,
         ILlmService llmService,
         ITrajectoryRecorder trajectoryRecorder,
+        IOrchestrationPlanProvider planProvider,
         TierDispatchStrategy? tierDispatchStrategy = null,
-        TierConfiguration? tierConfiguration = null,
         ConfidenceEscalationPolicy? escalationPolicy = null)
     {
         _dispatcher = dispatcher;
         _coordinator = coordinator;
         _trajectoryRecorder = trajectoryRecorder;
+        _planProvider = planProvider;
         _tierDispatchStrategy = tierDispatchStrategy ?? new TierDispatchStrategy();
-        _tierConfiguration = tierConfiguration ?? new TierConfiguration();
         _escalationPolicy = escalationPolicy ?? new ConfidenceEscalationPolicy();
         _ = llmService;
     }
 
     public async Task<AgentResult> DispatchAsync(AgentTask task, CancellationToken cancellationToken = default)
     {
-        var maxTurns = ResolveMaxTurns(task);
-        var strategy = ResolveStrategy(task);
-        var executionContext = new AgentExecutionContext(task, maxTurns);
+        var executionContext = new AgentExecutionContext(task, maxTurns: 1);
+        var plan = _planProvider.ResolvePlan(executionContext);
+        executionContext.SetMaxTurns(ResolveMaxTurns(task, plan));
+        var strategy = plan.ResolveStrategy(task);
         var sessionId = task.Context is not null
             && task.Context.TryGetValue("sessionId", out var contextSessionId)
             && !string.IsNullOrWhiteSpace(contextSessionId)
@@ -91,7 +92,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
 
             var executionStart = DateTime.UtcNow;
             var result = strategy == AgentCoordinationStrategy.Tiered
-                ? await ExecuteTieredAsync(task, executionContext, candidates, linkedCts.Token).ConfigureAwait(false)
+                ? await ExecuteTieredAsync(task, executionContext, candidates, plan, linkedCts.Token).ConfigureAwait(false)
                 : await _coordinator.ExecuteAsync(executionContext, candidates, strategy, linkedCts.Token).ConfigureAwait(false);
 
             var isSuccess = result.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
@@ -180,11 +181,6 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
 
     public Task RegisterAgentAsync(ContractSpecialistAgent agent, CancellationToken cancellationToken = default)
     {
-        if (!_tierConfiguration.AgentTierAssignments.ContainsKey(agent.Name))
-        {
-            _tierConfiguration.AgentTierAssignments[agent.Name] = _tierDispatchStrategy.InferTierForAgentName(agent.Name);
-        }
-
         return _dispatcher.RegisterAsync(agent, cancellationToken);
     }
 
@@ -215,7 +211,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         return result;
     }
 
-    private static int ResolveMaxTurns(AgentTask task)
+    private static int ResolveMaxTurns(AgentTask task, IOrchestrationPlan plan)
     {
         if (task.Context is not null
             && task.Context.TryGetValue("maxTurns", out var maxTurnsRaw)
@@ -225,29 +221,14 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             return maxTurns;
         }
 
-        return 10;
-    }
-
-    private static AgentCoordinationStrategy ResolveStrategy(AgentTask task)
-    {
-        if (task.Context is null || !task.Context.TryGetValue("strategy", out var raw) || string.IsNullOrWhiteSpace(raw))
-        {
-            return AgentCoordinationStrategy.Sequential;
-        }
-
-        return raw.Trim().ToLowerInvariant() switch
-        {
-            "parallel" => AgentCoordinationStrategy.Parallel,
-            "hierarchical" => AgentCoordinationStrategy.Hierarchical,
-            "tiered" => AgentCoordinationStrategy.Tiered,
-            _ => AgentCoordinationStrategy.Sequential,
-        };
+        return plan.DefaultMaxTurns;
     }
 
     private async Task<AgentResult> ExecuteTieredAsync(
         AgentTask task,
         AgentExecutionContext executionContext,
         IReadOnlyList<ContractSpecialistAgent> candidates,
+        IOrchestrationPlan plan,
         CancellationToken cancellationToken)
     {
         if (candidates.Count == 0)
@@ -256,17 +237,17 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         }
 
         var orderedCandidates = candidates.ToList();
-        var currentTier = _tierDispatchStrategy.ResolveEntryTier(task, _tierConfiguration);
+        var currentTier = _tierDispatchStrategy.ResolveEntryTier(task, plan);
         AgentResult? lastResult = null;
 
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var tierCandidates = _tierDispatchStrategy.SelectCandidatesForTier(orderedCandidates, currentTier, _tierConfiguration);
+            var tierCandidates = _tierDispatchStrategy.SelectCandidatesForTier(orderedCandidates, currentTier, plan);
             if (tierCandidates.Count == 0)
             {
-                var nextTier = _escalationPolicy.GetNextTier(currentTier);
+                var nextTier = _escalationPolicy.GetNextTier(currentTier, plan);
                 if (nextTier is null)
                 {
                     return lastResult ?? new AgentResult(task.Id, "orchestrator", "Failed", "No eligible agent candidates for tiered dispatch.");
@@ -276,7 +257,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
                 continue;
             }
 
-            var model = _tierConfiguration.GetModel(currentTier);
+            var model = plan.ResolveModel(currentTier);
             var tierContext = _tierDispatchStrategy.BuildTierContext(task.Context, currentTier, model);
             var tierTask = task with { Context = tierContext };
             executionContext.SetTask(tierTask);
@@ -288,12 +269,12 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             lastResult = tierResult;
 
             var confidence = _tierDispatchStrategy.EstimateConfidence(tierResult);
-            if (!_escalationPolicy.ShouldEscalate(confidence))
+            if (!_escalationPolicy.ShouldEscalate(confidence, plan))
             {
                 return tierResult;
             }
 
-            var escalateTo = _escalationPolicy.GetNextTier(currentTier);
+            var escalateTo = _escalationPolicy.GetNextTier(currentTier, plan);
             if (escalateTo is null)
             {
                 return tierResult with

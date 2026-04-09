@@ -14,6 +14,7 @@ namespace nem.Mimir.Application.Tests.Agents;
 public sealed class AgentOrchestratorTests
 {
     private readonly ILlmService _llmService = Substitute.For<ILlmService>();
+    private readonly IOrchestrationPlanProvider _defaultPlanProvider = new DefaultOrchestrationPlanProvider();
 
     [Fact]
     public async Task Dispatcher_ShouldRouteByCapabilityMatch()
@@ -179,7 +180,7 @@ public sealed class AgentOrchestratorTests
         trajectoryRecorder
             .StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
-        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, trajectoryRecorder);
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, trajectoryRecorder, _defaultPlanProvider);
 
         var task = new AgentTask("t7", AgentTaskType.Research, "help me", new Dictionary<string, string> { ["strategy"] = "sequential" });
         var result = await orchestrator.DispatchAsync(task);
@@ -225,7 +226,7 @@ public sealed class AgentOrchestratorTests
         var recorder = Substitute.For<ITrajectoryRecorder>();
         recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
-        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, recorder);
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, recorder, _defaultPlanProvider);
 
         var task = new AgentTask(
             "tiered-1",
@@ -240,26 +241,37 @@ public sealed class AgentOrchestratorTests
     }
 
     [Fact]
-    public async Task Orchestrator_Tiered_ShouldUseInferenceTierContextForMappedModel()
+    public async Task Orchestrator_Tiered_ShouldUsePlanDataForTierAndModelSelection()
     {
         _llmService.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
             .Returns(new LlmResponse("ok", "phi-4-mini", 1, 1, 2, "stop"));
 
         IReadOnlyDictionary<string, string>? seenContext = null;
-        var processor = new TestAgent(
-            "Execute Agent",
-            [AgentCapability.CodeExecution],
+        var analyzer = new TestAgent(
+            "Analyze Agent",
+            [AgentCapability.DeepAnalysis],
             static _ => true,
             task =>
             {
                 seenContext = task.Context;
-                return new AgentResult(task.Id, "execute", "Completed", "confidence=0.90");
+                return new AgentResult(task.Id, "analyze", "Completed", "confidence=0.90");
             });
 
-        var configuration = new TierConfiguration();
-        configuration.ModelByTier[InferenceTier.Processing] = "processing-model-x";
+        var plan = Substitute.For<IOrchestrationPlan>();
+        plan.DefaultMaxTurns.Returns(10);
+        plan.EscalationThreshold.Returns(0.5d);
+        plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Tiered);
+        plan.ResolveEntryTier(Arg.Any<AgentTask>()).Returns(InferenceTier.Analysis);
+        plan.ResolveTierForAgent(Arg.Any<string>()).Returns(callInfo =>
+            callInfo.Arg<string>().Contains("Analyze", StringComparison.OrdinalIgnoreCase)
+                ? InferenceTier.Analysis
+                : InferenceTier.Processing);
+        plan.ResolveModel(InferenceTier.Analysis).Returns("analysis-model-x");
+        plan.GetNextTier(InferenceTier.Analysis).Returns(InferenceTier.Escalation);
+        var planProvider = Substitute.For<IOrchestrationPlanProvider>();
+        planProvider.ResolvePlan(Arg.Any<AgentExecutionContext>()).Returns(plan);
 
-        var dispatcher = new AgentDispatcher([processor]);
+        var dispatcher = new AgentDispatcher([analyzer]);
         var coordinator = new AgentCoordinator(_llmService);
         var recorder = Substitute.For<ITrajectoryRecorder>();
         recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -269,11 +281,11 @@ public sealed class AgentOrchestratorTests
             coordinator,
             _llmService,
             recorder,
-            tierConfiguration: configuration);
+            planProvider);
 
         var task = new AgentTask(
             "tiered-2",
-            AgentTaskType.Execute,
+            AgentTaskType.Explore,
             "run deployment checks",
             new Dictionary<string, string> { ["strategy"] = "tiered" });
 
@@ -281,8 +293,38 @@ public sealed class AgentOrchestratorTests
 
         result.Status.ShouldBe("Completed");
         seenContext.ShouldNotBeNull();
-        seenContext!["inferenceTier"].ShouldBe("Processing");
-        seenContext["inferenceModel"].ShouldBe("processing-model-x");
+        seenContext!["inferenceTier"].ShouldBe("Analysis");
+        seenContext["inferenceModel"].ShouldBe("analysis-model-x");
+        planProvider.Received(1).ResolvePlan(Arg.Any<AgentExecutionContext>());
+        plan.Received(1).ResolveEntryTier(Arg.Any<AgentTask>());
+        plan.Received(1).ResolveModel(InferenceTier.Analysis);
+    }
+
+    [Fact]
+    public async Task Orchestrator_ShouldUsePlanDefaultMaxTurns_WhenContextOverrideMissing()
+    {
+        _llmService.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(new LlmResponse("ok", "phi-4-mini", 1, 1, 2, "stop"));
+
+        var plan = Substitute.For<IOrchestrationPlan>();
+        plan.DefaultMaxTurns.Returns(2);
+        plan.EscalationThreshold.Returns(0.7d);
+        plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Sequential);
+        var planProvider = Substitute.For<IOrchestrationPlanProvider>();
+        planProvider.ResolvePlan(Arg.Any<AgentExecutionContext>()).Returns(plan);
+
+        var dispatcher = new AgentDispatcher([]);
+        var coordinator = new AgentCoordinator(_llmService);
+        var recorder = Substitute.For<ITrajectoryRecorder>();
+        recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(global::nem.Contracts.Identity.TrajectoryId.New());
+        var orchestrator = new AgentOrchestrator(dispatcher, coordinator, _llmService, recorder, planProvider);
+
+        var status = await orchestrator.DispatchAsync(new AgentTask("no-agents", AgentTaskType.Custom, "prompt"));
+
+        status.Status.ShouldBe("Failed");
+        plan.Received(1).ResolveStrategy(Arg.Any<AgentTask>());
+        _ = plan.Received(1).DefaultMaxTurns;
     }
 
     private sealed class TestAgent : ContractSpecialistAgent

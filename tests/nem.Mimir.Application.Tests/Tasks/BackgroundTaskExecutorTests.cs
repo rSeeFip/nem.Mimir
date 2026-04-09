@@ -61,7 +61,7 @@ public sealed class BackgroundTaskExecutorTests
         result.Status.ShouldBe("Completed");
         result.Output.ShouldBe("done");
         active.Count.ShouldBe(0);
-        await WaitForConditionAsync(() => progressEvents.Count >= 2);
+        await WaitForConditionAsync(() => progressEvents.Any(x => x.StatusMessage == "Completed"));
         progressEvents.Count.ShouldBeGreaterThanOrEqualTo(2);
         progressEvents.ShouldContain(x => x.StatusMessage == "Running");
         progressEvents.ShouldContain(x => x.StatusMessage == "Completed");

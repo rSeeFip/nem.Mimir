@@ -49,7 +49,7 @@ public sealed class AgentExecutionContext
 
     public int TurnCount => Volatile.Read(ref _turnState.Value);
 
-    public int MaxTurns { get; }
+    public int MaxTurns { get; private set; }
 
     public int IncrementTurn()
     {
@@ -65,6 +65,16 @@ public sealed class AgentExecutionContext
     public void SetTask(AgentTask task)
     {
         Task = task;
+    }
+
+    public void SetMaxTurns(int maxTurns)
+    {
+        if (maxTurns <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxTurns), "Max turns must be greater than zero.");
+        }
+
+        MaxTurns = maxTurns;
     }
 
     public AgentExecutionContext CreateChild(AgentTask task)
