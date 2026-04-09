@@ -35,3 +35,9 @@
 - `nem.Workflow` is already standardized on shared `nem.Contracts.Identity` workflow IDs (`WorkflowId`, `WorkflowRunId`, `WorkflowStepId`, `WorkflowTriggerId`, `WorkflowVersionId`), making it the cleanest baseline contract surface.
 - `nem.Sentinel` mixes local remediation/incident/playbook IDs with shared ecosystem IDs (`CorrelationId`, `SkillId`, `SkillSubmissionId`, organism IDs), so ACLs must keep Sentinel-local IDs repo-owned while allowing shared contracts to cross boundaries.
 - `nem.Workflow.Domain.Tests` disables default compile item discovery, so any new contract-pin test file must be explicitly added to the test project file.
+
+## T2 plugin foundation learnings
+- Mimir plugin ALC sharing must mirror SDK behavior: `nem.Contracts`, `nem.Plugins.Sdk`, and `System*` stay in the default host ALC; Mimir/private plugin assemblies stay isolated in the collectible plugin ALC.
+- Built-in plugins should be resolved as DI-managed `IPlugin` instances and registered through the concrete `PluginManager`, never through `IPluginService` downcasts or dynamic built-in activation paths.
+- Plugin lifecycle operations in Mimir need defensive `try/catch` around load, registration initialization, shutdown, and ALC unload so plugin faults are logged without crashing the host.
+- Current `dotnet build nem.Mimir.slnx` and broad `dotnet test ... --filter Category!=Integration` are blocked by pre-existing repo issues outside T2 scope: broken `nem.Mimir.Signal.Tests`, broad E2E/API integration failures, and existing solution-structure expectations in `nem.Mimir.Domain.Tests`.

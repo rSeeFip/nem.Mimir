@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
-using nem.Mimir.Application.Common.Interfaces;
+using Microsoft.Extensions.Logging;
+using nem.Mimir.Domain.Plugins;
 using nem.Mimir.Finance.McpTools;
 
 namespace nem.Mimir.Infrastructure.Plugins.BuiltIn;
@@ -10,29 +11,50 @@ namespace nem.Mimir.Infrastructure.Plugins.BuiltIn;
 internal sealed class BuiltInPluginRegistrar : IHostedService
 {
     private readonly PluginManager _pluginManager;
-    private readonly CodeRunnerPlugin _codeRunner;
-    private readonly WebSearchPlugin _webSearch;
-    private readonly FinanceToolRegistryPlugin _financeTools;
+    private readonly IReadOnlyList<IPlugin> _builtInPlugins;
+    private readonly ILogger<BuiltInPluginRegistrar> _logger;
 
     public BuiltInPluginRegistrar(
-        IPluginService pluginService,
-        CodeRunnerPlugin codeRunner,
-        WebSearchPlugin webSearch,
-        FinanceToolRegistryPlugin financeTools)
+        PluginManager pluginManager,
+        IEnumerable<IPlugin> builtInPlugins,
+        ILogger<BuiltInPluginRegistrar> logger)
     {
-        _pluginManager = (PluginManager)pluginService;
-        _codeRunner = codeRunner;
-        _webSearch = webSearch;
-        _financeTools = financeTools;
+        _pluginManager = pluginManager;
+        _builtInPlugins = builtInPlugins.ToArray();
+        _logger = logger;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _pluginManager.RegisterPlugin(_codeRunner);
-        _pluginManager.RegisterPlugin(_webSearch);
-        _pluginManager.RegisterPlugin(_financeTools);
-        return Task.CompletedTask;
+        foreach (var builtInPlugin in _builtInPlugins)
+        {
+            try
+            {
+                await _pluginManager.RegisterPluginAsync(builtInPlugin, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Built-in plugin registration failed for {PluginId}", builtInPlugin.Id);
+            }
+        }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        foreach (var builtInPlugin in _builtInPlugins.Reverse())
+        {
+            try
+            {
+                await _pluginManager.UnloadPluginAsync(builtInPlugin.Id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogDebug("Built-in plugin {PluginId} was not registered; skipping unload", builtInPlugin.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Built-in plugin unload failed for {PluginId}", builtInPlugin.Id);
+            }
+        }
+    }
 }

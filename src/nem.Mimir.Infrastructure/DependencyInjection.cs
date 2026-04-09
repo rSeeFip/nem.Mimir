@@ -227,12 +227,16 @@ public static class DependencyInjection
 #pragma warning restore CS0618
 
         // Plugin service (singleton — manages plugin lifecycle)
-        services.AddSingleton<IPluginService, PluginManager>();
+        services.AddSingleton<PluginManager>();
+        services.AddSingleton<IPluginService>(sp => sp.GetRequiredService<PluginManager>());
 
         // Built-in plugins
         services.AddSingleton<CodeRunnerPlugin>();
         services.AddSingleton<WebSearchPlugin>();
         services.AddSingleton<FinanceToolRegistryPlugin>();
+        services.AddSingleton<nem.Mimir.Domain.Plugins.IPlugin>(sp => sp.GetRequiredService<CodeRunnerPlugin>());
+        services.AddSingleton<nem.Mimir.Domain.Plugins.IPlugin>(sp => sp.GetRequiredService<WebSearchPlugin>());
+        services.AddSingleton<nem.Mimir.Domain.Plugins.IPlugin>(sp => sp.GetRequiredService<FinanceToolRegistryPlugin>());
         services.AddHostedService<BuiltInPluginRegistrar>();
 
         // System prompt service (singleton — stateless template rendering)

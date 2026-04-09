@@ -40,7 +40,7 @@ public sealed class PluginManagerTests
         var plugin = CreateMockPlugin("test-plugin", "Test Plugin", "1.0.0", "A test");
 
         // Act
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
         var list = await _sut.ListPluginsAsync();
 
         // Assert
@@ -58,10 +58,10 @@ public sealed class PluginManagerTests
         var plugin2 = CreateMockPlugin("dup-plugin", "Plugin 2", "2.0.0", "Second");
 
         // Act
-        _sut.RegisterPlugin(plugin1);
+        await _sut.RegisterPluginAsync(plugin1);
 
         // Assert
-        Should.Throw<InvalidOperationException>(() => _sut.RegisterPlugin(plugin2));
+        await Should.ThrowAsync<InvalidOperationException>(() => _sut.RegisterPluginAsync(plugin2));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class PluginManagerTests
         plugin.ExecuteAsync(Arg.Any<PluginContext>(), Arg.Any<CancellationToken>())
             .Returns(expectedResult);
 
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
         var context = PluginContext.Create("user-1", new Dictionary<string, object>());
 
@@ -105,7 +105,7 @@ public sealed class PluginManagerTests
         plugin.ExecuteAsync(Arg.Any<PluginContext>(), Arg.Any<CancellationToken>())
             .Returns<PluginResult>(_ => throw new InvalidOperationException("Plugin crashed"));
 
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
         var context = PluginContext.Create("user-1", new Dictionary<string, object>());
 
         // Act
@@ -121,7 +121,7 @@ public sealed class PluginManagerTests
     {
         // Arrange
         var plugin = CreateMockPlugin("unload-plugin", "Unload Plugin", "1.0.0", "Unload test");
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
         // Verify it's listed
         var listBefore = await _sut.ListPluginsAsync();
@@ -150,7 +150,7 @@ public sealed class PluginManagerTests
         var plugin = CreateMockPlugin("init-plugin", "Init Plugin", "1.0.0", "Init test");
 
         // Act
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
         // Assert
         await plugin.Received(1).InitializeAsync(Arg.Any<CancellationToken>());
@@ -165,9 +165,9 @@ public sealed class PluginManagerTests
         var plugin3 = CreateMockPlugin("plugin-c", "C", "3.0.0", "Third");
 
         // Act
-        _sut.RegisterPlugin(plugin1);
-        _sut.RegisterPlugin(plugin2);
-        _sut.RegisterPlugin(plugin3);
+        await _sut.RegisterPluginAsync(plugin1);
+        await _sut.RegisterPluginAsync(plugin2);
+        await _sut.RegisterPluginAsync(plugin3);
 
         var list = await _sut.ListPluginsAsync();
 

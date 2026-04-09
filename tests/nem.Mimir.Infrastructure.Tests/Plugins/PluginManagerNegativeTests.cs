@@ -78,12 +78,12 @@ public sealed class PluginManagerNegativeTests
     {
         // Arrange - register a plugin first
         var plugin = CreateMockPlugin("conflict-id", "Original", "1.0.0", "First");
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
         // Act & Assert - loading a plugin with same ID should fail
         // (Can't actually load from disk, but RegisterPlugin + RegisterPlugin shows the same path)
         var plugin2 = CreateMockPlugin("conflict-id", "Duplicate", "2.0.0", "Second");
-        Should.Throw<InvalidOperationException>(() => _sut.RegisterPlugin(plugin2));
+        await Should.ThrowAsync<InvalidOperationException>(() => _sut.RegisterPluginAsync(plugin2));
     }
 
     // ─── UnloadPluginAsync ───────────────────────────────────────
@@ -107,7 +107,7 @@ public sealed class PluginManagerNegativeTests
     {
         // Arrange
         var plugin = CreateMockPlugin("once-plugin", "Once", "1.0.0", "Unload once");
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
         await _sut.UnloadPluginAsync("once-plugin");
 
         // Act & Assert - second unload should fail
@@ -120,7 +120,7 @@ public sealed class PluginManagerNegativeTests
     {
         // Arrange
         var plugin = CreateMockPlugin("shutdown-test", "Shutdown", "1.0.0", "Test shutdown");
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
         // Act
         await _sut.UnloadPluginAsync("shutdown-test");
@@ -130,17 +130,20 @@ public sealed class PluginManagerNegativeTests
     }
 
     [Fact]
-    public async Task UnloadPluginAsync_PluginShutdownThrows_PropagatesException()
+    public async Task UnloadPluginAsync_PluginShutdownThrows_ShouldNotPropagateException()
     {
         // Arrange
         var plugin = CreateMockPlugin("throw-shutdown", "Throw", "1.0.0", "Throws on shutdown");
         plugin.ShutdownAsync(Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new InvalidOperationException("Shutdown failed"));
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
-        // Act & Assert
-        await Should.ThrowAsync<InvalidOperationException>(
-            () => _sut.UnloadPluginAsync("throw-shutdown"));
+        // Act
+        await _sut.UnloadPluginAsync("throw-shutdown");
+
+        // Assert
+        var plugins = await _sut.ListPluginsAsync();
+        plugins.ShouldBeEmpty();
     }
 
     // ─── ExecutePluginAsync ──────────────────────────────────────
@@ -161,7 +164,7 @@ public sealed class PluginManagerNegativeTests
         var plugin = CreateMockPlugin("exec-unload", "ExecUnload", "1.0.0", "Execute after unload");
         plugin.ExecuteAsync(Arg.Any<PluginContext>(), Arg.Any<CancellationToken>())
             .Returns(PluginResult.Success(new Dictionary<string, object>()));
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
 
         // Verify it works first
         var context = PluginContext.Create("user-1", new Dictionary<string, object>());
@@ -184,7 +187,7 @@ public sealed class PluginManagerNegativeTests
         plugin.ExecuteAsync(Arg.Any<PluginContext>(), Arg.Any<CancellationToken>())
             .Returns<PluginResult>(_ => throw new TaskCanceledException("Cancelled"));
 
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
         var context = PluginContext.Create("user-1", new Dictionary<string, object>());
 
         // Act
@@ -203,7 +206,7 @@ public sealed class PluginManagerNegativeTests
         plugin.ExecuteAsync(Arg.Any<PluginContext>(), Arg.Any<CancellationToken>())
             .Returns<PluginResult>(_ => throw new OutOfMemoryException("Simulated OOM"));
 
-        _sut.RegisterPlugin(plugin);
+        await _sut.RegisterPluginAsync(plugin);
         var context = PluginContext.Create("user-1", new Dictionary<string, object>());
 
         // Act
@@ -222,8 +225,8 @@ public sealed class PluginManagerNegativeTests
         // Arrange
         var plugin1 = CreateMockPlugin("list-a", "A", "1.0.0", "First");
         var plugin2 = CreateMockPlugin("list-b", "B", "1.0.0", "Second");
-        _sut.RegisterPlugin(plugin1);
-        _sut.RegisterPlugin(plugin2);
+        await _sut.RegisterPluginAsync(plugin1);
+        await _sut.RegisterPluginAsync(plugin2);
 
         // Verify both listed
         var before = await _sut.ListPluginsAsync();
@@ -243,22 +246,26 @@ public sealed class PluginManagerNegativeTests
     // ─── RegisterPlugin edge cases ───────────────────────────────
 
     [Fact]
-    public void RegisterPlugin_InitializeThrows_PropagatesException()
+    public async Task RegisterPluginAsync_InitializeThrows_ShouldNotRegisterPlugin()
     {
         // Arrange
         var plugin = CreateMockPlugin("init-fail", "InitFail", "1.0.0", "Init throws");
         plugin.InitializeAsync(Arg.Any<CancellationToken>())
             .Returns<Task>(_ => throw new InvalidOperationException("Init failed"));
 
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => _sut.RegisterPlugin(plugin));
+        // Act
+        await _sut.RegisterPluginAsync(plugin);
+
+        // Assert
+        var plugins = await _sut.ListPluginsAsync();
+        plugins.ShouldBeEmpty();
     }
 
     [Fact]
-    public void RegisterPlugin_NullPlugin_ThrowsNullReferenceException()
+    public async Task RegisterPluginAsync_NullPlugin_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Should.Throw<NullReferenceException>(() => _sut.RegisterPlugin(null!));
+        await Should.ThrowAsync<ArgumentNullException>(() => _sut.RegisterPluginAsync(null!));
     }
 
     // ─── Concurrent operations ───────────────────────────────────
@@ -286,8 +293,8 @@ public sealed class PluginManagerNegativeTests
                 return result2;
             });
 
-        _sut.RegisterPlugin(plugin1);
-        _sut.RegisterPlugin(plugin2);
+        await _sut.RegisterPluginAsync(plugin1);
+        await _sut.RegisterPluginAsync(plugin2);
 
         var context = PluginContext.Create("user-1", new Dictionary<string, object>());
 

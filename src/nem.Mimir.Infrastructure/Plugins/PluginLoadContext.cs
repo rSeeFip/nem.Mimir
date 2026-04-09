@@ -9,6 +9,22 @@ namespace nem.Mimir.Infrastructure.Plugins;
 /// </summary>
 internal sealed class PluginLoadContext : AssemblyLoadContext
 {
+    private static readonly string[] SharedAssemblyPrefixes =
+    [
+        "System.",
+        "nem.Contracts.",
+        "nem.Plugins.Sdk.",
+    ];
+
+    private static readonly HashSet<string> SharedAssemblyNames = new(StringComparer.Ordinal)
+    {
+        "System",
+        "mscorlib",
+        "netstandard",
+        "nem.Contracts",
+        "nem.Plugins.Sdk",
+    };
+
     private readonly AssemblyDependencyResolver _resolver;
 
     public PluginLoadContext(string pluginPath) : base(isCollectible: true)
@@ -18,6 +34,11 @@ internal sealed class PluginLoadContext : AssemblyLoadContext
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
+        if (IsSharedAssembly(assemblyName.Name))
+        {
+            return Default.LoadFromAssemblyName(assemblyName);
+        }
+
         var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
         return assemblyPath is not null ? LoadFromAssemblyPath(assemblyPath) : null;
     }
@@ -26,5 +47,20 @@ internal sealed class PluginLoadContext : AssemblyLoadContext
     {
         var libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
         return libraryPath is not null ? LoadUnmanagedDllFromPath(libraryPath) : IntPtr.Zero;
+    }
+
+    private static bool IsSharedAssembly(string? assemblyName)
+    {
+        if (string.IsNullOrWhiteSpace(assemblyName))
+        {
+            return false;
+        }
+
+        if (SharedAssemblyNames.Contains(assemblyName))
+        {
+            return true;
+        }
+
+        return SharedAssemblyPrefixes.Any(assemblyName.StartsWith);
     }
 }

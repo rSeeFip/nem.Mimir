@@ -29,32 +29,52 @@ internal sealed class PluginManager : IPluginService
             throw new FileNotFoundException($"Plugin assembly not found: {assemblyPath}", assemblyPath);
         }
 
-        var loadContext = new PluginLoadContext(assemblyPath);
-        var assembly = loadContext.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
+        var fullAssemblyPath = Path.GetFullPath(assemblyPath);
+        PluginLoadContext? loadContext = null;
+        IPlugin? plugin = null;
 
-        var pluginType = assembly.GetTypes()
-            .FirstOrDefault(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-            ?? throw new InvalidOperationException(
-                $"No type implementing IPlugin found in assembly: {assemblyPath}");
-
-        var plugin = (IPlugin)(Activator.CreateInstance(pluginType)
-            ?? throw new InvalidOperationException(
-                $"Failed to create instance of plugin type: {pluginType.FullName}"));
-
-        await plugin.InitializeAsync(ct);
-
-        var metadata = PluginMetadata.Create(plugin.Id, plugin.Name, plugin.Version, plugin.Description);
-        var entry = new PluginEntry(plugin, metadata, loadContext);
-
-        if (!_plugins.TryAdd(plugin.Id, entry))
+        try
         {
-            await plugin.ShutdownAsync(ct);
-            loadContext.Unload();
-            throw new InvalidOperationException($"A plugin with ID '{plugin.Id}' is already loaded.");
-        }
+            loadContext = new PluginLoadContext(fullAssemblyPath);
+            var assembly = loadContext.LoadFromAssemblyPath(fullAssemblyPath);
 
-        _logger.LogInformation("Plugin loaded: {PluginId} v{Version}", plugin.Id, plugin.Version);
-        return metadata;
+            var pluginType = assembly.GetTypes()
+                .FirstOrDefault(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                ?? throw new InvalidOperationException(
+                    $"No type implementing IPlugin found in assembly: {fullAssemblyPath}");
+
+            plugin = CreatePluginInstance(pluginType);
+            await plugin.InitializeAsync(ct).ConfigureAwait(false);
+
+            var metadata = PluginMetadata.Create(plugin.Id, plugin.Name, plugin.Version, plugin.Description);
+            var entry = new PluginEntry(plugin, metadata, loadContext);
+
+            if (!_plugins.TryAdd(plugin.Id, entry))
+            {
+                await SafeShutdownAsync(plugin, ct).ConfigureAwait(false);
+                SafeUnload(loadContext);
+                throw new InvalidOperationException($"A plugin with ID '{plugin.Id}' is already loaded.");
+            }
+
+            _logger.LogInformation("Plugin loaded: {PluginId} v{Version}", plugin.Id, plugin.Version);
+            return metadata;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load plugin from {AssemblyPath}", fullAssemblyPath);
+
+            if (plugin is not null)
+            {
+                await SafeShutdownAsync(plugin, ct).ConfigureAwait(false);
+            }
+
+            if (loadContext is not null)
+            {
+                SafeUnload(loadContext);
+            }
+
+            throw;
+        }
     }
 
     /// <inheritdoc />
@@ -65,8 +85,8 @@ internal sealed class PluginManager : IPluginService
             throw new KeyNotFoundException($"Plugin '{pluginId}' is not loaded.");
         }
 
-        await entry.Plugin.ShutdownAsync(ct);
-        entry.LoadContext?.Unload();
+        await SafeShutdownAsync(entry.Plugin, ct).ConfigureAwait(false);
+        SafeUnload(entry.LoadContext);
 
         _logger.LogInformation("Plugin unloaded: {PluginId}", pluginId);
     }
@@ -104,18 +124,67 @@ internal sealed class PluginManager : IPluginService
     /// <summary>
     /// Registers a pre-instantiated plugin (for testing or in-process plugins).
     /// </summary>
-    internal void RegisterPlugin(IPlugin plugin)
+    internal async Task RegisterPluginAsync(IPlugin plugin, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(plugin);
+
         var metadata = PluginMetadata.Create(plugin.Id, plugin.Name, plugin.Version, plugin.Description);
+
+        try
+        {
+            await plugin.InitializeAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Built-in plugin registration failed during initialization for {PluginId}", plugin.Id);
+            return;
+        }
+
         var entry = new PluginEntry(plugin, metadata, null);
 
         if (!_plugins.TryAdd(plugin.Id, entry))
         {
+            await SafeShutdownAsync(plugin, ct).ConfigureAwait(false);
             throw new InvalidOperationException($"A plugin with ID '{plugin.Id}' is already loaded.");
         }
 
-        plugin.InitializeAsync().GetAwaiter().GetResult();
         _logger.LogInformation("Plugin registered: {PluginId} v{Version}", plugin.Id, plugin.Version);
+    }
+
+    private static IPlugin CreatePluginInstance(Type pluginType)
+    {
+        return (IPlugin)(Activator.CreateInstance(pluginType)
+            ?? throw new InvalidOperationException(
+                $"Failed to create instance of plugin type: {pluginType.FullName}"));
+    }
+
+    private async Task SafeShutdownAsync(IPlugin plugin, CancellationToken ct)
+    {
+        try
+        {
+            await plugin.ShutdownAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Plugin '{PluginId}' shutdown failed", plugin.Id);
+        }
+    }
+
+    private void SafeUnload(PluginLoadContext? loadContext)
+    {
+        if (loadContext is null)
+        {
+            return;
+        }
+
+        try
+        {
+            loadContext.Unload();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Plugin load context unload failed");
+        }
     }
 
     private sealed record PluginEntry(IPlugin Plugin, PluginMetadata Metadata, PluginLoadContext? LoadContext);
