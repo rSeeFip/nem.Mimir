@@ -15,13 +15,30 @@ public sealed class ProcessOrchestrationPlan : IOrchestrationPlan
             ["tiered"] = AgentCoordinationStrategy.Tiered,
         };
 
+    private static readonly Func<AgentTask, WorkflowBackedOrchestrationDefinition?> DefaultWorkflowExecutionResolver =
+        static task =>
+        {
+            ArgumentNullException.ThrowIfNull(task);
+
+            if (task.Context is null
+                || !task.Context.TryGetValue("workflowDefinition", out var definitionJson)
+                || string.IsNullOrWhiteSpace(definitionJson))
+            {
+                return null;
+            }
+
+            return new WorkflowBackedOrchestrationDefinition(definitionJson);
+        };
+
     private readonly IReadOnlyDictionary<string, AgentCoordinationStrategy> _strategyByName;
+    private readonly Func<AgentTask, WorkflowBackedOrchestrationDefinition?> _workflowExecutionResolver;
 
     public ProcessOrchestrationPlan(
         int defaultMaxTurns,
         SelectionProcessDefinition selectionProcess,
         TierConfiguration tierConfiguration,
-        IReadOnlyDictionary<string, AgentCoordinationStrategy>? strategyByName = null)
+        IReadOnlyDictionary<string, AgentCoordinationStrategy>? strategyByName = null,
+        Func<AgentTask, WorkflowBackedOrchestrationDefinition?>? workflowExecutionResolver = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(defaultMaxTurns);
 
@@ -29,6 +46,7 @@ public sealed class ProcessOrchestrationPlan : IOrchestrationPlan
         SelectionProcess = selectionProcess ?? throw new ArgumentNullException(nameof(selectionProcess));
         TierConfiguration = tierConfiguration ?? throw new ArgumentNullException(nameof(tierConfiguration));
         _strategyByName = strategyByName ?? DefaultStrategies;
+        _workflowExecutionResolver = workflowExecutionResolver ?? DefaultWorkflowExecutionResolver;
     }
 
     public int DefaultMaxTurns { get; }
@@ -66,4 +84,7 @@ public sealed class ProcessOrchestrationPlan : IOrchestrationPlan
 
     public InferenceTier? GetNextTier(InferenceTier currentTier)
         => TierConfiguration.GetNextTier(currentTier);
+
+    public WorkflowBackedOrchestrationDefinition? ResolveWorkflowExecution(AgentTask task)
+        => _workflowExecutionResolver(task);
 }

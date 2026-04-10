@@ -141,14 +141,17 @@ public class SolutionStructureTests
             .ToList();
 
         // Assert
-        projectReferences.Count.ShouldBe(7);
+        projectReferences.Count.ShouldBe(10);
         projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.application"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("mimir.finance.mcptools"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("nem.contracts"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("nem.contracts.aspnetcore"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.abstractions"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.distillation"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.graphrag"));
         projectReferences.ShouldContain(r => r.ToLower().Contains("knowhub.graph"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("nem.mcp.core"));
+        projectReferences.ShouldContain(r => r.ToLower().Contains("nem.workflow.domain"));
     }
 
     [Fact]

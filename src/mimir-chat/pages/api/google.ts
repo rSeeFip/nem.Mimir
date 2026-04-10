@@ -9,6 +9,18 @@ import { GoogleBody, GoogleSource } from '@/types/google';
 import { Readability } from '@mozilla/readability';
 import endent from 'endent';
 import jsdom, { JSDOM } from 'jsdom';
+import llamaTokenizer from 'llama-tokenizer-js';
+
+const SOURCE_TOKEN_LIMIT = 500;
+
+const truncateSourceText = (text: string, tokenLimit: number) => {
+  const encoded = llamaTokenizer.encode(text, false) as number[];
+  if (encoded.length <= tokenLimit) {
+    return text;
+  }
+
+  return String(llamaTokenizer.decode(encoded.slice(0, tokenLimit)));
+};
 
 const handler = async (req: NextApiRequest, res: NextApiResponse<any>) => {
   try {
@@ -28,7 +40,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<any>) => {
 
     const googleData = await googleRes.json();
 
-    const sources: GoogleSource[] = googleData.items.map((item: any) => ({
+    const items = Array.isArray(googleData.items) ? googleData.items : [];
+
+    const sources: GoogleSource[] = items.map((item: any) => ({
       title: item.title,
       link: item.link,
       displayLink: item.displayLink,
@@ -40,14 +54,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<any>) => {
     const sourcesWithText: any = await Promise.all(
       sources.map(async (source) => {
         try {
-          const timeoutPromise = new Promise((_, reject) =>
+          const timeoutPromise: Promise<Response> = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Request timed out')), 5000),
           );
 
-          const res = (await Promise.race([
+          const res = await Promise.race([
             fetch(source.link),
             timeoutPromise,
-          ])) as any;
+          ]);
 
           // if (res) {
           const html = await res.text();
@@ -64,12 +78,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<any>) => {
           const parsed = new Readability(doc).parse();
 
           if (parsed) {
-            let sourceText = cleanSourceText(parsed.textContent);
+            const sourceText = cleanSourceText(parsed.textContent);
 
             return {
               ...source,
-              // TODO: switch to tokens
-              text: sourceText.slice(0, 2000),
+              text: truncateSourceText(sourceText, SOURCE_TOKEN_LIMIT),
             } as GoogleSource;
           }
           // }

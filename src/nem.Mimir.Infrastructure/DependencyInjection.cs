@@ -38,6 +38,7 @@ using nem.Mimir.Infrastructure.Adapters;
 using nem.Mimir.Infrastructure.Organism.MapeK;
 using nem.Mimir.Infrastructure.Inference;
 using nem.Mimir.Domain.Plugins;
+using nem.Mimir.Infrastructure.Workflow;
 
 public static class DependencyInjection
 {
@@ -234,6 +235,7 @@ public static class DependencyInjection
         // LLM service
         services.AddScoped<ILlmService, LiteLlmClient>();
         services.AddScoped<IInferenceGateway, InferenceGatewayService>();
+        services.AddScoped<IWorkflowOrchestrationBridge, WorkflowOrchestrationBridge>();
 
         // Docker sandbox service
         // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.

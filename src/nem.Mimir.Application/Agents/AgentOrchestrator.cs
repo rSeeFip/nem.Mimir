@@ -14,6 +14,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
     private readonly AgentCoordinator _coordinator;
     private readonly ITrajectoryRecorder _trajectoryRecorder;
     private readonly IOrchestrationPlanProvider _planProvider;
+    private readonly IWorkflowOrchestrationBridge? _workflowBridge;
     private readonly TierDispatchStrategy _tierDispatchStrategy;
     private readonly ConfidenceEscalationPolicy _escalationPolicy;
     private readonly ConcurrentDictionary<string, AgentResult> _taskStatuses = new(StringComparer.OrdinalIgnoreCase);
@@ -25,6 +26,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         ILlmService llmService,
         ITrajectoryRecorder trajectoryRecorder,
         IOrchestrationPlanProvider planProvider,
+        IWorkflowOrchestrationBridge? workflowBridge = null,
         TierDispatchStrategy? tierDispatchStrategy = null,
         ConfidenceEscalationPolicy? escalationPolicy = null)
     {
@@ -32,6 +34,7 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
         _coordinator = coordinator;
         _trajectoryRecorder = trajectoryRecorder;
         _planProvider = planProvider;
+        _workflowBridge = workflowBridge;
         _tierDispatchStrategy = tierDispatchStrategy ?? new TierDispatchStrategy();
         _escalationPolicy = escalationPolicy ?? new ConfidenceEscalationPolicy();
         _ = llmService;
@@ -91,9 +94,12 @@ public sealed class AgentOrchestrator : IAgentOrchestrator
             }
 
             var executionStart = DateTime.UtcNow;
-            var result = strategy == AgentCoordinationStrategy.Tiered
-                ? await ExecuteTieredAsync(task, executionContext, candidates, plan, linkedCts.Token).ConfigureAwait(false)
-                : await _coordinator.ExecuteAsync(executionContext, candidates, strategy, linkedCts.Token).ConfigureAwait(false);
+            var workflowExecution = plan.ResolveWorkflowExecution(task);
+            var result = _workflowBridge is not null && workflowExecution is not null
+                ? await _workflowBridge.ExecuteAsync(executionContext, plan, workflowExecution, candidates, trajectoryId, linkedCts.Token).ConfigureAwait(false)
+                : strategy == AgentCoordinationStrategy.Tiered
+                    ? await ExecuteTieredAsync(task, executionContext, candidates, plan, linkedCts.Token).ConfigureAwait(false)
+                    : await _coordinator.ExecuteAsync(executionContext, candidates, strategy, linkedCts.Token).ConfigureAwait(false);
 
             var isSuccess = result.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
                 || result.Status.Equals("Success", StringComparison.OrdinalIgnoreCase);

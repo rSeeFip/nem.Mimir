@@ -114,6 +114,8 @@ public sealed class TierDispatchStrategyTests
         public string ResolveModel(InferenceTier tier) => "model";
 
         public InferenceTier? GetNextTier(InferenceTier currentTier) => null;
+
+        public WorkflowBackedOrchestrationDefinition? ResolveWorkflowExecution(AgentTask task) => null;
     }
 
     private sealed class TestAgent(string name) : AppSpecialistAgent

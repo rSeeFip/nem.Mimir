@@ -8,6 +8,7 @@ using NSubstitute.Core;
 using Shouldly;
 using nem.Contracts.Agents;
 using nem.Contracts.Inference;
+using nem.Contracts.Identity;
 using ContractSpecialistAgent = nem.Contracts.Agents.ISpecialistAgent;
 
 namespace nem.Mimir.Application.Tests.Agents;
@@ -16,6 +17,7 @@ public sealed class AgentOrchestratorTests
 {
     private readonly ILlmService _llmService = Substitute.For<ILlmService>();
     private readonly IOrchestrationPlanProvider _defaultPlanProvider = new DefaultOrchestrationPlanProvider();
+    private readonly IWorkflowOrchestrationBridge _workflowBridge = Substitute.For<IWorkflowOrchestrationBridge>();
 
     [Fact]
     public async Task Dispatcher_ShouldRouteByCapabilityMatch()
@@ -326,6 +328,7 @@ public sealed class AgentOrchestratorTests
         plan.TierConfiguration.Returns(TierConfiguration.Default);
         plan.EscalationThreshold.Returns(0.7d);
         plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Sequential);
+        plan.ResolveWorkflowExecution(Arg.Any<AgentTask>()).Returns((WorkflowBackedOrchestrationDefinition?)null);
         var planProvider = Substitute.For<IOrchestrationPlanProvider>();
         planProvider.ResolvePlan(Arg.Any<AgentExecutionContext>()).Returns(plan);
 
@@ -341,6 +344,120 @@ public sealed class AgentOrchestratorTests
         status.Status.ShouldBe("Failed");
         plan.Received(1).ResolveStrategy(Arg.Any<AgentTask>());
         _ = plan.Received(1).DefaultMaxTurns;
+    }
+
+    [Fact]
+    public async Task Orchestrator_ShouldUseWorkflowBridge_WhenPlanProvidesWorkflowExecution()
+    {
+        _llmService.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(new LlmResponse("ok", "phi-4-mini", 1, 1, 2, "stop"));
+
+        var agent = new TestAgent(
+            "general",
+            [AgentCapability.KnowledgeRetrieval],
+            static _ => true,
+            static task => new AgentResult(task.Id, "general", "Completed", "imperative"));
+
+        var dispatcher = new AgentDispatcher([agent]);
+        var coordinator = new AgentCoordinator(_llmService);
+        var recorder = Substitute.For<ITrajectoryRecorder>();
+        recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(TrajectoryId.New());
+
+        var workflowDefinition = new WorkflowBackedOrchestrationDefinition("{\"name\":\"bridge\",\"author\":\"test\",\"steps\":[]}");
+        var plan = Substitute.For<IOrchestrationPlan>();
+        plan.DefaultMaxTurns.Returns(10);
+        plan.SelectionProcess.Returns(SelectionProcessDefinition.Default);
+        plan.TierConfiguration.Returns(TierConfiguration.Default);
+        plan.EscalationThreshold.Returns(0.7d);
+        plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Sequential);
+        plan.ResolveWorkflowExecution(Arg.Any<AgentTask>()).Returns(workflowDefinition);
+        var planProvider = Substitute.For<IOrchestrationPlanProvider>();
+        planProvider.ResolvePlan(Arg.Any<AgentExecutionContext>()).Returns(plan);
+
+        _workflowBridge.ExecuteAsync(
+                Arg.Any<AgentExecutionContext>(),
+                Arg.Any<IOrchestrationPlan>(),
+                workflowDefinition,
+                Arg.Any<IReadOnlyList<ContractSpecialistAgent>>(),
+                Arg.Any<TrajectoryId>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var executionContext = call.Arg<AgentExecutionContext>();
+                return new AgentResult(executionContext.Task.Id, "workflow-bridge", "Completed", "workflow-backed");
+            });
+
+        var orchestrator = new AgentOrchestrator(
+            dispatcher,
+            coordinator,
+            _llmService,
+            recorder,
+            planProvider,
+            _workflowBridge);
+
+        var task = new AgentTask("workflow-1", AgentTaskType.Research, "help me");
+
+        var result = await orchestrator.DispatchAsync(task);
+
+        result.AgentId.ShouldBe("workflow-bridge");
+        result.Output.ShouldBe("workflow-backed");
+        await _workflowBridge.Received(1).ExecuteAsync(
+            Arg.Any<AgentExecutionContext>(),
+            Arg.Any<IOrchestrationPlan>(),
+            workflowDefinition,
+            Arg.Any<IReadOnlyList<ContractSpecialistAgent>>(),
+            Arg.Any<TrajectoryId>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Orchestrator_ShouldFallbackToImperativePath_WhenPlanDoesNotProvideWorkflowExecution()
+    {
+        _llmService.SendMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(new LlmResponse("ok", "phi-4-mini", 1, 1, 2, "stop"));
+
+        var agent = new TestAgent(
+            "general",
+            [AgentCapability.KnowledgeRetrieval],
+            static _ => true,
+            static task => new AgentResult(task.Id, "general", "Completed", "imperative"));
+
+        var plan = Substitute.For<IOrchestrationPlan>();
+        plan.DefaultMaxTurns.Returns(10);
+        plan.SelectionProcess.Returns(SelectionProcessDefinition.Default);
+        plan.TierConfiguration.Returns(TierConfiguration.Default);
+        plan.EscalationThreshold.Returns(0.7d);
+        plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Sequential);
+        plan.ResolveWorkflowExecution(Arg.Any<AgentTask>()).Returns((WorkflowBackedOrchestrationDefinition?)null);
+        var planProvider = Substitute.For<IOrchestrationPlanProvider>();
+        planProvider.ResolvePlan(Arg.Any<AgentExecutionContext>()).Returns(plan);
+
+        var dispatcher = new AgentDispatcher([agent]);
+        var coordinator = new AgentCoordinator(_llmService);
+        var recorder = Substitute.For<ITrajectoryRecorder>();
+        recorder.StartRecordingAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(TrajectoryId.New());
+
+        var orchestrator = new AgentOrchestrator(
+            dispatcher,
+            coordinator,
+            _llmService,
+            recorder,
+            planProvider,
+            _workflowBridge);
+
+        var result = await orchestrator.DispatchAsync(new AgentTask("imperative-1", AgentTaskType.Research, "help me"));
+
+        result.AgentId.ShouldBe("general");
+        result.Output.ShouldBe("imperative");
+        await _workflowBridge.DidNotReceive().ExecuteAsync(
+            Arg.Any<AgentExecutionContext>(),
+            Arg.Any<IOrchestrationPlan>(),
+            Arg.Any<WorkflowBackedOrchestrationDefinition>(),
+            Arg.Any<IReadOnlyList<ContractSpecialistAgent>>(),
+            Arg.Any<TrajectoryId>(),
+            Arg.Any<CancellationToken>());
     }
 
     private sealed class TestAgent : ContractSpecialistAgent

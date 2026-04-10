@@ -109,6 +109,11 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
 
         builder.ConfigureTestServices(services =>
         {
+            services.ConfigureWolverine(opts =>
+            {
+                opts.Discovery.IncludeAssembly(typeof(nem.Mimir.Application.DependencyInjection).Assembly);
+            });
+
             // Disable Wolverine's external transports (RabbitMQ) to prevent
             // connection failures during test server startup.
             // This is the proven pattern from nem.Mimir.Api.IntegrationTests.

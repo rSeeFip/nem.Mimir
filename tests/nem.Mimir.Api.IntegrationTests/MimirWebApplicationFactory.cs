@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using nem.Mimir.Infrastructure.Persistence;
@@ -36,6 +37,14 @@ public sealed class MimirWebApplicationFactory : WebApplicationFactory<Program>
 
             // Disable Wolverine's external transports (RabbitMQ) for integration tests
             services.DisableAllExternalWolverineTransports();
+
+            services.Configure<HealthCheckServiceOptions>(options =>
+            {
+                options.Registrations.Clear();
+            });
+
+            services.AddHealthChecks()
+                .AddCheck("test-host", () => HealthCheckResult.Healthy("Integration test host is healthy."));
         });
 
         builder.ConfigureAppConfiguration((context, config) =>

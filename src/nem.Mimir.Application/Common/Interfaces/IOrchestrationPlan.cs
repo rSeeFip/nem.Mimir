@@ -24,4 +24,6 @@ public interface IOrchestrationPlan
     string ResolveModel(InferenceTier tier);
 
     InferenceTier? GetNextTier(InferenceTier currentTier);
+
+    WorkflowBackedOrchestrationDefinition? ResolveWorkflowExecution(AgentTask task);
 }
