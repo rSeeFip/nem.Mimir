@@ -11,7 +11,7 @@ namespace nem.Mimir.Infrastructure.Plugins.BuiltIn;
 /// resolved per-execution via a scope factory. Exposes a <c>web_search(query, max_results)</c>
 /// tool for LLM agents, returning structured results with title, URL, and snippet.
 /// </summary>
-internal sealed class WebSearchPlugin : IPlugin
+internal sealed class WebSearchPlugin : IBuiltInPlugin
 {
     private const int DefaultMaxResults = 5;
     private const int MaxAllowedResults = 20;

@@ -37,6 +37,7 @@ using nem.Mimir.Application.Agents.Services;
 using nem.Mimir.Infrastructure.Adapters;
 using nem.Mimir.Infrastructure.Organism.MapeK;
 using nem.Mimir.Infrastructure.Inference;
+using nem.Mimir.Domain.Plugins;
 
 public static class DependencyInjection
 {
@@ -105,6 +106,7 @@ public static class DependencyInjection
         services.Configure<ClassificationOptions>(configuration.GetSection(ClassificationOptions.SectionName));
         services.Configure<SearxngOptions>(configuration.GetSection(SearxngOptions.SectionName));
         services.Configure<MediaHubOptions>(configuration.GetSection(MediaHubOptions.SectionName));
+        services.Configure<SkillsMarketplaceOptions>(configuration.GetSection(SkillsMarketplaceOptions.SectionName));
         services.AddScoped<IClassificationContext, ClassificationContext>();
 
         // LiteLLM HTTP client with Polly resilience
@@ -208,6 +210,21 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         });
 
+        var skillsMarketplaceSection = configuration.GetSection(SkillsMarketplaceOptions.SectionName);
+        var skillsMarketplaceBaseUrl = skillsMarketplaceSection.GetValue<string>(nameof(SkillsMarketplaceOptions.BaseUrl));
+        var skillsMarketplaceTimeoutSeconds = skillsMarketplaceSection.GetValue<int?>(nameof(SkillsMarketplaceOptions.TimeoutSeconds)) ?? 30;
+
+        services.AddHttpClient(SkillMarketplacePlugin.SkillsClientName, client =>
+        {
+            if (!string.IsNullOrWhiteSpace(skillsMarketplaceBaseUrl))
+            {
+                client.BaseAddress = new Uri(skillsMarketplaceBaseUrl, UriKind.Absolute);
+            }
+
+            client.Timeout = TimeSpan.FromSeconds(skillsMarketplaceTimeoutSeconds);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
+
         services.AddSingleton<IMediaHubClient, MediaHubClient>();
         services.AddSingleton<IKnowledgeIngestionService, KnowHubIngestionService>();
 
@@ -229,14 +246,17 @@ public static class DependencyInjection
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<PluginManager>();
         services.AddSingleton<IPluginService>(sp => sp.GetRequiredService<PluginManager>());
+        services.AddSingleton<IPluginRuntimeCatalog>(sp => sp.GetRequiredService<PluginManager>());
 
         // Built-in plugins
         services.AddSingleton<CodeRunnerPlugin>();
         services.AddSingleton<WebSearchPlugin>();
+        services.AddSingleton<SkillMarketplacePlugin>();
         services.AddSingleton<FinanceToolRegistryPlugin>();
-        services.AddSingleton<nem.Mimir.Domain.Plugins.IPlugin>(sp => sp.GetRequiredService<CodeRunnerPlugin>());
-        services.AddSingleton<nem.Mimir.Domain.Plugins.IPlugin>(sp => sp.GetRequiredService<WebSearchPlugin>());
-        services.AddSingleton<nem.Mimir.Domain.Plugins.IPlugin>(sp => sp.GetRequiredService<FinanceToolRegistryPlugin>());
+        services.AddSingleton<IBuiltInPlugin>(sp => sp.GetRequiredService<CodeRunnerPlugin>());
+        services.AddSingleton<IBuiltInPlugin>(sp => sp.GetRequiredService<WebSearchPlugin>());
+        services.AddSingleton<IBuiltInPlugin>(sp => sp.GetRequiredService<SkillMarketplacePlugin>());
+        services.AddSingleton<IBuiltInPlugin>(sp => sp.GetRequiredService<FinanceToolRegistryPlugin>());
         services.AddHostedService<BuiltInPluginRegistrar>();
 
         // System prompt service (singleton — stateless template rendering)

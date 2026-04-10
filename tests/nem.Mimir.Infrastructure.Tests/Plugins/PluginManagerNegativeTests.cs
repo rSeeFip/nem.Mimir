@@ -243,6 +243,40 @@ public sealed class PluginManagerNegativeTests
         after.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task UnloadAllAsync_ShouldUnloadInReverseRegistrationOrder()
+    {
+        var first = CreateMockPlugin("first", "First", "1.0.0", "First");
+        var second = CreateMockPlugin("second", "Second", "1.0.0", "Second");
+        var third = CreateMockPlugin("third", "Third", "1.0.0", "Third");
+
+        var order = new List<string>();
+        first.ShutdownAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            order.Add("first");
+            return Task.CompletedTask;
+        });
+        second.ShutdownAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            order.Add("second");
+            return Task.CompletedTask;
+        });
+        third.ShutdownAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            order.Add("third");
+            return Task.CompletedTask;
+        });
+
+        await _sut.RegisterPluginAsync(first);
+        await _sut.RegisterPluginAsync(second);
+        await _sut.RegisterPluginAsync(third);
+
+        await _sut.UnloadAllAsync();
+
+        order.ShouldBe(["third", "second", "first"]);
+        (await _sut.ListPluginsAsync()).ShouldBeEmpty();
+    }
+
     // ─── RegisterPlugin edge cases ───────────────────────────────
 
     [Fact]

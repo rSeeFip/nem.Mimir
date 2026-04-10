@@ -178,6 +178,18 @@ public sealed class PluginManagerTests
         list.ShouldContain(m => m.Id == "plugin-c");
     }
 
+    [Fact]
+    public async Task ListPluginsAsync_ShouldPreserveRegistrationOrder()
+    {
+        await _sut.RegisterPluginAsync(CreateMockPlugin("plugin-a", "A", "1.0.0", "First"));
+        await _sut.RegisterPluginAsync(CreateMockPlugin("plugin-b", "B", "1.0.0", "Second"));
+        await _sut.RegisterPluginAsync(CreateMockPlugin("plugin-c", "C", "1.0.0", "Third"));
+
+        var list = await _sut.ListPluginsAsync();
+
+        list.Select(plugin => plugin.Id).ShouldBe(["plugin-a", "plugin-b", "plugin-c"]);
+    }
+
     private static IPlugin CreateMockPlugin(string id, string name, string version, string description)
     {
         var plugin = Substitute.For<IPlugin>();

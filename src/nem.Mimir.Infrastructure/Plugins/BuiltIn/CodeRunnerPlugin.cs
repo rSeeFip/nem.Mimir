@@ -8,7 +8,7 @@ namespace nem.Mimir.Infrastructure.Plugins.BuiltIn;
 /// Built-in plugin that executes code in an isolated Docker sandbox.
 /// Delegates to <see cref="ISandboxService"/> resolved per-execution via a scope factory.
 /// </summary>
-internal sealed class CodeRunnerPlugin : IPlugin
+internal sealed class CodeRunnerPlugin : IBuiltInPlugin
 {
     private static readonly HashSet<string> SupportedLanguages = new(StringComparer.OrdinalIgnoreCase) { "python", "javascript" };
 

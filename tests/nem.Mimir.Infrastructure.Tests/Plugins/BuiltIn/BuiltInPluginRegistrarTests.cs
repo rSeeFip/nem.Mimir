@@ -64,9 +64,28 @@ public sealed class BuiltInPluginRegistrarTests
         await plugin2.Received(1).ShutdownAsync(Arg.Any<CancellationToken>());
     }
 
-    private static IPlugin CreatePlugin(string id, string name)
+    [Fact]
+    public async Task StopAsync_WhenOnePluginFailsShutdown_ShouldContinueStoppingOthers()
     {
-        var plugin = Substitute.For<IPlugin>();
+        var failingPlugin = CreatePlugin("built-in-fail", "Built In Fail");
+        failingPlugin.ShutdownAsync(Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new InvalidOperationException("boom"));
+
+        var healthyPlugin = CreatePlugin("built-in-ok", "Built In Ok");
+
+        var sut = new BuiltInPluginRegistrar(_pluginManager, [failingPlugin, healthyPlugin], _logger);
+
+        await sut.StartAsync(CancellationToken.None);
+        await sut.StopAsync(CancellationToken.None);
+
+        var plugins = await _pluginManager.ListPluginsAsync();
+        plugins.ShouldBeEmpty();
+        await healthyPlugin.Received(1).ShutdownAsync(Arg.Any<CancellationToken>());
+    }
+
+    private static IBuiltInPlugin CreatePlugin(string id, string name)
+    {
+        var plugin = Substitute.For<IBuiltInPlugin>();
         plugin.Id.Returns(id);
         plugin.Name.Returns(name);
         plugin.Version.Returns("1.0.0");

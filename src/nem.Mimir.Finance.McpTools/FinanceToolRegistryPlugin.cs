@@ -3,7 +3,7 @@ using nem.Mimir.Domain.Plugins;
 
 namespace nem.Mimir.Finance.McpTools;
 
-public sealed class FinanceToolRegistryPlugin : IPlugin
+public sealed class FinanceToolRegistryPlugin : IBuiltInPlugin
 {
     private static readonly IReadOnlyList<Dictionary<string, object>> ToolPayload = BuildToolPayload();
 

@@ -10,9 +10,9 @@ namespace nem.Mimir.Infrastructure.Plugins.BuiltIn;
 /// <summary>
 /// Marketplace plugin that discovers published skills as MCP-compatible tools and proxies execution to nem.Skills.
 /// </summary>
-internal sealed class SkillMarketplacePlugin : IPlugin
+internal sealed class SkillMarketplacePlugin : IBuiltInPlugin
 {
-    private const string SkillsClientName = "SkillsMarketplace";
+    internal const string SkillsClientName = "SkillsMarketplace";
     private const string DescriptorCacheKey = "marketplace.skill.descriptors";
 
     private static readonly TimeSpan DescriptorCacheTtl = TimeSpan.FromMinutes(5);
@@ -46,13 +46,28 @@ internal sealed class SkillMarketplacePlugin : IPlugin
         var clientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
         var memoryCache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
 
-        var availableDescriptors = await GetOrRefreshDescriptorsAsync(clientFactory, memoryCache, ct).ConfigureAwait(false);
+        var client = clientFactory.CreateClient(SkillsClientName);
+        if (!IsClientConfigured(client))
+        {
+            return PluginResult.Failure("Skills marketplace is not available. The skills service base URL is not configured.");
+        }
+
+        IReadOnlyList<SkillToolDescriptorDto> availableDescriptors;
+        try
+        {
+            availableDescriptors = await GetOrRefreshDescriptorsAsync(client, memoryCache, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Failed to refresh marketplace skill descriptors before executing {SkillId}", skillId);
+            return PluginResult.Failure("Skills marketplace is temporarily unavailable.");
+        }
+
         if (!availableDescriptors.Any(descriptor => string.Equals(descriptor.Name, skillId, StringComparison.OrdinalIgnoreCase)))
         {
             return PluginResult.Failure($"Skill '{skillId}' is not available in marketplace descriptors.");
         }
 
-        var client = clientFactory.CreateClient(SkillsClientName);
         var escapedSkillId = Uri.EscapeDataString(skillId!);
         var endpoint = string.IsNullOrWhiteSpace(version)
             ? $"api/skills/{escapedSkillId}/execute"
@@ -88,7 +103,21 @@ internal sealed class SkillMarketplacePlugin : IPlugin
         var clientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
         var memoryCache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
 
-        await RefreshDescriptorsAsync(clientFactory, memoryCache, ct).ConfigureAwait(false);
+        var client = clientFactory.CreateClient(SkillsClientName);
+        if (!IsClientConfigured(client))
+        {
+            _logger.LogWarning("Skills marketplace client is not configured; descriptor warmup skipped");
+            return;
+        }
+
+        try
+        {
+            await RefreshDescriptorsAsync(client, memoryCache, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Skills marketplace descriptor warmup failed; built-in plugin will stay available and retry lazily");
+        }
     }
 
     public Task ShutdownAsync(CancellationToken ct = default) => Task.CompletedTask;
@@ -103,7 +132,7 @@ internal sealed class SkillMarketplacePlugin : IPlugin
     }
 
     private static async Task<IReadOnlyList<SkillToolDescriptorDto>> GetOrRefreshDescriptorsAsync(
-        IHttpClientFactory clientFactory,
+        HttpClient client,
         IMemoryCache memoryCache,
         CancellationToken ct)
     {
@@ -113,15 +142,14 @@ internal sealed class SkillMarketplacePlugin : IPlugin
             return cached;
         }
 
-        return await RefreshDescriptorsAsync(clientFactory, memoryCache, ct).ConfigureAwait(false);
+        return await RefreshDescriptorsAsync(client, memoryCache, ct).ConfigureAwait(false);
     }
 
     private static async Task<IReadOnlyList<SkillToolDescriptorDto>> RefreshDescriptorsAsync(
-        IHttpClientFactory clientFactory,
+        HttpClient client,
         IMemoryCache memoryCache,
         CancellationToken ct)
     {
-        var client = clientFactory.CreateClient(SkillsClientName);
         using var response = await client.GetAsync("api/skills?pageNumber=1&pageSize=500&status=Published", ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
@@ -147,6 +175,8 @@ internal sealed class SkillMarketplacePlugin : IPlugin
         memoryCache.Set(DescriptorCacheKey, readOnly, DescriptorCacheTtl);
         return readOnly;
     }
+
+    private static bool IsClientConfigured(HttpClient client) => client.BaseAddress is not null;
 
     private static bool TryGetRequiredString(
         IReadOnlyDictionary<string, object> parameters,
