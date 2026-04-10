@@ -66,7 +66,7 @@ public sealed class Bm25RankerStepTests
     private static SelectionContext CreateContext(string prompt, params ScoredAgent[] candidates)
     {
         var task = new AgentTask("t-bm25", AgentTaskType.Explore, prompt);
-        return new SelectionContext(task, candidates);
+        return new SelectionContext(task, candidates, SelectionProcessDefinition.Default);
     }
 
     private static ScoredAgent CreateScoredAgent(string name, string description, params AgentCapability[] capabilities)

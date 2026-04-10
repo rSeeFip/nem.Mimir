@@ -5,6 +5,7 @@ namespace nem.Mimir.Application.Agents.Selection;
 public sealed record SelectionContext(
     AgentTask Task,
     IReadOnlyList<ScoredAgent> Candidates,
+    SelectionProcessDefinition ProcessDefinition,
     IReadOnlyDictionary<string, object?>? State = null)
 {
     public SelectionContext WithCandidates(IReadOnlyList<ScoredAgent> candidates)

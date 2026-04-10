@@ -4,20 +4,18 @@ namespace nem.Mimir.Application.Agents.Selection.Steps;
 
 public sealed class QualityFilterStep : ISelectionStep
 {
-    private const string QualityScoreKey = "quality";
     private readonly ISkillQualityProvider _qualityProvider;
     private readonly ILogger<QualityFilterStep> _logger;
-    private readonly double _successRateThreshold;
 
     public QualityFilterStep(
         ISkillQualityProvider qualityProvider,
-        ILogger<QualityFilterStep> logger,
-        double successRateThreshold = 0.5)
+        ILogger<QualityFilterStep> logger)
     {
         _qualityProvider = qualityProvider;
         _logger = logger;
-        _successRateThreshold = successRateThreshold;
     }
+
+    public string Name => SelectionStepNames.Quality;
 
     public async Task<SelectionContext> ExecuteAsync(SelectionContext context, CancellationToken ct = default)
     {
@@ -25,6 +23,9 @@ public sealed class QualityFilterStep : ISelectionStep
         {
             return context;
         }
+
+        var stepDefinition = context.ProcessDefinition.GetStep(Name);
+        var successRateThreshold = stepDefinition.SuccessRateThreshold ?? 0.5d;
 
         var enrichedCandidates = new List<(ScoredAgent Candidate, SkillQualityInfo? Quality, bool HasQuality, bool IsDegraded)>();
 
@@ -35,10 +36,10 @@ public sealed class QualityFilterStep : ISelectionStep
             var quality = await _qualityProvider.GetQualityAsync(candidate.Agent.Name, ct).ConfigureAwait(false);
             var hasQuality = quality is not null;
             var successRate = quality?.SuccessRate ?? 1.0;
-            var isDegraded = hasQuality && successRate < _successRateThreshold;
+            var isDegraded = hasQuality && successRate < successRateThreshold;
 
             enrichedCandidates.Add((
-                candidate.AddStepScore(QualityScoreKey, successRate),
+                candidate.AddStepScore(Name, successRate, stepDefinition.Weight),
                 quality,
                 hasQuality,
                 isDegraded));
@@ -66,7 +67,7 @@ public sealed class QualityFilterStep : ISelectionStep
             "QualityFilterStep filtered candidates from {OriginalCount} to {FilteredCount} using success-rate threshold {Threshold}.",
             context.Candidates.Count,
             filtered.Count,
-            _successRateThreshold);
+            successRateThreshold);
 
         return context.WithCandidates(filtered);
     }

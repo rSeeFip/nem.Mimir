@@ -1,4 +1,5 @@
 using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Agents.Services;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -257,17 +258,32 @@ public sealed class AgentOrchestratorTests
                 return new AgentResult(task.Id, "analyze", "Completed", "confidence=0.90");
             });
 
-        var plan = Substitute.For<IOrchestrationPlan>();
-        plan.DefaultMaxTurns.Returns(10);
-        plan.EscalationThreshold.Returns(0.5d);
-        plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Tiered);
-        plan.ResolveEntryTier(Arg.Any<AgentTask>()).Returns(InferenceTier.Analysis);
-        plan.ResolveTierForAgent(Arg.Any<string>()).Returns(callInfo =>
-            callInfo.Arg<string>().Contains("Analyze", StringComparison.OrdinalIgnoreCase)
-                ? InferenceTier.Analysis
-                : InferenceTier.Processing);
-        plan.ResolveModel(InferenceTier.Analysis).Returns("analysis-model-x");
-        plan.GetNextTier(InferenceTier.Analysis).Returns(InferenceTier.Escalation);
+        var plan = new ProcessOrchestrationPlan(
+            defaultMaxTurns: 10,
+            selectionProcess: SelectionProcessDefinition.Default,
+            tierConfiguration: new TierConfiguration(
+                modelByTier: new Dictionary<InferenceTier, string>
+                {
+                    [InferenceTier.Router] = "router-model",
+                    [InferenceTier.Validation] = "validation-model",
+                    [InferenceTier.Processing] = "processing-model",
+                    [InferenceTier.Analysis] = "analysis-model-x",
+                    [InferenceTier.Escalation] = "human-review",
+                },
+                agentTierAssignments: new Dictionary<string, InferenceTier>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Analyze Agent"] = InferenceTier.Analysis,
+                },
+                entryTierByTaskType: new Dictionary<AgentTaskType, InferenceTier>
+                {
+                    [AgentTaskType.Explore] = InferenceTier.Analysis,
+                },
+                escalationPath:
+                [
+                    InferenceTier.Analysis,
+                    InferenceTier.Escalation,
+                ],
+                escalationThreshold: 0.5d));
         var planProvider = Substitute.For<IOrchestrationPlanProvider>();
         planProvider.ResolvePlan(Arg.Any<AgentExecutionContext>()).Returns(plan);
 
@@ -296,8 +312,6 @@ public sealed class AgentOrchestratorTests
         seenContext!["inferenceTier"].ShouldBe("Analysis");
         seenContext["inferenceModel"].ShouldBe("analysis-model-x");
         planProvider.Received(1).ResolvePlan(Arg.Any<AgentExecutionContext>());
-        plan.Received(1).ResolveEntryTier(Arg.Any<AgentTask>());
-        plan.Received(1).ResolveModel(InferenceTier.Analysis);
     }
 
     [Fact]
@@ -308,6 +322,8 @@ public sealed class AgentOrchestratorTests
 
         var plan = Substitute.For<IOrchestrationPlan>();
         plan.DefaultMaxTurns.Returns(2);
+        plan.SelectionProcess.Returns(SelectionProcessDefinition.Default);
+        plan.TierConfiguration.Returns(TierConfiguration.Default);
         plan.EscalationThreshold.Returns(0.7d);
         plan.ResolveStrategy(Arg.Any<AgentTask>()).Returns(AgentCoordinationStrategy.Sequential);
         var planProvider = Substitute.For<IOrchestrationPlanProvider>();

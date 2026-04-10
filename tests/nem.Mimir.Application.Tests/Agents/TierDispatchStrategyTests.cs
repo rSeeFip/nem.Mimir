@@ -1,6 +1,7 @@
 using nem.Contracts.Agents;
 using nem.Contracts.Inference;
 using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Common.Interfaces;
 using Shouldly;
 using AppSpecialistAgent = nem.Mimir.Application.Agents.ISpecialistAgent;
@@ -66,6 +67,10 @@ public sealed class TierDispatchStrategyTests
     private sealed class TestOrchestrationPlan : IOrchestrationPlan
     {
         public int DefaultMaxTurns => 10;
+
+        public SelectionProcessDefinition SelectionProcess => SelectionProcessDefinition.Default;
+
+        public TierConfiguration TierConfiguration => new();
 
         public double EscalationThreshold => 0.7d;
 

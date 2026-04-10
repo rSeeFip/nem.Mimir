@@ -81,7 +81,7 @@ public sealed class EmbeddingRankerStepTests
     private static SelectionContext CreateContext(string prompt, params ScoredAgent[] candidates)
     {
         var task = new AgentTask("t-emb", AgentTaskType.Analyze, prompt);
-        return new SelectionContext(task, candidates);
+        return new SelectionContext(task, candidates, SelectionProcessDefinition.Default);
     }
 
     private static ScoredAgent CreateScoredAgent(string name, string description, params AgentCapability[] capabilities)

@@ -1,6 +1,7 @@
 using nem.Contracts.Agents;
 using nem.Contracts.Inference;
 using nem.Mimir.Application.Agents;
+using nem.Mimir.Application.Agents.Selection;
 using nem.Mimir.Application.Common.Interfaces;
 using Shouldly;
 
@@ -18,6 +19,8 @@ public sealed class DefaultOrchestrationPlanProviderTests
 
         plan.DefaultMaxTurns.ShouldBe(10);
         plan.EscalationThreshold.ShouldBe(0.7d);
+        plan.SelectionProcess.Steps.Select(x => x.Name).ShouldBe([SelectionStepNames.Quality, SelectionStepNames.Bm25, SelectionStepNames.Embedding]);
+        plan.SelectionProcess.Fallback.PreferredAgentNamePatterns.ShouldBe(["general"]);
         plan.ResolveStrategy(new AgentTask("t2", AgentTaskType.Custom, "prompt")).ShouldBe(AgentCoordinationStrategy.Sequential);
         plan.ResolveStrategy(new AgentTask("t3", AgentTaskType.Custom, "prompt", new Dictionary<string, string> { ["strategy"] = "parallel" }))
             .ShouldBe(AgentCoordinationStrategy.Parallel);
@@ -51,6 +54,7 @@ public sealed class DefaultOrchestrationPlanProviderTests
         plan.ResolveModel(InferenceTier.Processing).ShouldBe("gpt-4o-mini");
         plan.ResolveModel(InferenceTier.Analysis).ShouldBe("gpt-4o");
         plan.ResolveModel(InferenceTier.Escalation).ShouldBe("human-review");
+        plan.TierConfiguration.ResolveTierForAgent("Analyze Agent").ShouldBe(InferenceTier.Analysis);
         plan.GetNextTier(InferenceTier.Router).ShouldBe(InferenceTier.Validation);
         plan.GetNextTier(InferenceTier.Validation).ShouldBe(InferenceTier.Processing);
         plan.GetNextTier(InferenceTier.Processing).ShouldBe(InferenceTier.Analysis);

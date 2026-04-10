@@ -72,3 +72,9 @@
 - Built-in plugins behave deterministically when the runtime keeps an explicit registration order and lists/unloads from that order instead of iterating a concurrent dictionary.
 - A separate runtime catalog seam (`IPluginRuntimeCatalog`) lets DI-hosted built-ins share the same lifecycle path as external plugins without exposing `PluginManager` through `IPluginService` casts.
 - Marketplace built-ins should tolerate missing remote configuration during startup and fail lazily at execution time so the host can boot without optional skills infrastructure.
+
+## T7 selection/tiering/escalation learnings
+- `SelectionProcessDefinition` works best as the single seam for step ordering, per-step weights/thresholds, and fallback-agent preferences; keeping step-specific knobs on `SelectionStepDefinition` lets existing step types stay stable while behavior becomes plan-driven.
+- `TierConfiguration` is the right home for entry-tier mapping, explicit agent-tier assignments, keyword tier rules, model mapping, escalation path, and escalation threshold; `ProcessOrchestrationPlan` can then preserve T3 interfaces by delegating to that configuration instead of duplicating heuristics.
+- `AgentDispatcher` needs to tolerate zero registered selection steps so legacy tests and lightweight direct-construction paths still work; once steps are present, it should execute strictly in process-definition order rather than DI registration order.
+- When adding static defaults with self-referential initialization (`TierConfiguration.Default`), place default dictionaries/lists before the static singleton property; declaring the singleton first can trigger type initializer failures during test startup.

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using nem.Contracts.Agents;
 using nem.Mimir.Application.Agents.Selection;
+using nem.Mimir.Application.Common.Interfaces;
 using AppSpecialistAgent = nem.Mimir.Application.Agents.ISpecialistAgent;
 using ContractSpecialistAgent = nem.Contracts.Agents.ISpecialistAgent;
 
@@ -9,17 +10,27 @@ namespace nem.Mimir.Application.Agents;
 public sealed class AgentDispatcher
 {
     private readonly ConcurrentDictionary<string, ContractSpecialistAgent> _agents;
-    private readonly IReadOnlyList<ISelectionStep> _selectionSteps;
+    private readonly IReadOnlyDictionary<string, ISelectionStep> _selectionSteps;
+    private readonly IOrchestrationPlanProvider _planProvider;
 
     public AgentDispatcher(IEnumerable<ContractSpecialistAgent> agents)
-        : this(agents, [])
+        : this(agents, [], new DefaultOrchestrationPlanProvider())
     {
     }
 
     public AgentDispatcher(IEnumerable<ContractSpecialistAgent> agents, IEnumerable<ISelectionStep> selectionSteps)
+        : this(agents, selectionSteps, new DefaultOrchestrationPlanProvider())
+    {
+    }
+
+    public AgentDispatcher(
+        IEnumerable<ContractSpecialistAgent> agents,
+        IEnumerable<ISelectionStep> selectionSteps,
+        IOrchestrationPlanProvider planProvider)
     {
         _agents = new ConcurrentDictionary<string, ContractSpecialistAgent>(StringComparer.OrdinalIgnoreCase);
-        _selectionSteps = selectionSteps.ToList();
+        _selectionSteps = selectionSteps.ToDictionary(step => step.Name, StringComparer.OrdinalIgnoreCase);
+        _planProvider = planProvider;
 
         foreach (var agent in agents)
         {
@@ -65,16 +76,33 @@ public sealed class AgentDispatcher
 
         if (candidates.Count == 0)
         {
-            var fallback = ResolveFallbackAgent();
+            var fallback = ResolveFallbackAgent(task);
             return fallback is null
                 ? Array.Empty<ContractSpecialistAgent>()
                 : new[] { fallback };
         }
 
-        var context = new SelectionContext(task, candidates);
-        foreach (var step in _selectionSteps)
+        var plan = _planProvider.ResolvePlan(new AgentExecutionContext(task));
+        var context = new SelectionContext(task, candidates, plan.SelectionProcess);
+
+        if (_selectionSteps.Count == 0)
+        {
+            return context.Candidates
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => x.Agent.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(static x => (ContractSpecialistAgent)x.Agent)
+                .ToList();
+        }
+
+        foreach (var stepDefinition in plan.SelectionProcess.Steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (!_selectionSteps.TryGetValue(stepDefinition.Name, out var step))
+            {
+                throw new InvalidOperationException($"Selection step '{stepDefinition.Name}' is not registered.");
+            }
+
             context = await step.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
         }
 
@@ -102,8 +130,31 @@ public sealed class AgentDispatcher
         return agent as AppSpecialistAgent ?? new ContractSpecialistAgentAdapter(agent);
     }
 
-    private ContractSpecialistAgent? ResolveFallbackAgent()
+    private ContractSpecialistAgent? ResolveFallbackAgent(AgentTask task)
     {
+        var plan = _planProvider.ResolvePlan(new AgentExecutionContext(task));
+
+        foreach (var pattern in plan.SelectionProcess.Fallback.PreferredAgentNamePatterns)
+        {
+            if (string.IsNullOrWhiteSpace(pattern))
+            {
+                continue;
+            }
+
+            foreach (var entry in _agents)
+            {
+                if (entry.Key.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry.Value;
+                }
+            }
+        }
+
+        if (!plan.SelectionProcess.Fallback.UseAlphabeticalFallback)
+        {
+            return null;
+        }
+
         foreach (var entry in _agents)
         {
             if (entry.Key.Contains("general", StringComparison.OrdinalIgnoreCase))

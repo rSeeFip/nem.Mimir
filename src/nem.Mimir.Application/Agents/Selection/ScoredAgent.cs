@@ -5,18 +5,20 @@ public sealed record ScoredAgent(
     double Score,
     Dictionary<string, double> StepScores)
 {
-    public ScoredAgent AddStepScore(string stepName, double stepScore)
+    public ScoredAgent AddStepScore(string stepName, double rawStepScore, double weight = 1d)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stepName);
 
+        var weightedScore = rawStepScore * weight;
+
         var updatedScores = new Dictionary<string, double>(StepScores, StringComparer.OrdinalIgnoreCase)
         {
-            [stepName] = stepScore,
+            [stepName] = weightedScore,
         };
 
         return this with
         {
-            Score = Score + stepScore,
+            Score = Score + weightedScore,
             StepScores = updatedScores,
         };
     }

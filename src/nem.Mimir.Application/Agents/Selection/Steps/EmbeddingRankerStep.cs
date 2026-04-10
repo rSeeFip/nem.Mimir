@@ -7,7 +7,6 @@ namespace nem.Mimir.Application.Agents.Selection.Steps;
 
 public sealed class EmbeddingRankerStep : ISelectionStep
 {
-    private const string EmbeddingScoreKey = "embedding";
     private readonly IInferenceGateway _inferenceGateway;
     private readonly ILogger<EmbeddingRankerStep> _logger;
 
@@ -17,12 +16,16 @@ public sealed class EmbeddingRankerStep : ISelectionStep
         _logger = logger;
     }
 
+    public string Name => SelectionStepNames.Embedding;
+
     public async Task<SelectionContext> ExecuteAsync(SelectionContext context, CancellationToken ct = default)
     {
         if (context.Candidates.Count == 0)
         {
             return context;
         }
+
+        var stepDefinition = context.ProcessDefinition.GetStep(Name);
 
         try
         {
@@ -46,12 +49,12 @@ public sealed class EmbeddingRankerStep : ISelectionStep
                         "EmbeddingRankerStep could not obtain embedding for agent {AgentName}; using score 0.",
                         candidate.Agent.Name);
 
-                    ranked.Add(candidate.AddStepScore(EmbeddingScoreKey, 0));
+                    ranked.Add(candidate.AddStepScore(Name, 0, stepDefinition.Weight));
                     continue;
                 }
 
                 var similarity = CosineSimilarity(taskEmbedding, embedding);
-                ranked.Add(candidate.AddStepScore(EmbeddingScoreKey, similarity));
+                ranked.Add(candidate.AddStepScore(Name, similarity, stepDefinition.Weight));
             }
 
             var ordered = ranked

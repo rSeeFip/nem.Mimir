@@ -4,10 +4,6 @@ namespace nem.Mimir.Application.Agents.Selection.Steps;
 
 public sealed partial class Bm25RankerStep : ISelectionStep
 {
-    private const string Bm25ScoreKey = "bm25";
-    private const double K1 = 1.2;
-    private const double B = 0.75;
-
     private static readonly HashSet<string> StopWords =
     [
         "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he", "in", "is", "it", "its",
@@ -18,6 +14,8 @@ public sealed partial class Bm25RankerStep : ISelectionStep
     [GeneratedRegex("[^\\p{L}\\p{N}]+", RegexOptions.Compiled)]
     private static partial Regex TokenSplitRegex();
 
+    public string Name => SelectionStepNames.Bm25;
+
     public Task<SelectionContext> ExecuteAsync(SelectionContext context, CancellationToken ct = default)
     {
         if (context.Candidates.Count == 0)
@@ -25,11 +23,15 @@ public sealed partial class Bm25RankerStep : ISelectionStep
             return Task.FromResult(context);
         }
 
+        var stepDefinition = context.ProcessDefinition.GetStep(Name);
+        var k1 = stepDefinition.Bm25K1 ?? 1.2d;
+        var b = stepDefinition.Bm25B ?? 0.75d;
+
         var queryTokens = Tokenize(context.Task.Prompt);
         if (queryTokens.Count == 0)
         {
             var passthrough = context.Candidates
-                .Select(candidate => candidate.AddStepScore(Bm25ScoreKey, 0))
+                .Select(candidate => candidate.AddStepScore(Name, 0, stepDefinition.Weight))
                 .ToList();
 
             return Task.FromResult(context.WithCandidates(passthrough));
@@ -47,8 +49,9 @@ public sealed partial class Bm25RankerStep : ISelectionStep
 
         var ranked = documents
             .Select(document => document.Candidate.AddStepScore(
-                Bm25ScoreKey,
-                ScoreDocument(document, queryTokens, documentFrequency, documents.Count, averageDocumentLength)))
+                Name,
+                ScoreDocument(document, queryTokens, documentFrequency, documents.Count, averageDocumentLength, k1, b),
+                stepDefinition.Weight))
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Agent.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -61,7 +64,9 @@ public sealed partial class Bm25RankerStep : ISelectionStep
         IReadOnlyList<string> queryTokens,
         IReadOnlyDictionary<string, int> documentFrequency,
         int documentCount,
-        double averageDocumentLength)
+        double averageDocumentLength,
+        double k1,
+        double b)
     {
         if (document.Tokens.Count == 0 || averageDocumentLength <= 0)
         {
@@ -84,8 +89,8 @@ public sealed partial class Bm25RankerStep : ISelectionStep
             var df = documentFrequency.TryGetValue(token, out var value) ? value : 0;
             var idf = Math.Log(1 + ((documentCount - df + 0.5) / (df + 0.5)));
 
-            var normalization = frequency + (K1 * (1 - B + (B * document.Tokens.Count / averageDocumentLength)));
-            var weightedFrequency = (frequency * (K1 + 1)) / normalization;
+            var normalization = frequency + (k1 * (1 - b + (b * document.Tokens.Count / averageDocumentLength)));
+            var weightedFrequency = (frequency * (k1 + 1)) / normalization;
 
             score += idf * weightedFrequency;
         }

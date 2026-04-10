@@ -24,7 +24,7 @@ public sealed class QualityFilterStepTests
         _qualityProvider.GetQualityAsync("healthy", Arg.Any<CancellationToken>())
             .Returns(new SkillQualityInfo(0.9, 100, TimeSpan.FromMilliseconds(200)));
 
-        var sut = new QualityFilterStep(_qualityProvider, _logger, successRateThreshold: 0.5);
+        var sut = new QualityFilterStep(_qualityProvider, _logger);
         var context = CreateContext("analyze architecture", degraded, healthy);
 
         var result = await sut.ExecuteAsync(context, CancellationToken.None);
@@ -45,7 +45,7 @@ public sealed class QualityFilterStepTests
         _qualityProvider.GetQualityAsync("second", Arg.Any<CancellationToken>())
             .Returns(new SkillQualityInfo(0.3, 40, TimeSpan.FromMilliseconds(750)));
 
-        var sut = new QualityFilterStep(_qualityProvider, _logger, successRateThreshold: 0.5);
+        var sut = new QualityFilterStep(_qualityProvider, _logger);
         var context = CreateContext("analyze issues", first, second);
 
         var result = await sut.ExecuteAsync(context, CancellationToken.None);
@@ -66,7 +66,7 @@ public sealed class QualityFilterStepTests
         _qualityProvider.GetQualityAsync("degraded", Arg.Any<CancellationToken>())
             .Returns(new SkillQualityInfo(0.1, 120, TimeSpan.FromMilliseconds(1000)));
 
-        var sut = new QualityFilterStep(_qualityProvider, _logger, successRateThreshold: 0.5);
+        var sut = new QualityFilterStep(_qualityProvider, _logger);
         var context = CreateContext("analyze performance", noData, degraded);
 
         var result = await sut.ExecuteAsync(context, CancellationToken.None);
@@ -85,7 +85,7 @@ public sealed class QualityFilterStepTests
         _qualityProvider.GetQualityAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((SkillQualityInfo?)null);
 
-        var sut = new QualityFilterStep(_qualityProvider, _logger, successRateThreshold: 0.5);
+        var sut = new QualityFilterStep(_qualityProvider, _logger);
         var context = CreateContext("find docs", first, second);
 
         var result = await sut.ExecuteAsync(context, CancellationToken.None);
@@ -98,7 +98,7 @@ public sealed class QualityFilterStepTests
     private static SelectionContext CreateContext(string prompt, params ScoredAgent[] candidates)
     {
         var task = new AgentTask("t-quality", AgentTaskType.Analyze, prompt);
-        return new SelectionContext(task, candidates);
+        return new SelectionContext(task, candidates, SelectionProcessDefinition.Default);
     }
 
     private static ScoredAgent CreateScoredAgent(string name, string description, params AgentCapability[] capabilities)
