@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
+using Marten;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Infrastructure.LiteLlm;
 using nem.Mimir.Infrastructure.Persistence;
@@ -39,6 +40,7 @@ using nem.Mimir.Infrastructure.Organism.MapeK;
 using nem.Mimir.Infrastructure.Inference;
 using nem.Mimir.Domain.Plugins;
 using nem.Mimir.Infrastructure.Workflow;
+using nem.Mimir.Application.Notes.Services;
 
 public static class DependencyInjection
 {
@@ -63,6 +65,23 @@ public static class DependencyInjection
                 });
         });
 
+        var defaultConnectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? configuration.GetSection("Database:ConnectionString").Value
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is required for Automerge document storage.");
+
+        services.AddMarten(options =>
+        {
+            options.Connection(defaultConnectionString);
+            options.DatabaseSchemaName = "mimir_collaboration";
+
+            var automergeState = options.Schema.For<AutomergeDocumentStoreDocument>();
+            automergeState.Identity(x => x.Id);
+            automergeState.DocumentAlias("automerge_document_store");
+            automergeState.Duplicate(x => x.DocumentId);
+            automergeState.Index(x => x.DocumentId);
+            automergeState.Index(x => x.UpdatedAt);
+        });
+
         // Repositories and Unit of Work
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
@@ -83,7 +102,10 @@ public static class DependencyInjection
         services.AddScoped<IUsageStatsReadDbContext>(sp => sp.GetRequiredService<MimirDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
-        services.AddScoped<nem.Mimir.Application.Notes.Services.YjsDocumentStore>();
+#pragma warning disable CS0618
+        services.AddScoped<YjsDocumentStore>();
+#pragma warning restore CS0618
+        services.AddScoped<AutomergeDocumentStore>();
         services.AddScoped<IImageGenerationService, ImageGenerationService>();
 
         // Actor identity services

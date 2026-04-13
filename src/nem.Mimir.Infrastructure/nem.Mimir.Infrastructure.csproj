@@ -19,6 +19,8 @@
     <PackageReference Include="MediatR" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="Docker.DotNet.Enhanced" />
+    <PackageReference Include="Marten" />
+    <PackageReference Include="Marten.AspNetCore" />
     <PackageReference Include="WolverineFx" />
   </ItemGroup>
 

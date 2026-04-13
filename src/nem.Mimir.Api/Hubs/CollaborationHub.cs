@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using ChannelTypedId = nem.Contracts.Identity.ChannelId;
-using NoteTypedId = nem.Contracts.Identity.NoteId;
 using nem.Mimir.Application.Channels.Commands;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
@@ -12,32 +11,29 @@ using Wolverine;
 namespace nem.Mimir.Api.Hubs;
 
 [Authorize]
-public sealed class CollaborationHub : Hub
+public sealed class CollaborationHub : Hub<ICollaborationHubClient>
 {
     private static readonly ConcurrentDictionary<string, (Guid UserId, string? UserName)> ConnectionUsers = new();
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> ChannelConnections = new();
-    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> NoteConnections = new();
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> DocumentConnections = new();
 
     private readonly ICurrentUserService _currentUserService;
     private readonly IMessageBus _bus;
     private readonly IChannelRepository _channelRepository;
-    private readonly INoteRepository _noteRepository;
-    private readonly YjsDocumentStore _yjsDocumentStore;
+    private readonly AutomergeDocumentStore _automergeDocumentStore;
     private readonly ILogger<CollaborationHub> _logger;
 
     public CollaborationHub(
         ICurrentUserService currentUserService,
         IMessageBus bus,
         IChannelRepository channelRepository,
-        INoteRepository noteRepository,
-        YjsDocumentStore yjsDocumentStore,
+        AutomergeDocumentStore automergeDocumentStore,
         ILogger<CollaborationHub> logger)
     {
         _currentUserService = currentUserService;
         _bus = bus;
         _channelRepository = channelRepository;
-        _noteRepository = noteRepository;
-        _yjsDocumentStore = yjsDocumentStore;
+        _automergeDocumentStore = automergeDocumentStore;
         _logger = logger;
     }
 
@@ -73,16 +69,16 @@ public sealed class CollaborationHub : Hub
             channelConnections.TryRemove(Context.ConnectionId, out _);
         }
 
-        foreach (var (noteId, noteConnections) in NoteConnections.ToArray())
+        foreach (var (documentId, documentConnections) in DocumentConnections.ToArray())
         {
-            if (!noteConnections.TryRemove(Context.ConnectionId, out _))
+            if (!documentConnections.TryRemove(Context.ConnectionId, out _))
             {
                 continue;
             }
 
-            if (noteConnections.IsEmpty)
+            if (documentConnections.IsEmpty)
             {
-                NoteConnections.TryRemove(noteId, out _);
+                DocumentConnections.TryRemove(documentId, out _);
             }
         }
 
@@ -164,7 +160,7 @@ public sealed class CollaborationHub : Hub
 
         var groupName = $"channel:{channelId}";
 
-        await Clients.Group(groupName).SendAsync("ChannelMessage", message, Context.ConnectionAborted);
+        await Clients.Group(groupName).ChannelMessage(message);
 
         _logger.LogInformation("Persisted and broadcast channel message {MessageId} to {GroupName} by user {UserId}",
             message.Id, groupName, userInfo.UserId);
@@ -179,13 +175,13 @@ public sealed class CollaborationHub : Hub
 
         var groupName = $"channel:{channelId}";
 
-        await Clients.OthersInGroup(groupName).SendAsync("UserTyping", new
+        await Clients.OthersInGroup(groupName).UserTyping(new
         {
             channelId,
             userId = userInfo.UserId,
             userName = userInfo.UserName,
             timestamp = DateTimeOffset.UtcNow
-        }, Context.ConnectionAborted);
+        });
     }
 
     public async Task StopTyping(string channelId)
@@ -195,13 +191,13 @@ public sealed class CollaborationHub : Hub
 
         var groupName = $"channel:{channelId}";
 
-        await Clients.OthersInGroup(groupName).SendAsync("UserStoppedTyping", new
+        await Clients.OthersInGroup(groupName).UserStoppedTyping(new
         {
             channelId,
             userId = userInfo.UserId,
             userName = userInfo.UserName,
             timestamp = DateTimeOffset.UtcNow
-        }, Context.ConnectionAborted);
+        });
     }
 
     public Task<IReadOnlyList<PresenceUserDto>> GetPresence(string channelId)
@@ -225,7 +221,7 @@ public sealed class CollaborationHub : Hub
         var userId = _currentUserService.UserId;
         var groupName = $"channel:{channelId}";
 
-        await Clients.Group(groupName).SendAsync("TypingIndicator", new
+        await Clients.Group(groupName).TypingIndicator(new
         {
             channelId,
             userId,
@@ -236,129 +232,112 @@ public sealed class CollaborationHub : Hub
             groupName, userId);
     }
 
-    public async Task JoinNote(string noteId)
+    public async Task JoinDocument(string documentId)
     {
-        if (!Guid.TryParse(noteId, out var noteGuid))
-            throw new HubException("Invalid note id.");
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
 
         if (!ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
             throw new HubException("User context is unavailable.");
 
-        var note = await _noteRepository
-            .GetWithCollaboratorsAsync(NoteTypedId.From(noteGuid), CancellationToken.None)
-            .ConfigureAwait(false);
-
-        if (note is null)
-            throw new HubException("Note not found.");
-
-        if (!note.CanView(userInfo.UserId))
-            throw new HubException("User does not have permission to view this note.");
-
-        var normalizedNoteId = noteGuid.ToString("D");
-        var groupName = $"note:{normalizedNoteId}";
+        var normalizedDocumentId = documentId.Trim();
+        var groupName = BuildDocumentGroupName(normalizedDocumentId);
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName, Context.ConnectionAborted);
 
-        var groupConnections = NoteConnections.GetOrAdd(normalizedNoteId, _ => new ConcurrentDictionary<string, byte>());
+        var groupConnections = DocumentConnections.GetOrAdd(normalizedDocumentId, _ => new ConcurrentDictionary<string, byte>());
         groupConnections[Context.ConnectionId] = 0;
 
-        var state = await _yjsDocumentStore
-            .GetDocumentStateAsync(NoteTypedId.From(noteGuid), Context.ConnectionAborted)
+        var state = await _automergeDocumentStore
+            .LoadState(normalizedDocumentId, Context.ConnectionAborted)
             .ConfigureAwait(false);
 
-        await Clients.Caller.SendAsync("NoteState", state, Context.ConnectionAborted);
+        await Clients.Caller.DocumentState(normalizedDocumentId, state);
 
-        _logger.LogInformation("Connection {ConnectionId} joined collaboration note group {GroupName}",
-            Context.ConnectionId, groupName);
+        _logger.LogInformation("Connection {ConnectionId} joined collaboration document group {GroupName} as user {UserId}",
+            Context.ConnectionId, groupName, userInfo.UserId);
     }
 
-    public async Task LeaveNote(string noteId)
+    public async Task LeaveDocument(string documentId)
     {
-        if (!Guid.TryParse(noteId, out var noteGuid))
-            throw new HubException("Invalid note id.");
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
 
-        var normalizedNoteId = noteGuid.ToString("D");
-        var groupName = $"note:{normalizedNoteId}";
+        var normalizedDocumentId = documentId.Trim();
+        var groupName = BuildDocumentGroupName(normalizedDocumentId);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName, Context.ConnectionAborted);
 
-        if (NoteConnections.TryGetValue(normalizedNoteId, out var groupConnections))
+        if (DocumentConnections.TryGetValue(normalizedDocumentId, out var groupConnections))
         {
             groupConnections.TryRemove(Context.ConnectionId, out _);
 
             if (groupConnections.IsEmpty)
             {
-                NoteConnections.TryRemove(normalizedNoteId, out _);
+                DocumentConnections.TryRemove(normalizedDocumentId, out _);
             }
         }
 
         if (ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
         {
-            await Clients.Group(groupName).SendAsync("NotePresenceChanged", new
+            await Clients.Group(groupName).DocumentPresenceChanged(new
             {
-                noteId = normalizedNoteId,
+                documentId = normalizedDocumentId,
                 userId = userInfo.UserId,
                 userName = userInfo.UserName,
                 isOnline = false,
                 timestamp = DateTimeOffset.UtcNow,
-            }, Context.ConnectionAborted);
+            });
         }
 
-        _logger.LogInformation("Connection {ConnectionId} left collaboration note group {GroupName}",
+        _logger.LogInformation("Connection {ConnectionId} left collaboration document group {GroupName}",
             Context.ConnectionId, groupName);
     }
 
-    public async Task SyncNote(string noteId, byte[] yjsUpdate)
+    public async Task SyncDocument(string documentId, byte[] syncMessage)
     {
-        if (!Guid.TryParse(noteId, out var noteGuid))
-            throw new HubException("Invalid note id.");
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
 
-        if (yjsUpdate is null || yjsUpdate.Length == 0)
-            throw new HubException("Yjs update is required.");
+        if (syncMessage is null || syncMessage.Length == 0)
+            throw new HubException("Automerge sync message is required.");
 
-        if (!ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
+        if (!ConnectionUsers.ContainsKey(Context.ConnectionId))
             throw new HubException("User context is unavailable.");
 
-        var note = await _noteRepository
-            .GetWithCollaboratorsAsync(NoteTypedId.From(noteGuid), CancellationToken.None)
+        var normalizedDocumentId = documentId.Trim();
+
+        await _automergeDocumentStore
+            .ApplyChanges(normalizedDocumentId, syncMessage, Context.ConnectionAborted)
             .ConfigureAwait(false);
 
-        if (note is null)
-            throw new HubException("Note not found.");
-
-        if (!note.CanEdit(userInfo.UserId))
-            throw new HubException("User does not have permission to edit this note.");
-
-        await _yjsDocumentStore
-            .ApplyUpdateAsync(NoteTypedId.From(noteGuid), yjsUpdate, Context.ConnectionAborted)
-            .ConfigureAwait(false);
-
-        await Clients.OthersInGroup($"note:{noteGuid:D}")
-            .SendAsync("NoteSync", yjsUpdate, Context.ConnectionAborted);
+        await Clients.OthersInGroup(BuildDocumentGroupName(normalizedDocumentId))
+            .DocumentSync(normalizedDocumentId, syncMessage);
     }
 
-    public async Task UpdateAwareness(string noteId, string awarenessState)
+    public async Task UpdateAwareness(string documentId, string awarenessState)
     {
-        if (!Guid.TryParse(noteId, out var noteGuid))
-            throw new HubException("Invalid note id.");
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
 
         if (!ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
             throw new HubException("User context is unavailable.");
 
-        await Clients.OthersInGroup($"note:{noteGuid:D}").SendAsync("AwarenessUpdate", new
+        await Clients.OthersInGroup(BuildDocumentGroupName(documentId.Trim())).AwarenessUpdate(new
         {
+            documentId = documentId.Trim(),
             userId = userInfo.UserId,
             userName = userInfo.UserName,
             state = awarenessState,
             timestamp = DateTimeOffset.UtcNow,
-        }, Context.ConnectionAborted);
+        });
     }
 
-    public Task<IReadOnlyList<PresenceUserDto>> GetNotePresence(string noteId)
+    public Task<IReadOnlyList<PresenceUserDto>> GetDocumentPresence(string documentId)
     {
-        if (!Guid.TryParse(noteId, out var noteGuid))
-            throw new HubException("Invalid note id.");
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
 
-        var normalizedNoteId = noteGuid.ToString("D");
-        if (!NoteConnections.TryGetValue(normalizedNoteId, out var groupConnections))
+        var normalizedDocumentId = documentId.Trim();
+        if (!DocumentConnections.TryGetValue(normalizedDocumentId, out var groupConnections))
             return Task.FromResult<IReadOnlyList<PresenceUserDto>>([]);
 
         var users = groupConnections.Keys
@@ -376,7 +355,7 @@ public sealed class CollaborationHub : Hub
     {
         var userId = _currentUserService.UserId;
 
-        await Clients.All.SendAsync("PresenceUpdated", new
+        await Clients.All.PresenceUpdated(new
         {
             userId,
             status,
@@ -385,6 +364,8 @@ public sealed class CollaborationHub : Hub
 
         _logger.LogInformation("Stub presence update broadcast for user {UserId} with status {Status}", userId, status);
     }
+
+    private static string BuildDocumentGroupName(string documentId) => $"document:{documentId}";
 }
 
 public sealed record PresenceUserDto(Guid UserId, string? UserName, bool IsOnline);

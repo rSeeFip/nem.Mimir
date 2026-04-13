@@ -1,5 +1,9 @@
 # nem.Mimir
 
+> ⚠️ **DEPRECATED**: This UI is being replaced by [nem.Web/apps/mimir](../nem.Web/apps/mimir). 
+> See [Legacy UI Deprecation Plan](../nem.Web/docs/legacy-ui-deprecation.md) for timeline and migration details.
+> New feature development should target the React/Next.js replacement.
+
 > Enterprise AI Digital Brain built on .NET 10 — multi-LLM orchestration via LiteLLM, agent hierarchy with triple-store memory, OpenSandbox K8s-native code execution, real-time streaming via SignalR, and Keycloak-powered identity management.
 
 ## Architecture Overview

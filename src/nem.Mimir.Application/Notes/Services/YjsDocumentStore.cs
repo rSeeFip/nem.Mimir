@@ -5,6 +5,7 @@ using NoteTypedId = nem.Contracts.Identity.NoteId;
 
 namespace nem.Mimir.Application.Notes.Services;
 
+[Obsolete("Use AutomergeDocumentStore instead. Yjs byte concatenation is retained only for legacy compatibility.")]
 public sealed class YjsDocumentStore
 {
     private readonly INoteRepository _noteRepository;
