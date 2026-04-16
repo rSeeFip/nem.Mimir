@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>nem.Lume.McpTools</RootNamespace>
+    <AssemblyName>nem.Lume.McpTools</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\nem.Mimir.Domain\nem.Mimir.Domain.csproj" />
+    <ProjectReference Include="..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

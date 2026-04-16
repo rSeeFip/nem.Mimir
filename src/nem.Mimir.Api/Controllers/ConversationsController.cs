@@ -1,6 +1,7 @@
 ﻿using Wolverine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Application.Conversations.Commands;
 using nem.Mimir.Application.Conversations.Queries;
@@ -67,6 +68,41 @@ public sealed class ConversationsController : ControllerBase
     {
         var result = await _bus.InvokeAsync<PaginatedList<ConversationListDto>>(new GetConversationsByUserQuery(pageNumber, pageSize), ct);
         return Ok(result);
+    }
+
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(IReadOnlyList<ConversationSearchResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Search(
+        [FromQuery(Name = "q")] string? query,
+        [FromQuery] string? workspaceId,
+        [FromServices] ICurrentUserService currentUserService,
+        [FromServices] IConversationSearchService searchService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Bad Request",
+                Detail = "Query parameter 'q' is required.",
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        if (!Guid.TryParse(currentUserService.UserId, out var userId))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Bad Request",
+                Detail = "Authenticated user identifier is missing or invalid.",
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        var results = await searchService.SearchAsync(userId, query.Trim(), workspaceId, ct);
+        return Ok(results);
     }
 
     /// <summary>

@@ -85,6 +85,7 @@ public static class DependencyInjection
         // Repositories and Unit of Work
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<IConversationSearchService, ConversationSearchService>();
         services.AddScoped<IChannelRepository, ChannelRepository>();
         services.AddScoped<INoteRepository, NoteRepository>();
         services.AddScoped<IEvaluationRepository, EvaluationRepository>();

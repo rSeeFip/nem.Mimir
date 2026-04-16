@@ -16,6 +16,7 @@ public sealed class CollaborationHub : Hub<ICollaborationHubClient>
     private static readonly ConcurrentDictionary<string, (Guid UserId, string? UserName)> ConnectionUsers = new();
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> ChannelConnections = new();
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> DocumentConnections = new();
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, CursorPosition>> DocumentCursors = new();
 
     private readonly ICurrentUserService _currentUserService;
     private readonly IMessageBus _bus;
@@ -62,7 +63,7 @@ public sealed class CollaborationHub : Hub<ICollaborationHubClient>
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        ConnectionUsers.TryRemove(Context.ConnectionId, out _);
+        ConnectionUsers.TryRemove(Context.ConnectionId, out var userInfo);
 
         foreach (var channelConnections in ChannelConnections.Values)
         {
@@ -74,6 +75,15 @@ public sealed class CollaborationHub : Hub<ICollaborationHubClient>
             if (!documentConnections.TryRemove(Context.ConnectionId, out _))
             {
                 continue;
+            }
+
+            if (userInfo != default)
+            {
+                var cursorLeft = RemoveCursor(normalizeDocumentId: documentId, userId: userInfo.UserId.ToString());
+                if (cursorLeft is not null)
+                {
+                    await Clients.Group(BuildDocumentGroupName(documentId)).UserCursorLeft(cursorLeft);
+                }
             }
 
             if (documentConnections.IsEmpty)
@@ -276,6 +286,15 @@ public sealed class CollaborationHub : Hub<ICollaborationHubClient>
             }
         }
 
+        if (ConnectionUsers.TryGetValue(Context.ConnectionId, out var cursorUserInfo))
+        {
+            var cursorLeft = RemoveCursor(normalizedDocumentId, cursorUserInfo.UserId.ToString());
+            if (cursorLeft is not null)
+            {
+                await Clients.Group(groupName).UserCursorLeft(cursorLeft);
+            }
+        }
+
         if (ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
         {
             await Clients.Group(groupName).DocumentPresenceChanged(new
@@ -331,6 +350,47 @@ public sealed class CollaborationHub : Hub<ICollaborationHubClient>
         });
     }
 
+    public async Task CursorMoved(string documentId, string userId, int position, string? selectionRange)
+    {
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
+
+        if (!ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
+            throw new HubException("User context is unavailable.");
+
+        if (!string.Equals(userInfo.UserId.ToString(), userId, StringComparison.OrdinalIgnoreCase))
+            throw new HubException("Cursor user does not match the current connection.");
+
+        var normalizedDocumentId = documentId.Trim();
+        var cursor = new CursorPosition(position, selectionRange, DateTimeOffset.UtcNow);
+        var documentCursors = DocumentCursors.GetOrAdd(normalizedDocumentId, _ => new ConcurrentDictionary<string, CursorPosition>());
+        documentCursors[userId] = cursor;
+
+        await Clients.OthersInGroup(BuildDocumentGroupName(normalizedDocumentId)).UserCursorMoved(
+            new DocumentCursorDto(normalizedDocumentId, userId, userInfo.UserName, position, selectionRange, cursor.UpdatedAt));
+    }
+
+    public async Task CursorLeft(string documentId, string userId)
+    {
+        if (string.IsNullOrWhiteSpace(documentId))
+            throw new HubException("Document id is required.");
+
+        if (!ConnectionUsers.TryGetValue(Context.ConnectionId, out var userInfo))
+            throw new HubException("User context is unavailable.");
+
+        if (!string.Equals(userInfo.UserId.ToString(), userId, StringComparison.OrdinalIgnoreCase))
+            throw new HubException("Cursor user does not match the current connection.");
+
+        var normalizedDocumentId = documentId.Trim();
+        var cursorLeft = RemoveCursor(normalizedDocumentId, userId);
+        if (cursorLeft is null)
+        {
+            return;
+        }
+
+        await Clients.Group(BuildDocumentGroupName(normalizedDocumentId)).UserCursorLeft(cursorLeft);
+    }
+
     public Task<IReadOnlyList<PresenceUserDto>> GetDocumentPresence(string documentId)
     {
         if (string.IsNullOrWhiteSpace(documentId))
@@ -365,7 +425,30 @@ public sealed class CollaborationHub : Hub<ICollaborationHubClient>
         _logger.LogInformation("Stub presence update broadcast for user {UserId} with status {Status}", userId, status);
     }
 
+    private static DocumentCursorLeftDto? RemoveCursor(string normalizeDocumentId, string userId)
+    {
+        if (!DocumentCursors.TryGetValue(normalizeDocumentId, out var documentCursors))
+        {
+            return null;
+        }
+
+        if (!documentCursors.TryRemove(userId, out _))
+        {
+            return null;
+        }
+
+        if (documentCursors.IsEmpty)
+        {
+            DocumentCursors.TryRemove(normalizeDocumentId, out _);
+        }
+
+        return new DocumentCursorLeftDto(normalizeDocumentId, userId, DateTimeOffset.UtcNow);
+    }
+
     private static string BuildDocumentGroupName(string documentId) => $"document:{documentId}";
 }
 
 public sealed record PresenceUserDto(Guid UserId, string? UserName, bool IsOnline);
+public sealed record CursorPosition(int Position, string? SelectionRange, DateTimeOffset UpdatedAt);
+public sealed record DocumentCursorDto(string DocumentId, string UserId, string? UserName, int Position, string? SelectionRange, DateTimeOffset Timestamp);
+public sealed record DocumentCursorLeftDto(string DocumentId, string UserId, DateTimeOffset Timestamp);

@@ -20,5 +20,9 @@ public interface ICollaborationHubClient
 
     Task AwarenessUpdate(object payload);
 
+    Task UserCursorMoved(DocumentCursorDto payload);
+
+    Task UserCursorLeft(DocumentCursorLeftDto payload);
+
     Task PresenceUpdated(object payload);
 }

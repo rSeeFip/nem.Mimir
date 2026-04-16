@@ -1,9 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>nem.Mimir.Api.Tests</RootNamespace>
-    <AssemblyName>nem.Mimir.Api.Tests</AssemblyName>
-
+    <RootNamespace>nem.Lume.McpTools.Tests</RootNamespace>
+    <AssemblyName>nem.Lume.McpTools.Tests</AssemblyName>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -12,8 +11,6 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Shouldly" />
-    <PackageReference Include="AwesomeAssertions" />
-    <PackageReference Include="Marten" />
     <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
@@ -22,12 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\nem.Mimir.Api\nem.Mimir.Api.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="Hubs\CursorTrackingTests.cs" />
-    <Compile Include="Hubs\CursorTrackingTests.cs" />
+    <ProjectReference Include="..\..\src\nem.Lume.McpTools\nem.Lume.McpTools.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Domain\nem.Mimir.Domain.csproj" />
   </ItemGroup>
 
 </Project>
