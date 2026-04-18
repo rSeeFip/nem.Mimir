@@ -1,21 +1,25 @@
 namespace nem.Mimir.Infrastructure.Tests.Adapters;
 
-using MediatR;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using nem.Contracts.Cognitive;
 using nem.Contracts.Identity;
 using nem.MCP.Core.Cognitive;
 using nem.Mimir.Infrastructure.Adapters;
+using nem.Mimir.Application;
 using NSubstitute;
 using Shouldly;
 using Wolverine;
+using Wolverine.Runtime;
 
 public sealed class GlobalWorkspaceAdapterTests
 {
     [Fact]
-    public async Task Handle_PublishesWorkspaceBroadcastNotificationToMediator()
+    public async Task Handle_InvokesWorkspaceBroadcastHandlerThroughWolverine()
     {
-        var mediator = Substitute.For<IMediator>();
+        var messageBus = Substitute.For<IMessageBus>();
         var evt = new WorkspaceBroadcastEvent(
             CoalitionId: Guid.NewGuid(),
             EntryIds: [WorkspaceEntryId.New()],
@@ -27,9 +31,9 @@ public sealed class GlobalWorkspaceAdapterTests
                 new WorkspaceEntry(WorkspaceEntryId.New(), "hello", 0.7, DateTimeOffset.UtcNow, "global-workspace"),
             ]);
 
-        await GlobalWorkspaceAdapter.Handle(evt, mediator, CancellationToken.None);
+        await GlobalWorkspaceAdapter.Handle(evt, messageBus, CancellationToken.None);
 
-        await mediator.Received(1).Publish(
+        await messageBus.Received(1).InvokeAsync(
             Arg.Is<WorkspaceBroadcastNotification>(n => n.BroadcastEvent == evt),
             Arg.Any<CancellationToken>());
     }
@@ -78,11 +82,55 @@ public sealed class GlobalWorkspaceAdapterTests
     public async Task MimirWorkspaceResponseHandler_PublishesWorkspaceEntryToMessageBus()
     {
         var messageBus = Substitute.For<IMessageBus>();
-        var handler = new MimirWorkspaceResponseHandler(messageBus);
         var entry = new WorkspaceEntry(WorkspaceEntryId.New(), "agent-response", 0.9, DateTimeOffset.UtcNow, "mimir-agent");
 
-        await handler.Handle(new MimirWorkspaceResponseNotification(entry), CancellationToken.None);
+        await MimirWorkspaceResponseHandler.Handle(new MimirWorkspaceResponseNotification(entry), messageBus, CancellationToken.None);
 
         await messageBus.Received(1).PublishAsync(entry);
+    }
+
+    [Fact]
+    [Trait("Category", "Handlers")]
+    public async Task HandlerGraph_IncludesWorkspaceAdapterHandlers()
+    {
+        var participatingAgent = Substitute.For<ICognitiveAgent>();
+        participatingAgent.ServiceName.Returns("planner");
+        participatingAgent.IsActive.Returns(true);
+
+        using var host = await Host.CreateDefaultBuilder()
+            .ConfigureServices(services =>
+            {
+                services.AddSingleton(participatingAgent);
+                services.Configure<GlobalWorkspaceAdapterOptions>(options =>
+                {
+                    options.ParticipatingAgentServiceNames.Add("planner");
+                });
+            })
+            .UseWolverine(options =>
+            {
+                options.Discovery.IncludeAssembly(typeof(DependencyInjection).Assembly);
+                options.Discovery.IncludeAssembly(typeof(GlobalWorkspaceAdapter).Assembly);
+            })
+            .StartAsync();
+
+        var runtime = host.Services.GetRequiredService<IWolverineRuntime>();
+        var handlerSnapshot = new
+        {
+            handler_count = runtime.Options.HandlerGraph.Chains.Count,
+            handler_names = runtime.Options.HandlerGraph.Chains
+                .Select(chain => chain.MessageType.FullName)
+                .Where(name => name is not null)
+                .OrderBy(name => name)
+                .ToArray()
+        };
+
+        var evidencePath = Environment.GetEnvironmentVariable("NEM_MIMIR_HANDLER_COUNT_PATH")
+            ?? "/workspace/.sisyphus/evidence/task-12-handler-count.txt";
+
+        await File.WriteAllTextAsync(evidencePath, JsonSerializer.Serialize(handlerSnapshot), TestContext.Current.CancellationToken);
+
+        handlerSnapshot.handler_names.ShouldContain(typeof(WorkspaceBroadcastEvent).FullName);
+        handlerSnapshot.handler_names.ShouldContain(typeof(WorkspaceBroadcastNotification).FullName);
+        handlerSnapshot.handler_names.ShouldContain(typeof(MimirWorkspaceResponseNotification).FullName);
     }
 }

@@ -1,42 +1,40 @@
 namespace nem.Mimir.Infrastructure.Adapters;
 
-using MediatR;
 using Microsoft.Extensions.Options;
 using nem.Contracts.Cognitive;
 using nem.MCP.Core.Cognitive;
+using Wolverine;
 
 public sealed class GlobalWorkspaceAdapter
 {
     public static Task Handle(
         WorkspaceBroadcastEvent message,
-        IMediator mediator,
+        IMessageBus messageBus,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);
-        return mediator.Publish(new WorkspaceBroadcastNotification(message), cancellationToken);
+        return messageBus.InvokeAsync(new WorkspaceBroadcastNotification(message), cancellationToken);
     }
 }
 
-public sealed class WorkspaceBroadcastNotificationHandler : INotificationHandler<WorkspaceBroadcastNotification>
+public sealed class WorkspaceBroadcastNotificationHandler
 {
-    private readonly IReadOnlyList<ICognitiveAgent> _agents;
-    private readonly GlobalWorkspaceAdapterOptions _options;
-
-    public WorkspaceBroadcastNotificationHandler(
+    public async Task Handle(
+        WorkspaceBroadcastNotification notification,
         IEnumerable<ICognitiveAgent> agents,
-        IOptions<GlobalWorkspaceAdapterOptions> options)
-    {
-        _agents = agents.ToList();
-        _options = options.Value;
-    }
-
-    public async Task Handle(WorkspaceBroadcastNotification notification, CancellationToken cancellationToken)
+        IOptions<GlobalWorkspaceAdapterOptions> options,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
+        ArgumentNullException.ThrowIfNull(agents);
+        ArgumentNullException.ThrowIfNull(options);
 
-        foreach (var agent in _agents)
+        var participatingAgents = agents.ToList();
+        var adapterOptions = options.Value;
+
+        foreach (var agent in participatingAgents)
         {
-            if (!agent.IsActive || !_options.IsParticipating(agent.ServiceName))
+            if (!agent.IsActive || !adapterOptions.IsParticipating(agent.ServiceName))
             {
                 continue;
             }

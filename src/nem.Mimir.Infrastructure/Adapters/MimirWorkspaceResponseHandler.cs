@@ -1,24 +1,16 @@
 namespace nem.Mimir.Infrastructure.Adapters;
 
-using MediatR;
 using nem.Contracts.Cognitive;
 using Wolverine;
 
-public sealed record MimirWorkspaceResponseNotification(WorkspaceEntry Entry) : INotification;
+public sealed record MimirWorkspaceResponseNotification(WorkspaceEntry Entry);
 
-public sealed class MimirWorkspaceResponseHandler : INotificationHandler<MimirWorkspaceResponseNotification>
+public static class MimirWorkspaceResponseHandler
 {
-    private readonly IMessageBus _messageBus;
-
-    public MimirWorkspaceResponseHandler(IMessageBus messageBus)
-    {
-        _messageBus = messageBus;
-    }
-
-    public async Task Handle(MimirWorkspaceResponseNotification notification, CancellationToken cancellationToken)
+    public static async Task Handle(MimirWorkspaceResponseNotification notification, IMessageBus messageBus, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
         cancellationToken.ThrowIfCancellationRequested();
-        await _messageBus.PublishAsync(notification.Entry).ConfigureAwait(false);
+        await messageBus.PublishAsync(notification.Entry).ConfigureAwait(false);
     }
 }
