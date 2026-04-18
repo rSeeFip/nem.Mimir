@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Central AI/chat service for nem.* ecosystem. Routes conversations through channel adapters (Telegram, Teams, Web, Console, MCP) via a unified MediatR CQRS layer. Manages LLM provider abstraction, agent orchestration with tool integration, and conversation memory.
+Central AI/chat service for nem.* ecosystem. Routes conversations through channel adapters (Telegram, Teams, Web, Console, MCP) via a unified Wolverine CQRS layer. Manages LLM provider abstraction, agent orchestration with tool integration, and conversation memory.
 
 ## Status
 
@@ -15,7 +15,7 @@ Central AI/chat service for nem.* ecosystem. Routes conversations through channe
 
 | Layer | Projects | Notes |
 |-------|----------|-------|
-| Core | Api, Application, Domain, Infrastructure | Clean Architecture + MediatR CQRS |
+| Core | Api, Application, Domain, Infrastructure | Clean Architecture + Wolverine CQRS |
 | Adapters | Adapter.{Telegram, Teams, Web, Console, MCP}, Sync | Channel isolation + cross-sync |
 | Client | Tui, mimir-chat | Terminal UI + Next.js web |
 
@@ -23,7 +23,7 @@ For detailed project descriptions, see `src/AGENTS.md`.
 
 ## Key Patterns
 
-- **MediatR CQRS**: NOT Wolverine (that's MCP/KnowHub). Never mix.
+- **CQRS**: Wolverine handlers in MCP/KnowHub and in Mimir. Never mix in same service. This repo follows the gold-standard migration directive in `.sisyphus/plans/nem-gold-standard.md#T12`.
 - **Typed IDs**: All entity IDs strongly-typed (nem.Contracts). `ConversationId`, `MessageId`, `AgentId`.
 - **Channel Adapters**: Isolated, deployable separately. Common `IChannelAdapter` interface.
 - **LLM Routing**: LiteLLM proxy. Model-ID normalization (OpenAI, Azure, Ollama, Anthropic).
@@ -42,7 +42,7 @@ For detailed project descriptions, see `src/AGENTS.md`.
 
 ## Conventions
 
-- MediatR for CQRS (NEVER Wolverine in Mimir)
+- Wolverine for CQRS (aligned with `/workspace/wmreflect/AGENTS.md`; see `.sisyphus/plans/nem-gold-standard.md#T12`)
 - Clean Architecture: Api → Application → Domain ← Infrastructure
 - Strongly-typed IDs only — no raw Guid/string
 - File-scoped namespaces, sealed classes, nullable, TreatWarningsAsErrors
