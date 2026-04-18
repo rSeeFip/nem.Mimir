@@ -1,5 +1,6 @@
 ﻿namespace nem.Mimir.Infrastructure;
 
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,8 @@ using nem.Mimir.Application.Notes.Services;
 
 public static class DependencyInjection
 {
+    [SuppressMessage("Compiler", "CS0618", Justification = "Legacy Yjs storage remains registered for backward-compatible note migration paths.")]
+    [SuppressMessage("Compiler", "CS0618", Justification = "Docker.DotNet sandbox remains registered until all callers complete the OpenSandbox migration.")]
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -103,9 +106,7 @@ public static class DependencyInjection
         services.AddScoped<IUsageStatsReadDbContext>(sp => sp.GetRequiredService<MimirDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
-#pragma warning disable CS0618
         services.AddScoped<YjsDocumentStore>();
-#pragma warning restore CS0618
         services.AddScoped<AutomergeDocumentStore>();
         services.AddScoped<IImageGenerationService, ImageGenerationService>();
 
@@ -263,10 +264,8 @@ public static class DependencyInjection
         // Docker sandbox service
         // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.
         // See: https://github.com/dotnet/Docker.DotNet
-#pragma warning disable CS0618
         services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
         services.AddScoped<ISandboxService, SandboxService>();
-#pragma warning restore CS0618
 
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<PluginManager>();

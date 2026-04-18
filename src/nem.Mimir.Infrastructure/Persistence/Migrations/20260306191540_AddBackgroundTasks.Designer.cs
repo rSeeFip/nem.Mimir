@@ -18,12 +18,11 @@ namespace nem.Mimir.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
-#pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.3")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.UseIdentityByDefaultColumns();
 
             modelBuilder.Entity("nem.Mimir.Domain.Entities.AgentMessage", b =>
                 {

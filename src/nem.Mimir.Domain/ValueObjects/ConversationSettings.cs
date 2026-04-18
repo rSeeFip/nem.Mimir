@@ -6,13 +6,11 @@ public sealed class ConversationSettings : ValueObject
 {
     public int MaxTokens { get; }
     public double Temperature { get; }
-    public string Model { get; }
+    public string Model { get; } = string.Empty;
     public int AutoArchiveAfterDays { get; }
     public SystemPromptId? SystemPromptId { get; }
 
-#pragma warning disable CS8618 // Required by EF Core
     private ConversationSettings() { }
-#pragma warning restore CS8618
 
     public ConversationSettings(
         int maxTokens,
