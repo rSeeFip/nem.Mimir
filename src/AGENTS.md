@@ -7,7 +7,7 @@
 | Project | Purpose |
 |---------|---------|
 | `Mimir.Api` | ASP.NET host — endpoints, SignalR hubs, middleware |
-| `Mimir.Application` | MediatR handlers — commands, queries, DTOs, pipelines |
+| `Mimir.Application` | Wolverine CQRS handlers — commands, queries, DTOs, pipelines |
 | `Mimir.Domain` | Entities, value objects, strongly-typed IDs |
 | `Mimir.Infrastructure` | Persistence, LiteLLM client, provider integrations |
 | `Mimir.Telegram` | Telegram Bot API channel adapter |
@@ -23,18 +23,18 @@
 
 ```
 Api → Application, Infrastructure, Adapters
-Application → Domain (implements use cases via MediatR)
+Application → Domain (implements use cases via Wolverine CQRS)
 Domain → (no project dependencies — pure domain)
 Infrastructure → Domain (implements persistence/external interfaces)
-Adapters → Application (send MediatR commands)
+Adapters → Application (send Wolverine commands)
 ```
 
 ## Key Files
 
 | Need | Where |
 |------|-------|
-| MediatR commands | `Mimir.Application/Commands/` |
-| MediatR queries | `Mimir.Application/Queries/` |
+| Wolverine commands | `Mimir.Application/Commands/` |
+| Wolverine queries | `Mimir.Application/Queries/` |
 | Domain entities | `Mimir.Domain/Entities/` |
 | LLM integration | `Mimir.Infrastructure/Llm/` or `Mimir.Infrastructure/Providers/` |
 | Channel adapter interface | Look for `IChannelAdapter` in Application or Domain |
