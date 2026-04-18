@@ -278,10 +278,12 @@ public class WhisperSpeechToTextProviderTests
     private static async IAsyncEnumerable<TranscriptionSegment> ThrowingSegments()
     {
         await Task.CompletedTask;
-        throw new OperationCanceledException();
-#pragma warning disable CS0162 // Unreachable code detected
+        if (false)
+        {
+            throw new OperationCanceledException();
+        }
+
         yield break;
-#pragma warning restore CS0162
     }
 
     [Fact]

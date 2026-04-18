@@ -27,10 +27,12 @@ internal static class AsyncEnumerableHelpers
     internal static async IAsyncEnumerable<T> ThrowingAsyncEnumerable<T>(Exception ex)
     {
         await Task.Yield();
-        throw ex;
-#pragma warning disable CS0162 // Unreachable code detected
-        yield break; // required to make this an async iterator
-#pragma warning restore CS0162
+        if (ex != null)
+        {
+            throw ex;
+        }
+
+        yield break;
     }
 }
 

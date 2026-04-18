@@ -1,6 +1,6 @@
 # nem.Mimir-typed-ids/src — Agent Notes
 
-> 12 projects: Clean Architecture core + 6 channel adapters + chat UI. MediatR CQRS (not Wolverine).
+> 12 projects: Clean Architecture core + 6 channel adapters + chat UI. Wolverine CQRS (migrated from MediatR per .sisyphus/plans/nem-gold-standard.md#T12).
 
 ## Projects
 
@@ -42,7 +42,7 @@ Adapters → Application (send MediatR commands)
 
 ## Conventions
 
-- MediatR for CQRS — NEVER Wolverine in Mimir
+- Wolverine CQRS (migrated from MediatR per .sisyphus/plans/nem-gold-standard.md#T12)
 - Each adapter is independent and deployable separately
 - Channel-specific logic stays in adapter project — not in Application
 - Strongly-typed IDs for all entities
