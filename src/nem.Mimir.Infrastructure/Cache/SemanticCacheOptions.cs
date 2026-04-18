@@ -22,7 +22,11 @@ public sealed class SemanticCacheOptions
     public int MaxEntries { get; init; } = 10_000;
 
     /// <summary>
-    /// Gets a value indicating whether cache keys are isolated per user context.
+    /// Gets a value indicating whether cache keys are further isolated per Keycloak tenant
+    /// (derived from the <c>tenant_id</c> claim). When enabled, keys from different tenants
+    /// never collide even if user IDs are identical across realms.
     /// </summary>
+    public bool EnableTenantIsolation { get; init; } = true;
+
     public bool EnablePerUserIsolation { get; init; } = true;
 }

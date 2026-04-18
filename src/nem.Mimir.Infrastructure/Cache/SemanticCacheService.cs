@@ -233,9 +233,21 @@ internal sealed class SemanticCacheService(
         var userId = principal?.FindFirst("sub")?.Value
                      ?? principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        return string.IsNullOrWhiteSpace(userId)
-            ? AnonymousScope
-            : userId;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return AnonymousScope;
+        }
+
+        if (options.EnableTenantIsolation)
+        {
+            var tenantId = principal?.FindFirst("tenant_id")?.Value;
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                return $"{tenantId}{ScopeSeparator}{userId}";
+            }
+        }
+
+        return userId;
     }
 
     private static string BuildScopedKey(string scope, string normalizedKey) =>
