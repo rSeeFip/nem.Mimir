@@ -36,10 +36,8 @@ internal static class E2EHelpers
     internal static async IAsyncEnumerable<T> ThrowingAsyncEnumerable<T>(Exception ex)
     {
         await Task.Yield();
-        throw ex;
-#pragma warning disable CS0162
+        if (ex != null) throw ex;
         yield break;
-#pragma warning restore CS0162
     }
 
     /// <summary>

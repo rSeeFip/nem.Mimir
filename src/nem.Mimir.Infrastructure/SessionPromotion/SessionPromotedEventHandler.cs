@@ -11,20 +11,21 @@ public static class SessionPromotedEventHandler
     public static async Task HandleAsync(
         SessionPromotedEvent message,
         ISemanticCache cache,
-        ILogger<SessionPromotedEventHandler> logger,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        var oldKey = $"session:{message.OldChannelId}";
-        var newKey = $"session:{message.NewChannelId}";
+        var oldKey = $"session:{message.ConversationForkId}:{message.OldChannelId}";
+        var newKey = $"session:{message.ConversationForkId}:{message.NewChannelId}";
 
         await cache.InvalidateAsync(oldKey, cancellationToken);
 
         await cache.SetAsync(newKey, message.OldChannelId.ToString(), cancellationToken: cancellationToken);
 
         logger.LogInformation(
-            "Session promoted from channel {OldChannelId} to {NewChannelId}. Cache key {OldKey} invalidated, {NewKey} seeded.",
+            "Session promoted for conversation fork {ConversationForkId} from channel {OldChannelId} to {NewChannelId}. Namespaced cache key {OldKey} invalidated, {NewKey} seeded.",
+            message.ConversationForkId,
             message.OldChannelId,
             message.NewChannelId,
             oldKey,
