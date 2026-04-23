@@ -9,6 +9,10 @@ namespace nem.Lume.McpTools.Tests.Tools;
 
 public sealed class LumeCreateTaskToolTests
 {
+    private static readonly string ValidWorkspaceId = Guid.NewGuid().ToString();
+    private static readonly string ValidBoardId = Guid.NewGuid().ToString();
+    private static readonly string ValidColumnId = Guid.NewGuid().ToString();
+
     private static IHttpClientFactory BuildFactory(HttpStatusCode statusCode, string responseBody)
     {
         var handler = new StubHttpMessageHandler(statusCode, responseBody);
@@ -25,9 +29,9 @@ public sealed class LumeCreateTaskToolTests
         var factory = BuildFactory(HttpStatusCode.OK, responseJson);
 
         var result = await LumeCreateTaskTool.CreateTaskAsync(
-            workspaceId: "ws-1",
-            boardId: "b-1",
-            columnId: "col-1",
+            workspaceId: ValidWorkspaceId,
+            boardId: ValidBoardId,
+            columnId: ValidColumnId,
             title: "My task",
             description: null,
             factory,
@@ -42,9 +46,9 @@ public sealed class LumeCreateTaskToolTests
         var factory = BuildFactory(HttpStatusCode.BadRequest, "bad request");
 
         var result = await LumeCreateTaskTool.CreateTaskAsync(
-            workspaceId: "ws-1",
-            boardId: "b-1",
-            columnId: "col-1",
+            workspaceId: ValidWorkspaceId,
+            boardId: ValidBoardId,
+            columnId: ValidColumnId,
             title: "My task",
             description: null,
             factory,
@@ -62,9 +66,9 @@ public sealed class LumeCreateTaskToolTests
         factory.CreateClient("lume-api").Returns(new HttpClient(new ThrowingHttpMessageHandler()));
 
         var result = await LumeCreateTaskTool.CreateTaskAsync(
-            workspaceId: "ws-1",
-            boardId: "b-1",
-            columnId: "col-1",
+            workspaceId: ValidWorkspaceId,
+            boardId: ValidBoardId,
+            columnId: ValidColumnId,
             title: "My task",
             description: null,
             factory,
