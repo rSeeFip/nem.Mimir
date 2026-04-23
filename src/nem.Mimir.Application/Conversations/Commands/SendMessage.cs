@@ -5,6 +5,7 @@ using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Application.Conversations.Services;
+using nem.Mimir.Application.Knowledge;
 using nem.Mimir.Domain.Enums;
 using nem.Mimir.Domain.ValueObjects;
 using nem.Contracts.Events.Integration;
@@ -111,7 +112,7 @@ internal sealed class SendMessageCommandHandler
             responseBuilder.Append(chunk.Content);
         }
 
-        var fullResponse = responseBuilder.ToString();
+        var fullResponse = AnswerSourcesFormatter.AppendSources(responseBuilder.ToString(), ragSources);
 
         // Add assistant message to conversation
         var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);

@@ -62,7 +62,8 @@ internal sealed class SearchCollectionQueryHandler
                 x.ChunkText,
                 x.Similarity,
                 x.EntityType,
-                x.EntityId))
+                x.EntityId,
+                x.OriginLink))
             .ToList();
     }
 

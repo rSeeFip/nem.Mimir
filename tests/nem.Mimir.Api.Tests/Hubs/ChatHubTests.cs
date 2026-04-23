@@ -1,10 +1,14 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using AwesomeAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using nem.Mimir.Api.Hubs;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Sanitization;
+using nem.Mimir.Application.Common.Models;
+using nem.Mimir.Application.Conversations.Services;
+using nem.Mimir.Application.Knowledge;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Infrastructure.LiteLlm;
 using NSubstitute;
@@ -19,6 +23,7 @@ public sealed class ChatHubTests : IDisposable
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
+    private readonly IConversationContextService _conversationRagService;
     private readonly LlmRequestQueue _requestQueue;
     private readonly ILogger<ChatHub> _logger;
     private readonly ISanitizationService _sanitizationService;
@@ -31,9 +36,14 @@ public sealed class ChatHubTests : IDisposable
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _llmService = Substitute.For<ILlmService>();
         _contextWindowService = Substitute.For<IContextWindowService>();
+        _conversationRagService = Substitute.For<IConversationContextService>();
         _requestQueue = new LlmRequestQueue(NullLogger<LlmRequestQueue>.Instance);
         _logger = NullLogger<ChatHub>.Instance;
         _sanitizationService = Substitute.For<ISanitizationService>();
+
+        _conversationRagService
+            .GetRagContextAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<KnowledgeSearchResultDto>());
 
         // Default: sanitize returns input as-is
         _sanitizationService.SanitizeUserInput(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
@@ -44,6 +54,7 @@ public sealed class ChatHubTests : IDisposable
             _unitOfWork,
             _llmService,
             _contextWindowService,
+            _conversationRagService,
             _requestQueue,
             _logger,
             _sanitizationService);
@@ -80,6 +91,12 @@ public sealed class ChatHubTests : IDisposable
 
         var clientsProperty = hubType.GetProperty(nameof(Hub.Clients))!;
         clientsProperty.SetValue(hub, Substitute.For<IHubCallerClients>());
+    }
+
+    private static void SetConversationId(Conversation conversation, Guid id)
+    {
+        var prop = typeof(Conversation).BaseType!.BaseType!.GetProperty("Id");
+        prop!.SetValue(conversation, id);
     }
 
     // ── SendMessage: User not authenticated ────────────────────────────────
@@ -329,6 +346,57 @@ public sealed class ChatHubTests : IDisposable
         });
     }
 
+    [Fact]
+    public async Task SendMessage_WhenOriginLinksExist_StreamsSourcesAsFinalToken()
+    {
+        var userId = Guid.NewGuid();
+        var conversationId = Guid.NewGuid();
+        _currentUserService.UserId.Returns(userId.ToString());
+
+        var conversation = Conversation.Create(userId, "Test Chat");
+        SetConversationId(conversation, conversationId);
+
+        _repository.GetWithMessagesAsync(conversationId, Arg.Any<CancellationToken>())
+            .Returns(conversation);
+
+        _conversationRagService
+            .GetRagContextAsync(conversationId, "hello", Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new KnowledgeSearchResultDto(
+                    Guid.NewGuid(),
+                    "chunk",
+                    0.95f,
+                    "Document",
+                    "doc-1",
+                    new SourceOriginLinkDto("https://mediahub/files/spec", "Document", "spec.pdf")),
+            ]);
+
+        _contextWindowService
+            .BuildLlmMessagesAsync(Arg.Any<Conversation>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new LlmMessage("user", "hello"),
+            ]);
+
+        _contextWindowService.EstimateTokenCount(Arg.Any<string>()).Returns(42);
+
+        _llmService.StreamMessageAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateStreamChunks(("Answer body", "stop")));
+
+        var tokens = await CollectTokensAsync(
+            _hub.SendMessage(conversationId.ToString(), "hello", null, TestContext.Current.CancellationToken));
+
+        tokens.Should().HaveCount(2);
+        tokens[0].Token.Should().Be("Answer body");
+        tokens[0].IsComplete.Should().BeFalse();
+        tokens[1].Token.Should().Be("\n\n**Sources:**\n- [📄 spec.pdf](https://mediahub/files/spec)");
+        tokens[1].IsComplete.Should().BeTrue();
+        conversation.Messages.Should().ContainSingle(message =>
+            message.Role == nem.Mimir.Domain.Enums.MessageRole.Assistant &&
+            message.Content == "Answer body\n\n**Sources:**\n- [📄 spec.pdf](https://mediahub/files/spec)");
+    }
+
     // ── Helper ─────────────────────────────────────────────────────────────
 
     private static async Task<List<ChatToken>> CollectTokensAsync(IAsyncEnumerable<ChatToken> source)
@@ -340,5 +408,15 @@ public sealed class ChatHubTests : IDisposable
         }
 
         return result;
+    }
+
+    private static async IAsyncEnumerable<LlmStreamChunk> CreateStreamChunks(params (string Content, string? FinishReason)[] chunks)
+    {
+        foreach (var (content, finishReason) in chunks)
+        {
+            yield return new LlmStreamChunk(content, "phi-4-mini", finishReason);
+        }
+
+        await Task.CompletedTask;
     }
 }

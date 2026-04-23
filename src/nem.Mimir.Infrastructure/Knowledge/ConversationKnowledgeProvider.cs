@@ -51,7 +51,8 @@ internal sealed class ConversationKnowledgeProvider : IConversationKnowledgeProv
                 result.ChunkText,
                 result.Similarity,
                 result.EntityType,
-                result.EntityId))
+                result.EntityId,
+                result.OriginLink))
             .ToList();
     }
 

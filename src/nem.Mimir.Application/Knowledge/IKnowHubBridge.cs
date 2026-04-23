@@ -25,16 +25,23 @@ public sealed record SourceOriginLinkDto(
     int? LineEnd = null,
     string? ThumbnailUrl = null)
 {
+    private string DisplayLabel => OriginType switch
+    {
+        "Code" when LineStart.HasValue && LineEnd.HasValue && LineEnd.Value > LineStart.Value
+            => $"{DisplayName}:{LineStart}-{LineEnd}",
+        "Code" when LineStart.HasValue
+            => $"{DisplayName}:{LineStart}",
+        _ => DisplayName,
+    };
+
     public string ToMarkdown() =>
         OriginType switch
         {
-            "Cad" => $"[📐 {DisplayName}]({MediaHubUrl})",
-            "Code" => LineStart.HasValue
-                ? $"[💻 {DisplayName}:{LineStart}]({MediaHubUrl})"
-                : $"[💻 {DisplayName}]({MediaHubUrl})",
-            "Audio" => $"[🎙️ {DisplayName}]({MediaHubUrl})",
-            "Document" => $"[📄 {DisplayName}]({MediaHubUrl})",
-            _ => $"[📎 {DisplayName}]({MediaHubUrl})",
+            "Cad" => $"[📐 {DisplayLabel}]({MediaHubUrl})",
+            "Code" => $"[💻 {DisplayLabel}]({MediaHubUrl})",
+            "Audio" => $"[🎤 {DisplayLabel}]({MediaHubUrl})",
+            "Document" => $"[📄 {DisplayLabel}]({MediaHubUrl})",
+            _ => $"[📎 {DisplayLabel}]({MediaHubUrl})",
         };
 }
 

@@ -106,14 +106,77 @@ public sealed class KnowHubBridgeTests
     {
         new SourceOriginLinkDto("https://media/doc", "Document", "spec.pdf").ToMarkdown()
             .ShouldBe("[📄 spec.pdf](https://media/doc)");
-        new SourceOriginLinkDto("https://media/code", "Code", "Program.cs", 27).ToMarkdown()
-            .ShouldBe("[💻 Program.cs:27](https://media/code)");
+        new SourceOriginLinkDto("https://media/code", "Code", "Program.cs", 27, 31).ToMarkdown()
+            .ShouldBe("[💻 Program.cs:27-31](https://media/code)");
         new SourceOriginLinkDto("https://media/cad", "Cad", "layout.ifc").ToMarkdown()
             .ShouldBe("[📐 layout.ifc](https://media/cad)");
         new SourceOriginLinkDto("https://media/audio", "Audio", "meeting.wav").ToMarkdown()
-            .ShouldBe("[🎙️ meeting.wav](https://media/audio)");
+            .ShouldBe("[🎤 meeting.wav](https://media/audio)");
         new SourceOriginLinkDto("https://media/other", "Media", "preview.png").ToMarkdown()
             .ShouldBe("[📎 preview.png](https://media/other)");
+    }
+
+    [Fact]
+    public async Task SearchKnowledgeAsync_WhenOriginMetadataExists_MapsOriginLink()
+    {
+        var sut = CreateSut();
+
+        _embedding.EmbedAsync("query", null, Arg.Any<CancellationToken>())
+            .Returns(new EmbeddingResult([0.1f, 0.2f], "test", 2));
+
+        _vectorSearch.SearchAsync(Arg.Any<float[]>(), 5, null, 0.7f, Arg.Any<CancellationToken>())
+            .Returns(new List<VectorSearchResult>
+            {
+                new(
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    "CodeChunk",
+                    "auth-service",
+                    "chunk",
+                    0.91f,
+                    OriginUrl: "https://mediahub/files/auth-service",
+                    OriginFileName: "AuthService.cs",
+                    OriginContentType: "text/x-csharp",
+                    OriginKind: "Code",
+                    OriginStartLine: 45,
+                    OriginEndLine: 78),
+            });
+
+        var result = await sut.SearchKnowledgeAsync("query", 5, TestContext.Current.CancellationToken);
+
+        result.Count.ShouldBe(1);
+        result[0].OriginLink.ShouldNotBeNull();
+        result[0].OriginLink!.ToMarkdown().ShouldBe("[💻 AuthService.cs:45-78](https://mediahub/files/auth-service)");
+    }
+
+    [Fact]
+    public async Task SearchKnowledgeAsync_WhenOriginKindMissing_InferOriginTypeFromMetadata()
+    {
+        var sut = CreateSut();
+
+        _embedding.EmbedAsync("query", null, Arg.Any<CancellationToken>())
+            .Returns(new EmbeddingResult([0.1f, 0.2f], "test", 2));
+
+        _vectorSearch.SearchAsync(Arg.Any<float[]>(), 5, null, 0.7f, Arg.Any<CancellationToken>())
+            .Returns(new List<VectorSearchResult>
+            {
+                new(
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    "Drawing",
+                    "layout",
+                    "chunk",
+                    0.87f,
+                    OriginUrl: "https://mediahub/files/layout",
+                    OriginFileName: "layout.dwg",
+                    OriginContentType: "application/acad"),
+            });
+
+        var result = await sut.SearchKnowledgeAsync("query", 5, TestContext.Current.CancellationToken);
+
+        result[0].OriginLink.ShouldNotBeNull();
+        result[0].OriginLink!.OriginType.ShouldBe("Cad");
+        result[0].OriginLink!.ToMarkdown().ShouldBe("[📐 layout.dwg](https://mediahub/files/layout)");
     }
 
     [Fact]

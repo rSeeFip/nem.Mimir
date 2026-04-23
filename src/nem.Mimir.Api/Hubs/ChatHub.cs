@@ -7,7 +7,10 @@ using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Sanitization;
 using nem.Mimir.Application.Common.Models;
+using nem.Mimir.Application.Conversations.Services;
+using nem.Mimir.Application.Knowledge;
 using nem.Mimir.Domain.Enums;
+using nem.Mimir.Domain.ValueObjects;
 using nem.Mimir.Infrastructure.LiteLlm;
 
 namespace nem.Mimir.Api.Hubs;
@@ -26,6 +29,7 @@ public sealed class ChatHub : Hub
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmService _llmService;
     private readonly IContextWindowService _contextWindowService;
+    private readonly IConversationContextService _conversationRagService;
     private readonly LlmRequestQueue _requestQueue;
     private readonly ILogger<ChatHub> _logger;
     private readonly ISanitizationService _sanitizationService;
@@ -39,6 +43,7 @@ public sealed class ChatHub : Hub
         IUnitOfWork unitOfWork,
         ILlmService llmService,
         IContextWindowService contextWindowService,
+        IConversationContextService conversationRagService,
         LlmRequestQueue requestQueue,
         ILogger<ChatHub> logger,
         ISanitizationService sanitizationService)
@@ -48,6 +53,7 @@ public sealed class ChatHub : Hub
         _unitOfWork = unitOfWork;
         _llmService = llmService;
         _contextWindowService = contextWindowService;
+        _conversationRagService = conversationRagService;
         _requestQueue = requestQueue;
         _logger = logger;
         _sanitizationService = sanitizationService;
@@ -134,8 +140,23 @@ public sealed class ChatHub : Hub
 
         var selectedModel = model ?? DefaultModel;
 
+        var ragSources = await _conversationRagService
+            .GetRagContextAsync(conversationGuid, content, cancellationToken)
+            .ConfigureAwait(false);
+
+        var ragContextPrefix = string.Empty;
+        if (ragSources.Count > 0)
+        {
+            var serializedContext = string.Join("\n", ragSources.Select(source => $"[{source.DocumentId}] {source.ChunkText}"));
+            ragContextPrefix = $"Use the following retrieved context when answering:\n{serializedContext}\n\n";
+        }
+
         // Build LLM messages with context window management
-        var llmMessages = await _contextWindowService.BuildLlmMessagesAsync(conversation, content, selectedModel, cancellationToken);
+        var llmMessages = await _contextWindowService.BuildLlmMessagesAsync(
+            conversation,
+            $"{ragContextPrefix}{content}",
+            selectedModel,
+            cancellationToken);
 
         // Persist user message
         conversation.AddMessage(MessageRole.User, content);
@@ -160,7 +181,7 @@ public sealed class ChatHub : Hub
         var responseBuilder = new StringBuilder();
 
         // Fire-and-forget the producer task that streams from LLM into the channel
-        _ = ProduceTokensAsync(channel.Writer, conversation, selectedModel, llmMessages, responseBuilder, cancellationToken);
+        _ = ProduceTokensAsync(channel.Writer, conversation, selectedModel, llmMessages, ragSources, responseBuilder, cancellationToken);
 
         // Yield tokens from the channel reader
         await foreach (var token in channel.Reader.ReadAllAsync(cancellationToken))
@@ -174,16 +195,19 @@ public sealed class ChatHub : Hub
         Domain.Entities.Conversation conversation,
         string model,
         IReadOnlyList<LlmMessage> llmMessages,
+        IReadOnlyList<KnowledgeSearchResultDto> ragSources,
         StringBuilder responseBuilder,
         CancellationToken cancellationToken)
     {
         try
         {
+            var hasSources = AnswerSourcesFormatter.HasSources(ragSources);
+
             await foreach (var chunk in _llmService.StreamMessageAsync(model, llmMessages, cancellationToken))
             {
                 responseBuilder.Append(chunk.Content);
 
-                var isComplete = chunk.FinishReason is not null;
+                var isComplete = chunk.FinishReason is not null && !hasSources;
                 await writer.WriteAsync(new ChatToken(chunk.Content, isComplete, null), cancellationToken);
             }
 
@@ -191,8 +215,22 @@ public sealed class ChatHub : Hub
             var fullResponse = responseBuilder.ToString();
             if (fullResponse.Length > 0)
             {
-                var assistantMessage = conversation.AddMessage(MessageRole.Assistant, fullResponse, model);
-                assistantMessage.SetTokenCount(_contextWindowService.EstimateTokenCount(fullResponse));
+                var finalResponse = AnswerSourcesFormatter.AppendSources(fullResponse, ragSources);
+
+                if (hasSources)
+                {
+                    var sourcesSection = AnswerSourcesFormatter.BuildSourcesSection(ragSources);
+                    await writer.WriteAsync(new ChatToken(sourcesSection, true, null), CancellationToken.None);
+                }
+
+                var assistantMessage = conversation.AddMessage(MessageRole.Assistant, finalResponse, model);
+                assistantMessage.SetKnowledgeSources(ragSources.Select(source => new MessageKnowledgeSource(
+                    source.DocumentId,
+                    source.ChunkText,
+                    source.Similarity,
+                    source.EntityType,
+                    source.EntityId)));
+                assistantMessage.SetTokenCount(_contextWindowService.EstimateTokenCount(finalResponse));
                 await _repository.UpdateAsync(conversation, CancellationToken.None);
                 await _unitOfWork.SaveChangesAsync(CancellationToken.None);
             }

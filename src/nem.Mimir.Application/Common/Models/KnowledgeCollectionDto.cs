@@ -1,5 +1,7 @@
 namespace nem.Mimir.Application.Common.Models;
 
+using nem.Mimir.Application.Knowledge;
+
 public sealed record KnowledgeDocumentDto(
     Guid DocumentId,
     string FileName,
@@ -21,7 +23,8 @@ public sealed record KnowledgeSearchResultDto(
     string ChunkText,
     float Similarity,
     string? EntityType,
-    string? EntityId);
+    string? EntityId,
+    SourceOriginLinkDto? OriginLink = null);
 
 public sealed record WebSearchResultDto(
     string Title,

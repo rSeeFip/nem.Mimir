@@ -1,9 +1,11 @@
-﻿using nem.Mimir.Application.Common.Exceptions;
+﻿using AwesomeAssertions;
+using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Mappings;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Application.Conversations.Commands;
 using nem.Mimir.Application.Conversations.Services;
+using nem.Mimir.Application.Knowledge;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Domain.Enums;
 using NSubstitute;
@@ -258,6 +260,45 @@ public sealed class SendMessageCommandTests
         // Assert
         var expectedTokens = (responseText.Length + 3) / 4;
         result.TokenCount.ShouldBe(expectedTokens);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOriginLinksExist_AppendsSourcesSectionToAssistantMessage()
+    {
+        var userId = Guid.NewGuid();
+        var conversationId = Guid.NewGuid();
+        _currentUserService.UserId.Returns(userId.ToString());
+
+        var conversation = Conversation.Create(userId, "Test Chat");
+        SetConversationId(conversation, conversationId);
+
+        _repository.GetWithMessagesAsync(conversationId, Arg.Any<CancellationToken>())
+            .Returns(conversation);
+
+        _conversationRagService
+            .GetRagContextAsync(conversationId, "Where is the auth flow?", Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new KnowledgeSearchResultDto(
+                    Guid.NewGuid(),
+                    "auth chunk",
+                    0.98f,
+                    "Code",
+                    "auth-service",
+                    new SourceOriginLinkDto("https://mediahub/files/auth-service", "Code", "AuthService.cs", 45, 78)),
+            ]);
+
+        _llmService.StreamMessageAsync("phi-4-mini", Arg.Any<IReadOnlyList<LlmMessage>>(), Arg.Any<CancellationToken>())
+            .Returns(CreateStreamChunks("Answer body"));
+
+        var result = await _handler.Handle(
+            new SendMessageCommand(conversationId, "Where is the auth flow?", null),
+            TestContext.Current.CancellationToken);
+
+        result.Content.Should().Be("Answer body\n\n**Sources:**\n- [💻 AuthService.cs:45-78](https://mediahub/files/auth-service)");
+        conversation.Messages.Should().ContainSingle(message =>
+            message.Role == MessageRole.Assistant &&
+            message.Content == result.Content);
     }
 
     // Context window algorithm tests (BuildLlmMessages, EstimateTokenCount, GetTokenLimit)
