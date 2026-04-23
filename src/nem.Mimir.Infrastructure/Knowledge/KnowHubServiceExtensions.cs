@@ -3,10 +3,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using nem.Mimir.Application.Knowledge;
-using nem.KnowHub.Abstractions.Extensions;
-using nem.KnowHub.Distillation.Extensions;
-using nem.KnowHub.Graph.Extensions;
-using nem.KnowHub.GraphRag.Extensions;
+using nem.KnowHub.Enhancement.Abstractions.Extensions;
+using nem.KnowHub.Enhancement.Distillation.Extensions;
+using nem.KnowHub.Enhancement.Graph.Extensions;
+using nem.KnowHub.Enhancement.GraphRag.Extensions;
 
 public static class KnowHubServiceExtensions
 {

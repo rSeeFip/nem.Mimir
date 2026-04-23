@@ -33,10 +33,10 @@
     <ProjectReference Include="..\nem.Mimir.Finance.McpTools\nem.Mimir.Finance.McpTools.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
     <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
-    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Abstractions\nem.KnowHub.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Distillation\nem.KnowHub.Distillation.csproj" />
-    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.GraphRag\nem.KnowHub.GraphRag.csproj" />
-    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Graph\nem.KnowHub.Graph.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.Abstractions\nem.KnowHub.Enhancement.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.Distillation\nem.KnowHub.Enhancement.Distillation.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.GraphRag\nem.KnowHub.Enhancement.GraphRag.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.Graph\nem.KnowHub.Enhancement.Graph.csproj" />
     <ProjectReference Include="..\..\..\nem.MCP\services\nem.MCP.Core\nem.MCP.Core.csproj" />
     <ProjectReference Include="..\..\..\nem.Workflow\src\nem.Workflow.Domain\nem.Workflow.Domain.csproj" />
   </ItemGroup>

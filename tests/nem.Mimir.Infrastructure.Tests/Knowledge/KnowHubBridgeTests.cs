@@ -1,12 +1,13 @@
-﻿using Microsoft.Extensions.Logging;
+using System.Reflection;
+using Microsoft.Extensions.Logging;
 using nem.Mimir.Application.Knowledge;
 using nem.Mimir.Infrastructure.Knowledge;
-using nem.KnowHub.Abstractions.Interfaces;
-using nem.KnowHub.Abstractions.Models;
-using nem.KnowHub.Distillation.Interfaces;
-using nem.KnowHub.Distillation.Models;
-using nem.KnowHub.GraphRag.Interfaces;
-using nem.KnowHub.GraphRag.Models;
+using nem.KnowHub.Enhancement.Abstractions.Interfaces;
+using nem.KnowHub.Enhancement.Abstractions.Models;
+using nem.KnowHub.Enhancement.Distillation.Interfaces;
+using nem.KnowHub.Enhancement.Distillation.Models;
+using nem.KnowHub.Enhancement.GraphRag.Interfaces;
+using nem.KnowHub.Enhancement.GraphRag.Models;
 using NSubstitute;
 using Shouldly;
 
@@ -50,6 +51,7 @@ public sealed class KnowHubBridgeTests
         result[0].ContentId.ShouldBe(contentId);
         result[0].ChunkText.ShouldBe("chunk");
         result[0].Similarity.ShouldBe(0.91f);
+        result[0].OriginLink.ShouldBeNull();
         sut.IsAvailable.ShouldBeTrue();
     }
 
@@ -97,6 +99,30 @@ public sealed class KnowHubBridgeTests
         result.ContextChunks.ShouldContain("ctx");
         result.Score.ShouldBe(0.88d);
         sut.IsAvailable.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SourceOriginLinkDto_ToMarkdown_UsesExpectedFormatting()
+    {
+        new SourceOriginLinkDto("https://media/doc", "Document", "spec.pdf").ToMarkdown()
+            .ShouldBe("[📄 spec.pdf](https://media/doc)");
+        new SourceOriginLinkDto("https://media/code", "Code", "Program.cs", 27).ToMarkdown()
+            .ShouldBe("[💻 Program.cs:27](https://media/code)");
+        new SourceOriginLinkDto("https://media/cad", "Cad", "layout.ifc").ToMarkdown()
+            .ShouldBe("[📐 layout.ifc](https://media/cad)");
+        new SourceOriginLinkDto("https://media/audio", "Audio", "meeting.wav").ToMarkdown()
+            .ShouldBe("[🎙️ meeting.wav](https://media/audio)");
+        new SourceOriginLinkDto("https://media/other", "Media", "preview.png").ToMarkdown()
+            .ShouldBe("[📎 preview.png](https://media/other)");
+    }
+
+    [Fact]
+    public void KnowledgeSearchResult_HasNullableOriginLinkProperty()
+    {
+        var property = typeof(KnowledgeSearchResult).GetProperty(nameof(KnowledgeSearchResult.OriginLink), BindingFlags.Public | BindingFlags.Instance);
+
+        property.ShouldNotBeNull();
+        property!.PropertyType.ShouldBe(typeof(SourceOriginLinkDto));
     }
 
     [Fact]

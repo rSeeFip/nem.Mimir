@@ -2,9 +2,9 @@
 
 using Microsoft.Extensions.Logging;
 using nem.Mimir.Application.Knowledge;
-using nem.KnowHub.Abstractions.Interfaces;
-using nem.KnowHub.Distillation.Interfaces;
-using nem.KnowHub.GraphRag.Interfaces;
+using nem.KnowHub.Enhancement.Abstractions.Interfaces;
+using nem.KnowHub.Enhancement.Distillation.Interfaces;
+using nem.KnowHub.Enhancement.GraphRag.Interfaces;
 
 internal sealed class KnowHubBridge(
     IVectorSearchService vectorSearchService,
@@ -40,7 +40,8 @@ internal sealed class KnowHubBridge(
                     x.ChunkText,
                     x.Similarity,
                     x.EntityType,
-                    x.EntityId))
+                    x.EntityId,
+                    BuildOriginLink(x)))
                 .ToList();
         }
         catch (Exception ex)
@@ -173,5 +174,14 @@ internal sealed class KnowHubBridge(
     private void MarkAvailable()
     {
         _isAvailable = true;
+    }
+
+    private static SourceOriginLinkDto? BuildOriginLink(VectorSearchResult searchResult)
+    {
+        _ = searchResult;
+
+        // Vector search results do not yet surface MediaReference/source metadata.
+        // Task 17 will wire MediaHub-backed origin data through this mapping.
+        return null;
     }
 }

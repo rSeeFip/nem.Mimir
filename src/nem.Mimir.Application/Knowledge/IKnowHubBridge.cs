@@ -14,7 +14,29 @@ public sealed record KnowledgeSearchResult(
     string ChunkText,
     float Similarity,
     string? EntityType = null,
-    string? EntityId = null);
+    string? EntityId = null,
+    SourceOriginLinkDto? OriginLink = null);
+
+public sealed record SourceOriginLinkDto(
+    string MediaHubUrl,
+    string OriginType,
+    string DisplayName,
+    int? LineStart = null,
+    int? LineEnd = null,
+    string? ThumbnailUrl = null)
+{
+    public string ToMarkdown() =>
+        OriginType switch
+        {
+            "Cad" => $"[📐 {DisplayName}]({MediaHubUrl})",
+            "Code" => LineStart.HasValue
+                ? $"[💻 {DisplayName}:{LineStart}]({MediaHubUrl})"
+                : $"[💻 {DisplayName}]({MediaHubUrl})",
+            "Audio" => $"[🎙️ {DisplayName}]({MediaHubUrl})",
+            "Document" => $"[📄 {DisplayName}]({MediaHubUrl})",
+            _ => $"[📎 {DisplayName}]({MediaHubUrl})",
+        };
+}
 
 public sealed record DistilledKnowledge(
     Guid? KnowledgeId,
