@@ -1,22 +1,19 @@
+using Marten;
 using nem.Contracts.SessionPromotion;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
-using Wolverine;
-using ChannelId = nem.Contracts.Identity.ChannelId;
 
 namespace nem.Mimir.Application.SessionPromotion;
 
-/// <summary>
-/// Wolverine handler that promotes a conversation session from one transport channel
-/// to another. On success, publishes <see cref="SessionPromotedEvent"/> to the bus.
-/// StigmergyTraceId is propagated via the Wolverine envelope trace middleware (T7).
-/// </summary>
 public static class PromoteSessionHandler
 {
+    private static readonly TimeSpan IdempotencyWindow = TimeSpan.FromHours(24);
+
     public static async Task<SessionPromotedEvent> Handle(
         PromoteSessionCommand command,
         IChannelRepository channelRepository,
         IUnitOfWork unitOfWork,
+        IDocumentSession documentSession,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -24,25 +21,63 @@ public static class PromoteSessionHandler
         if (command.OldChannelId == command.NewChannelId)
             throw new ValidationException("OldChannelId and NewChannelId must differ.");
 
-        // Verify old channel exists before promotion
+        if (command.IdempotencyKey.HasValue)
+        {
+            var tenantId = "default";
+            var recordId = PromotionIdempotencyRecord.MakeId(tenantId, command.IdempotencyKey.Value);
+
+            var existing = await documentSession.LoadAsync<PromotionIdempotencyRecord>(
+                recordId, cancellationToken);
+
+            if (existing is not null)
+            {
+                if (DateTimeOffset.UtcNow - existing.CreatedAt <= IdempotencyWindow)
+                {
+                    throw new PromotionIdempotencyConflictException(command.IdempotencyKey.Value, existing.CachedResult);
+                }
+            }
+
+            var result = await ExecutePromotionAsync(command, channelRepository, unitOfWork, documentSession, cancellationToken);
+
+            var record = new PromotionIdempotencyRecord
+            {
+                Id = recordId,
+                IdempotencyKey = command.IdempotencyKey.Value,
+                TenantId = tenantId,
+                CachedResult = result,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            documentSession.Store(record);
+            await documentSession.SaveChangesAsync(cancellationToken);
+
+            return result;
+        }
+
+        return await ExecutePromotionAsync(command, channelRepository, unitOfWork, documentSession, cancellationToken);
+    }
+
+    private static async Task<SessionPromotedEvent> ExecutePromotionAsync(
+        PromoteSessionCommand command,
+        IChannelRepository channelRepository,
+        IUnitOfWork unitOfWork,
+        IDocumentSession documentSession,
+        CancellationToken cancellationToken)
+    {
         var oldChannel = await channelRepository.GetByIdAsync(command.OldChannelId, cancellationToken)
             ?? throw new NotFoundException(nameof(command.OldChannelId), command.OldChannelId);
 
-        // Verify new channel exists
         var newChannel = await channelRepository.GetByIdAsync(command.NewChannelId, cancellationToken)
             ?? throw new NotFoundException(nameof(command.NewChannelId), command.NewChannelId);
 
-        // Record promotion on old channel (marks it as promoted-from)
-        // Both channels remain active; no session data is deleted (re-auth not required)
         _ = oldChannel;
         _ = newChannel;
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        var promotedAt = DateTimeOffset.UtcNow;
 
         return new SessionPromotedEvent(
             command.OldChannelId,
             command.NewChannelId,
             command.ConversationForkId,
-            DateTimeOffset.UtcNow);
+            promotedAt);
     }
 }
