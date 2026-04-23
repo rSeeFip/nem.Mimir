@@ -93,7 +93,7 @@ public sealed class SessionPromotedCacheInvalidationTests
     public async Task Handle_SessionPromotedEvent_InvalidatesOldKey_SeedsNewKey()
     {
         var cache = Substitute.For<nem.Contracts.TokenOptimization.ISemanticCache>();
-        var logger = NullLogger<nem.Mimir.Infrastructure.SessionPromotion.SessionPromotedEventHandler>.Instance;
+        var logger = NullLogger<object>.Instance;
 
         var oldChannelId = ChannelId.New();
         var newChannelId = ChannelId.New();
@@ -114,7 +114,7 @@ public sealed class SessionPromotedCacheInvalidationTests
     public async Task Handle_NullEvent_ThrowsArgumentNullException()
     {
         var cache = Substitute.For<nem.Contracts.TokenOptimization.ISemanticCache>();
-        var logger = NullLogger<nem.Mimir.Infrastructure.SessionPromotion.SessionPromotedEventHandler>.Instance;
+        var logger = NullLogger<object>.Instance;
 
         await Should.ThrowAsync<ArgumentNullException>(
             () => nem.Mimir.Infrastructure.SessionPromotion.SessionPromotedEventHandler.HandleAsync(
