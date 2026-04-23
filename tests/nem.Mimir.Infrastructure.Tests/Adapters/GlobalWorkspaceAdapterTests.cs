@@ -56,9 +56,7 @@ public sealed class GlobalWorkspaceAdapterTests
         var options = Options.Create(new GlobalWorkspaceAdapterOptions());
         options.Value.ParticipatingAgentServiceNames.Add("planner");
 
-        var handler = new WorkspaceBroadcastNotificationHandler(
-            [participatingAgent, nonParticipatingAgent, inactiveAgent],
-            options);
+        var handler = new WorkspaceBroadcastNotificationHandler();
 
         var entryA = new WorkspaceEntry(WorkspaceEntryId.New(), "entry-a", 0.5, DateTimeOffset.UtcNow, "mcp");
         var entryB = new WorkspaceEntry(WorkspaceEntryId.New(), "entry-b", 0.6, DateTimeOffset.UtcNow, "mcp");
@@ -70,7 +68,11 @@ public sealed class GlobalWorkspaceAdapterTests
             BroadcastAt: DateTimeOffset.UtcNow,
             Entries: [entryA, entryB]));
 
-        await handler.Handle(notification, CancellationToken.None);
+        await handler.Handle(
+            notification,
+            [participatingAgent, nonParticipatingAgent, inactiveAgent],
+            options,
+            CancellationToken.None);
 
         await participatingAgent.Received(1).OnWorkspaceEntryAsync(entryA, Arg.Any<CancellationToken>());
         await participatingAgent.Received(1).OnWorkspaceEntryAsync(entryB, Arg.Any<CancellationToken>());
@@ -113,11 +115,11 @@ public sealed class GlobalWorkspaceAdapterTests
             })
             .StartAsync();
 
-        var runtime = host.Services.GetRequiredService<IWolverineRuntime>();
+        var runtime = host.Services.GetRequiredService<WolverineRuntime>();
         var handlerSnapshot = new
         {
-            handler_count = runtime.Options.HandlerGraph.Chains.Count,
-            handler_names = runtime.Options.HandlerGraph.Chains
+            handler_count = runtime.Handlers.Chains.Length,
+            handler_names = runtime.Handlers.Chains
                 .Select(chain => chain.MessageType.FullName)
                 .Where(name => name is not null)
                 .OrderBy(name => name)
