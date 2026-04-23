@@ -4,9 +4,11 @@ using Microsoft.Extensions.Options;
 using nem.Contracts.Cognitive;
 using nem.MCP.Core.Cognitive;
 using Wolverine;
+using Wolverine.Attributes;
 
 public sealed class GlobalWorkspaceAdapter
 {
+    [WolverineHandler]
     public static Task Handle(
         WorkspaceBroadcastEvent message,
         IMessageBus messageBus,

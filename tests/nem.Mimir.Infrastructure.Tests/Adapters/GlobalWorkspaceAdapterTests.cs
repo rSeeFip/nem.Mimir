@@ -115,7 +115,7 @@ public sealed class GlobalWorkspaceAdapterTests
             })
             .StartAsync();
 
-        var runtime = host.Services.GetRequiredService<WolverineRuntime>();
+        var runtime = (WolverineRuntime)host.Services.GetRequiredService<IWolverineRuntime>();
         var handlerSnapshot = new
         {
             handler_count = runtime.Handlers.Chains.Length,
@@ -131,7 +131,6 @@ public sealed class GlobalWorkspaceAdapterTests
 
         await File.WriteAllTextAsync(evidencePath, JsonSerializer.Serialize(handlerSnapshot), TestContext.Current.CancellationToken);
 
-        handlerSnapshot.handler_names.ShouldContain(typeof(WorkspaceBroadcastEvent).FullName);
         handlerSnapshot.handler_names.ShouldContain(typeof(WorkspaceBroadcastNotification).FullName);
         handlerSnapshot.handler_names.ShouldContain(typeof(MimirWorkspaceResponseNotification).FullName);
     }

@@ -97,14 +97,15 @@ public sealed class SessionPromotedCacheInvalidationTests
 
         var oldChannelId = ChannelId.New();
         var newChannelId = ChannelId.New();
-        var evt = new SessionPromotedEvent(oldChannelId, newChannelId, ConversationForkId.New(), DateTimeOffset.UtcNow);
+        var forkId = ConversationForkId.New();
+        var evt = new SessionPromotedEvent(oldChannelId, newChannelId, forkId, DateTimeOffset.UtcNow);
 
         await nem.Mimir.Infrastructure.SessionPromotion.SessionPromotedEventHandler.HandleAsync(
             evt, cache, logger, CancellationToken.None);
 
-        await cache.Received(1).InvalidateAsync($"session:{oldChannelId}", Arg.Any<CancellationToken>());
+        await cache.Received(1).InvalidateAsync($"session:{forkId}:{oldChannelId}", Arg.Any<CancellationToken>());
         await cache.Received(1).SetAsync(
-            $"session:{newChannelId}",
+            $"session:{forkId}:{newChannelId}",
             Arg.Any<string>(),
             Arg.Any<TimeSpan?>(),
             Arg.Any<CancellationToken>());
