@@ -1,3 +1,4 @@
+using Marten;
 using nem.Contracts.Identity;
 using nem.Contracts.SessionPromotion;
 using nem.Mimir.Application.Common.Exceptions;
@@ -21,22 +22,21 @@ public sealed class PromoteSessionHandlerTests
 
         var channelRepository = Substitute.For<IChannelRepository>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
+        var documentSession = Substitute.For<IDocumentSession>();
 
         channelRepository.GetByIdAsync(oldChannelId, Arg.Any<CancellationToken>())
-            .Returns(new Channel { Id = oldChannelId, Name = "whatsapp" });
+            .Returns(CreateChannel("whatsapp"));
         channelRepository.GetByIdAsync(newChannelId, Arg.Any<CancellationToken>())
-            .Returns(new Channel { Id = newChannelId, Name = "teams" });
+            .Returns(CreateChannel("teams"));
 
         var command = new PromoteSessionCommand(oldChannelId, newChannelId, forkId);
 
-        var result = await PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, CancellationToken.None);
+        var result = await PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, documentSession, CancellationToken.None);
 
         result.OldChannelId.ShouldBe(oldChannelId);
         result.NewChannelId.ShouldBe(newChannelId);
         result.ConversationForkId.ShouldBe(forkId);
         result.PromotedAtUtc.ShouldBeGreaterThan(DateTimeOffset.UtcNow.AddSeconds(-5));
-
-        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -47,11 +47,12 @@ public sealed class PromoteSessionHandlerTests
 
         var channelRepository = Substitute.For<IChannelRepository>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
+        var documentSession = Substitute.For<IDocumentSession>();
 
         var command = new PromoteSessionCommand(channelId, channelId, forkId);
 
         await Should.ThrowAsync<ValidationException>(
-            () => PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, CancellationToken.None));
+            () => PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, documentSession, CancellationToken.None));
 
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -65,6 +66,7 @@ public sealed class PromoteSessionHandlerTests
 
         var channelRepository = Substitute.For<IChannelRepository>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
+        var documentSession = Substitute.For<IDocumentSession>();
 
         channelRepository.GetByIdAsync(oldChannelId, Arg.Any<CancellationToken>())
             .Returns((Channel?)null);
@@ -72,7 +74,7 @@ public sealed class PromoteSessionHandlerTests
         var command = new PromoteSessionCommand(oldChannelId, newChannelId, forkId);
 
         await Should.ThrowAsync<NotFoundException>(
-            () => PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, CancellationToken.None));
+            () => PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, documentSession, CancellationToken.None));
 
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -86,16 +88,17 @@ public sealed class PromoteSessionHandlerTests
 
         var channelRepository = Substitute.For<IChannelRepository>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
+        var documentSession = Substitute.For<IDocumentSession>();
 
         channelRepository.GetByIdAsync(oldChannelId, Arg.Any<CancellationToken>())
-            .Returns(new Channel { Id = oldChannelId, Name = "whatsapp" });
+            .Returns(CreateChannel("whatsapp"));
         channelRepository.GetByIdAsync(newChannelId, Arg.Any<CancellationToken>())
             .Returns((Channel?)null);
 
         var command = new PromoteSessionCommand(oldChannelId, newChannelId, forkId);
 
         await Should.ThrowAsync<NotFoundException>(
-            () => PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, CancellationToken.None));
+            () => PromoteSessionHandler.Handle(command, channelRepository, unitOfWork, documentSession, CancellationToken.None));
 
         await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -105,8 +108,12 @@ public sealed class PromoteSessionHandlerTests
     {
         var channelRepository = Substitute.For<IChannelRepository>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
+        var documentSession = Substitute.For<IDocumentSession>();
 
         await Should.ThrowAsync<ArgumentNullException>(
-            () => PromoteSessionHandler.Handle(null!, channelRepository, unitOfWork, CancellationToken.None));
+            () => PromoteSessionHandler.Handle(null!, channelRepository, unitOfWork, documentSession, CancellationToken.None));
     }
+
+    private static Channel CreateChannel(string name)
+        => Channel.Create(Guid.NewGuid(), name, null, ChannelType.Public);
 }

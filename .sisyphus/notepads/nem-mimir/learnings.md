@@ -861,6 +861,12 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - Safer pattern for runtime-constructed generic logger dependencies in tests: build `ILogger<runtimeType>` interface with `typeof(ILogger<>).MakeGenericType(type)` and inject `Substitute.For(interfaceType, Array.Empty<object>())`.
 - Context-optimizer assertions should avoid strict `<` comparisons when optimization can validly return unchanged token count at threshold boundaries; `<=` preserves intent (no regression in token pressure) without flaky boundary failures.
 
+## [2026-04-23] PromoteSessionHandler test update
+
+- `PromoteSessionHandler.Handle` now requires `IDocumentSession` before `CancellationToken`; unit tests must create `Substitute.For<IDocumentSession>()` and pass it explicitly.
+- `Channel` cannot be object-initialized in tests because it has a private constructor/private setters; use `Channel.Create(Guid.NewGuid(), name, null, ChannelType.Public)` for lightweight valid instances.
+- Non-idempotent promotion path no longer persists through `IUnitOfWork.SaveChangesAsync`, so older assertions on `unitOfWork.Received().SaveChangesAsync(...)` are invalid for the happy path.
+
 ## [2026-02-28] Task: P6 - Mimir.Sync.Tests
 
 ### NSubstitute + Internal Types + ILogger<T> Gotcha
