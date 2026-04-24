@@ -1,5 +1,7 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
+using Wolverine;
+using nem.Contracts.Costs;
 using nem.Contracts.TokenOptimization;
 
 namespace nem.Mimir.Application.Tokens;
@@ -10,22 +12,27 @@ namespace nem.Mimir.Application.Tokens;
 /// </summary>
 public sealed class TokenTrackerService : ITokenTracker
 {
+    private const string ServiceName = "nem.mimir";
+
     private readonly ConcurrentBag<TokenUsageEvent> _events = new();
     private readonly TokenTrackerOptions _options;
     private readonly ILogger<TokenTrackerService> _logger;
+    private readonly IMessageBus? _messageBus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TokenTrackerService"/> class.
     /// </summary>
     /// <param name="options">Token tracker configuration options.</param>
     /// <param name="logger">Logger instance.</param>
-    public TokenTrackerService(TokenTrackerOptions options, ILogger<TokenTrackerService> logger)
+    /// <param name="messageBus">Optional Wolverine message bus for emitting cost events.</param>
+    public TokenTrackerService(TokenTrackerOptions options, ILogger<TokenTrackerService> logger, IMessageBus? messageBus = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
 
         _options = options;
         _logger = logger;
+        _messageBus = messageBus;
     }
 
     /// <inheritdoc />
@@ -87,6 +94,8 @@ public sealed class TokenTrackerService : ITokenTracker
             usageEvent.InputTokens,
             usageEvent.OutputTokens,
             usageEvent.Cost);
+
+        EmitCostEvent(usageEvent);
 
         return Task.CompletedTask;
     }
@@ -153,5 +162,46 @@ public sealed class TokenTrackerService : ITokenTracker
         return _events
             .Where(e => string.Equals(e.ServiceId, serviceId, StringComparison.Ordinal))
             .Sum(e => e.Cost);
+    }
+
+    private void EmitCostEvent(TokenUsageEvent usageEvent)
+    {
+        if (_messageBus is null)
+        {
+            return;
+        }
+
+        var now = usageEvent.Timestamp;
+        var minuteBucket = now.ToString("yyyyMMddHHmm");
+        var totalTokens = usageEvent.InputTokens + usageEvent.OutputTokens;
+
+        var isEmbedding = usageEvent.ModelId.Contains("embed", StringComparison.OrdinalIgnoreCase);
+        var resourceType = isEmbedding ? CostResourceType.Embedding : CostResourceType.LlmInference;
+
+        var costEvent = new CostEvent
+        {
+            IdempotencyKey = $"mimir:{usageEvent.ServiceId}:{minuteBucket}",
+            Timestamp = now,
+            ServiceId = ServiceName,
+            ResourceType = resourceType,
+            UsageQuantity = totalTokens,
+            UsageUnit = "tokens",
+            RawCost = usageEvent.Cost,
+            AmortizedCost = usageEvent.Cost,
+            Currency = "USD",
+            Tags = new Dictionary<string, string>
+            {
+                ["model_name"] = usageEvent.ModelId,
+                ["input_tokens"] = usageEvent.InputTokens.ToString(),
+                ["output_tokens"] = usageEvent.OutputTokens.ToString(),
+                ["total_tokens"] = totalTokens.ToString(),
+            },
+        };
+
+        _ = _messageBus.PublishAsync(costEvent)
+            .AsTask()
+            .ContinueWith(
+                t => _logger.LogError(t.Exception, "Failed to emit CostEvent for service {ServiceId}.", usageEvent.ServiceId),
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 }

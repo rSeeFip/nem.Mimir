@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1031;S1186;S5693;S2933</WarningsNotAsErrors>
+    <NoWarn>$(NoWarn);NU1902</NoWarn>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
