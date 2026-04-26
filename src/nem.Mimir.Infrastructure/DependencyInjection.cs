@@ -16,7 +16,6 @@ using nem.Mimir.Infrastructure.Identity;
 using nem.Mimir.Infrastructure.Services;
 using nem.Mimir.Application.Common.Sanitization;
 using Polly;
-using Docker.DotNet;
 using nem.Mimir.Infrastructure.Plugins;
 using nem.Mimir.Infrastructure.Plugins.BuiltIn;
 using nem.Mimir.Infrastructure.Agents;
@@ -42,11 +41,11 @@ using nem.Mimir.Infrastructure.Inference;
 using nem.Mimir.Domain.Plugins;
 using nem.Mimir.Infrastructure.Workflow;
 using nem.Mimir.Application.Notes.Services;
+using nem.Mimir.Infrastructure.Sandbox;
 
 public static class DependencyInjection
 {
     [SuppressMessage("Compiler", "CS0618", Justification = "Legacy Yjs storage remains registered for backward-compatible note migration paths.")]
-    [SuppressMessage("Compiler", "CS0618", Justification = "Docker.DotNet sandbox remains registered until all callers complete the OpenSandbox migration.")]
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -260,9 +259,9 @@ public static class DependencyInjection
         services.AddScoped<IInferenceGateway, InferenceGatewayService>();
         services.AddScoped<IWorkflowOrchestrationBridge, WorkflowOrchestrationBridge>();
 
-        // Docker sandbox service
-        // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.
-        services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
+        var openSandboxOptions = configuration.GetSection(OpenSandboxOptions.SectionName).Get<OpenSandboxOptions>()
+            ?? new OpenSandboxOptions();
+        services.AddOpenSandboxProvider(openSandboxOptions);
 
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<PluginManager>();
