@@ -183,6 +183,7 @@ public sealed class TokenTrackerService : ITokenTracker
             IdempotencyKey = $"mimir:{usageEvent.ServiceId}:{minuteBucket}",
             Timestamp = now,
             ServiceId = ServiceName,
+            TenantId = usageEvent.ServiceId,
             ResourceType = resourceType,
             UsageQuantity = totalTokens,
             UsageUnit = "tokens",

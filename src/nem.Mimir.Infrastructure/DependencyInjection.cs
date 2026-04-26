@@ -262,14 +262,7 @@ public static class DependencyInjection
 
         // Docker sandbox service
         // DockerClient is thread-safe (uses HttpClient internally) — Singleton is the correct lifetime.
-        // See: https://github.com/dotnet/Docker.DotNet
         services.AddSingleton<IDockerClient>(_ => new DockerClientConfiguration().CreateClient());
-        // TODO v4: Migrate ISandboxService consumers (ExecuteAgent, ExecuteCode, CodeRunnerPlugin)
-        // to ISandboxProvider (OpenSandbox K8s-native). ISandboxService.ExecuteAsync and
-        // ISandboxProvider.CreateSessionAsync are incompatible contracts — full migration deferred.
-#pragma warning disable CS0618
-        services.AddScoped<ISandboxService, SandboxService>();
-#pragma warning restore CS0618
 
         // Plugin service (singleton — manages plugin lifecycle)
         services.AddSingleton<PluginManager>();

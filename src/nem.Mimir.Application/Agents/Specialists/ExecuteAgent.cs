@@ -1,8 +1,9 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using nem.Contracts.Agents;
+using nem.Contracts.Sandbox;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Models;
-using nem.Contracts.Agents;
 
 namespace nem.Mimir.Application.Agents.Specialists;
 
@@ -30,14 +31,14 @@ public sealed class ExecuteAgent : ISpecialistAgent
         ["run", "execute", "create", "modify", "build", "compile", "test", "automate", "script", "generate"];
 
     private readonly ILlmService _llmService;
-    private readonly ISandboxService _sandboxService;
+    private readonly ISandboxProvider _sandboxProvider;
     private readonly ILogger<ExecuteAgent> _logger;
     private readonly List<ActionLogEntry> _actionLog = [];
 
-    public ExecuteAgent(ILlmService llmService, ISandboxService sandboxService, ILogger<ExecuteAgent> logger)
+    public ExecuteAgent(ILlmService llmService, ISandboxProvider sandboxProvider, ILogger<ExecuteAgent> logger)
     {
         _llmService = llmService ?? throw new ArgumentNullException(nameof(llmService));
-        _sandboxService = sandboxService ?? throw new ArgumentNullException(nameof(sandboxService));
+        _sandboxProvider = sandboxProvider ?? throw new ArgumentNullException(nameof(sandboxProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -103,11 +104,20 @@ public sealed class ExecuteAgent : ISpecialistAgent
 
                 LogAction("SandboxExecution", $"Executing {language} code in sandbox");
 
-                var sandboxResult = await _sandboxService.ExecuteAsync(code, language, cancellationToken);
+                var config = new SandboxConfig(Image: "sandbox:latest");
+                var session = await _sandboxProvider.CreateSessionAsync(config, SandboxPolicyClass.CreationLocked, cancellationToken);
+                SandboxExecutionResult sandboxResult;
+                try
+                {
+                    sandboxResult = await session.ExecuteAsync(code, language, cancellationToken: cancellationToken);
+                }
+                finally
+                {
+                    await _sandboxProvider.DestroySessionAsync(session.SessionId, cancellationToken);
+                }
 
                 LogAction("SandboxResult",
                     $"Exit code: {sandboxResult.ExitCode}, " +
-                    $"Timed out: {sandboxResult.TimedOut}, " +
                     $"Duration: {sandboxResult.ExecutionTimeMs}ms");
 
                 artifacts.Add($"sandbox-execution:{language}:exit-{sandboxResult.ExitCode}");
@@ -116,7 +126,6 @@ public sealed class ExecuteAgent : ISpecialistAgent
                 var output = $"{response.Content}\n\n--- Sandbox Execution Result ---\n" +
                              $"Language: {language}\n" +
                              $"Exit Code: {sandboxResult.ExitCode}\n" +
-                             $"Timed Out: {sandboxResult.TimedOut}\n" +
                              $"Duration: {sandboxResult.ExecutionTimeMs}ms\n" +
                              $"Stdout:\n{sandboxResult.Stdout}\n" +
                              (string.IsNullOrEmpty(sandboxResult.Stderr) ? "" : $"Stderr:\n{sandboxResult.Stderr}\n");

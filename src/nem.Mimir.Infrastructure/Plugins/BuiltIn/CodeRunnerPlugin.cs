@@ -1,28 +1,27 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using nem.Mimir.Application.Common.Interfaces;
+﻿using nem.Contracts.Sandbox;
 using nem.Mimir.Domain.Plugins;
 
 namespace nem.Mimir.Infrastructure.Plugins.BuiltIn;
 
 /// <summary>
-/// Built-in plugin that executes code in an isolated Docker sandbox.
-/// Delegates to <see cref="ISandboxService"/> resolved per-execution via a scope factory.
+/// Built-in plugin that executes code in an isolated sandbox session via OpenSandbox.
+/// Delegates to <see cref="ISandboxProvider"/> to create a per-execution session.
 /// </summary>
 internal sealed class CodeRunnerPlugin : IBuiltInPlugin
 {
     private static readonly HashSet<string> SupportedLanguages = new(StringComparer.OrdinalIgnoreCase) { "python", "javascript" };
 
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ISandboxProvider _sandboxProvider;
 
-    public CodeRunnerPlugin(IServiceScopeFactory scopeFactory)
+    public CodeRunnerPlugin(ISandboxProvider sandboxProvider)
     {
-        _scopeFactory = scopeFactory;
+        _sandboxProvider = sandboxProvider;
     }
 
     public string Id => "mimir.builtin.code-runner";
     public string Name => "Code Runner";
     public string Version => "1.0.0";
-    public string Description => "Executes Python or JavaScript code in an isolated Docker sandbox.";
+    public string Description => "Executes Python or JavaScript code in an isolated sandbox session.";
 
     public async Task<PluginResult> ExecuteAsync(PluginContext context, CancellationToken ct = default)
     {
@@ -42,13 +41,16 @@ internal sealed class CodeRunnerPlugin : IBuiltInPlugin
             return PluginResult.Failure($"Unsupported language '{language}'. Supported languages: python, javascript.");
         }
 
-        using var scope = _scopeFactory.CreateScope();
-        var sandbox = scope.ServiceProvider.GetRequiredService<ISandboxService>();
-        var result = await sandbox.ExecuteAsync(code, language, ct);
-
-        if (result.TimedOut)
+        var config = new SandboxConfig(Image: "sandbox:latest");
+        var session = await _sandboxProvider.CreateSessionAsync(config, SandboxPolicyClass.CreationLocked, ct);
+        SandboxExecutionResult result;
+        try
         {
-            return PluginResult.Failure("Code execution timed out.");
+            result = await session.ExecuteAsync(code, language, cancellationToken: ct);
+        }
+        finally
+        {
+            await _sandboxProvider.DestroySessionAsync(session.SessionId, ct);
         }
 
         if (result.ExitCode != 0)

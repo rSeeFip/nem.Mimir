@@ -1,8 +1,8 @@
 ﻿using System.Text;
 using FluentValidation;
+using nem.Contracts.Sandbox;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
-using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Domain.Enums;
 using nem.Mimir.Domain.Events;
 
@@ -63,18 +63,18 @@ internal sealed class ExecuteCodeCommandHandler
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly ICurrentUserService _currentUserService;
-    private readonly ISandboxService _sandboxService;
+    private readonly ISandboxProvider _sandboxProvider;
     private readonly IUnitOfWork _unitOfWork;
 
     public ExecuteCodeCommandHandler(
         IConversationRepository conversationRepository,
         ICurrentUserService currentUserService,
-        ISandboxService sandboxService,
+        ISandboxProvider sandboxProvider,
         IUnitOfWork unitOfWork)
     {
         _conversationRepository = conversationRepository;
         _currentUserService = currentUserService;
-        _sandboxService = sandboxService;
+        _sandboxProvider = sandboxProvider;
         _unitOfWork = unitOfWork;
     }
 
@@ -95,8 +95,17 @@ internal sealed class ExecuteCodeCommandHandler
         if (conversation.UserId != userGuid && !_currentUserService.Roles.Contains("Admin"))
             throw new ForbiddenAccessException();
 
-        var result = await _sandboxService.ExecuteAsync(
-            request.Code, request.Language, cancellationToken);
+        var config = new SandboxConfig(Image: "sandbox:latest");
+        var session = await _sandboxProvider.CreateSessionAsync(config, SandboxPolicyClass.CreationLocked, cancellationToken);
+        SandboxExecutionResult result;
+        try
+        {
+            result = await session.ExecuteAsync(request.Code, request.Language, cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            await _sandboxProvider.DestroySessionAsync(session.SessionId, cancellationToken);
+        }
 
         // Persist execution result as system message
         var output = FormatExecutionOutput(result, request.Language);
@@ -108,7 +117,7 @@ internal sealed class ExecuteCodeCommandHandler
             request.Language,
             result.ExitCode,
             result.ExecutionTimeMs,
-            result.TimedOut));
+            TimedOut: false));
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -117,16 +126,14 @@ internal sealed class ExecuteCodeCommandHandler
             result.Stderr,
             result.ExitCode,
             result.ExecutionTimeMs,
-            result.TimedOut);
+            TimedOut: false);
     }
 
-    private static string FormatExecutionOutput(CodeExecutionResult result, string language)
+    private static string FormatExecutionOutput(SandboxExecutionResult result, string language)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"[Code Execution: {language}]");
         sb.AppendLine($"Exit Code: {result.ExitCode} | Time: {result.ExecutionTimeMs}ms");
-        if (result.TimedOut)
-            sb.AppendLine("⚠ Execution timed out");
         if (!string.IsNullOrWhiteSpace(result.Stdout))
         {
             sb.AppendLine("--- stdout ---");

@@ -101,6 +101,7 @@ public sealed class CostEventEmissionTests
         await sut.RecordUsageAsync(new TokenUsageEvent("svc-1", "gpt-4o", 50, 30, 0.03m, BaseTime), CancellationToken.None);
 
         captured!.ServiceId.Should().Be("nem.mimir");
+        captured.TenantId.Should().Be("svc-1");
         captured.Currency.Should().Be("USD");
         captured.UsageUnit.Should().Be("tokens");
         captured.RawCost.Should().Be(0.03m);
