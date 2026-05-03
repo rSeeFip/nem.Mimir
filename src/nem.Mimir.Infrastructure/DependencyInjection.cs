@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
+using Marten;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Domain.McpServers;
+using nem.Mimir.Infrastructure.Billing;
 using nem.Mimir.Infrastructure.LiteLlm;
 using nem.Mimir.Infrastructure.McpServers;
 using nem.Mimir.Infrastructure.Persistence;
@@ -31,6 +33,12 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         services.AddScoped<ISaveChangesInterceptor, AuditableEntityInterceptor>();
+
+        services.AddMarten(options =>
+        {
+            options.Schema.For<PersistedCostEvent>()
+                .UniqueIndex(x => x.IdempotencyKey);
+        });
 
         services.AddDbContext<MimirDbContext>((sp, options) =>
         {
@@ -131,6 +139,8 @@ public static class DependencyInjection
 
         services.AddSingleton<Health.MimirHealthReportEmitter>();
         services.AddHostedService(sp => sp.GetRequiredService<Health.MimirHealthReportEmitter>());
+
+        services.AddScoped<ITenantUsageQueryService, TenantUsageQueryService>();
 
         services.AddSingleton<IToolAuditLogger, ToolAuditLogger>();
 

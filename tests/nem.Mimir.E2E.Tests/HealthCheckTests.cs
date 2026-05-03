@@ -25,11 +25,10 @@ public sealed class HealthCheckTests
 
         // Act — health endpoint is AllowAnonymous, no token needed
         var response = await client.GetAsync("/health");
+        var body = await response.Content.ReadAsStringAsync();
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
         body.ShouldBe("Healthy");
     }
 }
