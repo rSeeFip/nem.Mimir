@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
-using nem.KnowHub.Agents.Models;
+using nem.Cognitive.Agents.Models;
+
+#pragma warning disable CS0618
 
 namespace nem.Mimir.Application.Agents;
 
@@ -219,3 +221,5 @@ public sealed class ConversationMemoryService
     /// </summary>
     public int ContextWindow => _contextWindow;
 }
+
+#pragma warning restore CS0618

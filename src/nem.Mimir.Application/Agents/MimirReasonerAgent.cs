@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
-using nem.KnowHub.Abstractions.Interfaces;
-using nem.KnowHub.Abstractions.Models;
-using nem.KnowHub.Agents.Interfaces;
-using nem.KnowHub.Agents.Models;
+using nem.Cognitive.Abstractions.Interfaces;
+using nem.Cognitive.Abstractions.Models;
+using nem.Cognitive.Agents.Interfaces;
+using nem.Cognitive.Agents.Models;
+
+#pragma warning disable CS0618
 
 namespace nem.Mimir.Application.Agents;
 
@@ -62,8 +64,7 @@ public sealed class MimirReasonerAgent : INemAgent
     public AgentIdentity Identity { get; } = new(
         ServiceName: "Mimir",
         AgentName: "Reasoner",
-        SystemPrompt: ReasonerSystemPrompt,
-        Description: "Prefrontal Cortex reasoner that analyzes queries, routes to knowledge domains, and synthesizes multi-service responses.");
+        SystemPrompt: ReasonerSystemPrompt);
 
     /// <inheritdoc />
     public AutonomyLevel Autonomy => AutonomyLevel.L0_Execute;
@@ -221,3 +222,5 @@ public sealed class MimirReasonerAgent : INemAgent
         }.AsReadOnly();
     }
 }
+
+#pragma warning restore CS0618

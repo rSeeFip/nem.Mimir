@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
-using nem.KnowHub.Agents.Interfaces;
-using nem.KnowHub.Agents.Models;
+using nem.Cognitive.Agents.Interfaces;
+using nem.Cognitive.Agents.Models;
+
+#pragma warning disable CS0618
 
 namespace nem.Mimir.Application.Agents;
 
@@ -94,3 +96,5 @@ public static class MimirAgentHandlers
         return Task.FromResult(analysis);
     }
 }
+
+#pragma warning restore CS0618
