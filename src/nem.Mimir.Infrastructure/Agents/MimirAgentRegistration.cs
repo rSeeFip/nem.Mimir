@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using nem.KnowHub.Abstractions.Interfaces;
-using nem.KnowHub.Agents.Interfaces;
+using nem.Cognitive.Abstractions.Interfaces;
+using nem.Cognitive.Agents.Interfaces;
 using nem.Mimir.Application.Agents;
+
+#pragma warning disable CS0618
 
 namespace nem.Mimir.Infrastructure.Agents;
 
@@ -79,3 +81,5 @@ public static class MimirAgentRegistration
         return services;
     }
 }
+
+#pragma warning restore CS0618

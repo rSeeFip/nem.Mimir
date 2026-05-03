@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Logging;
 using nem.Mimir.Application.Agents;
-using nem.KnowHub.Abstractions.Interfaces;
-using nem.KnowHub.Abstractions.Models;
-using nem.KnowHub.Agents.Models;
+using nem.Cognitive.Abstractions.Interfaces;
+using nem.Cognitive.Abstractions.Models;
+using nem.Cognitive.Agents.Models;
 using NSubstitute;
 using Shouldly;
+
+#pragma warning disable CS0618
 
 namespace nem.Mimir.Application.Tests.Agents;
 
@@ -196,3 +198,5 @@ public sealed class MimirReasonerAgentTests
         await Task.CompletedTask;
     }
 }
+
+#pragma warning restore CS0618
