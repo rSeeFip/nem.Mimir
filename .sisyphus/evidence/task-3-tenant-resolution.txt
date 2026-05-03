@@ -1,0 +1,17 @@
+Tenant resolution validation
+
+Solution: /workspace/wmreflect/nem.Mimir/nem.Mimir.slnx
+Build: PASS (`dotnet build nem.Mimir.slnx --no-restore`)
+Test: PASS (`dotnet test tests/nem.Mimir.Api.Tests --filter "TenantResolution" -v normal`)
+
+Entry point status:
+- OpenAiCompatController: direct constructor injection of ICurrentUserService
+- MessagesController: authorized controller; tenant resolution available via DI registration
+- ConversationsController: authorized controller; tenant resolution available via DI registration
+- CodeExecutionController: authorized controller; tenant resolution available via DI registration
+- PluginsController: authorized controller; tenant resolution available via DI registration
+- ChannelEventsController: missing from current API assembly; documented as gap only
+
+Notes:
+- ICurrentUserService is registered in DI as scoped service.
+- No auth middleware or claim mapping changes were required.
