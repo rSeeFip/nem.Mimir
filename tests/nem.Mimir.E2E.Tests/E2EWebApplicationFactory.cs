@@ -1,22 +1,29 @@
+using System.Net.Sockets;
 using System.Text;
+using Npgsql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using nem.Mimir.E2E.Tests.Helpers;
 using nem.Mimir.Infrastructure.Persistence;
+using nem.Contracts.Identity;
+using nem.Contracts.Organism;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
 using Wolverine;
-using nem.Mimir.Infrastructure.LiteLlm;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using nem.Mimir.Application.Common.Interfaces;
 
@@ -54,6 +61,9 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
         await _postgres.StartAsync();
         await _rabbitmq.StartAsync();
 
+        await WaitForPostgresAsync();
+        await WaitForRabbitMqAsync();
+
         // 2. Start WireMock for LiteLLM proxy simulation
         _wireMock = WireMockServer.Start();
         ConfigureDefaultWireMockStubs();
@@ -65,7 +75,7 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
         //    so we must access it to trigger ConfigureWebHost and full app startup.
         //    Without this, CreateClient() in tests throws:
         //    "Server hasn't been initialized yet"
-        _ = Server;
+        await EnsureServerInitializedAsync();
     }
 
     public new async ValueTask DisposeAsync()
@@ -79,7 +89,7 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Development");
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
@@ -98,9 +108,16 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
                 ["LiteLlm:TimeoutSeconds"] = "30",
 
                 // JWT test settings — use symmetric key for test token validation
+                ["MimirApiOptions:StandaloneMode"] = "true",
                 ["Jwt:Authority"] = JwtTokenHelper.TestIssuer,
                 ["Jwt:Audience"] = JwtTokenHelper.TestAudience,
                 ["Jwt:RequireHttpsMetadata"] = "false",
+
+                // Disable OpenBao background integration during test startup.
+                // The E2E factory injects all required test configuration directly.
+                ["OpenBao:Enabled"] = "false",
+                ["OpenBao:Address"] = "http://127.0.0.1:8200",
+                ["OpenBao:Token"] = "test-token",
             };
 
             config.AddInMemoryCollection(testSettings);
@@ -112,6 +129,12 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
             // connection failures during test server startup.
             // This is the proven pattern from nem.Mimir.Api.IntegrationTests.
             services.DisableAllExternalWolverineTransports();
+
+            // Remove factory-registered hosted services that resolve singleton background
+            // workers from the root provider. In tests we only need the HTTP app surface,
+            // not long-running telemetry/config sync loops.
+            RemoveFactoryHostedServices(services);
+            RemoveServiceByTypeName(services, "nem.Mimir.Infrastructure.Health.MimirHealthReportEmitter");
 
             // Override the LiteLLM named HttpClient to point to WireMock.
             // The original AddHttpClient("LiteLlm", ...) in DependencyInjection.cs
@@ -130,6 +153,10 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
             // Register IDateTimeService — it's required by AuditableEntityInterceptor
             // but has no implementation registered in the main app's DI container.
             services.AddSingleton<IDateTimeService, TestDateTimeService>();
+            services.AddSingleton<IHomeostasisAgent, TestHomeostasisAgent>();
+            services.AddSingleton<IAutonomyGate, TestAutonomyGate>();
+            services.RemoveAll<IExceptionHandler>();
+            services.AddExceptionHandler<VerboseTestExceptionHandler>();
 
             // Override health checks: clear the original registrations (which captured
             // wrong URLs at startup) and add new ones pointing at our test infrastructure.
@@ -262,11 +289,226 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
         await context.Database.EnsureCreatedAsync();
     }
 
+    private async Task WaitForPostgresAsync()
+    {
+        await WaitForDependencyAsync(
+            "PostgreSQL",
+            async cancellationToken =>
+            {
+                await using var connection = new NpgsqlConnection(_postgres.GetConnectionString());
+                await connection.OpenAsync(cancellationToken);
+                await using var command = new NpgsqlCommand("SELECT 1", connection);
+                await command.ExecuteScalarAsync(cancellationToken);
+            });
+    }
+
+    private async Task WaitForRabbitMqAsync()
+    {
+        await WaitForDependencyAsync(
+            "RabbitMQ",
+            async cancellationToken =>
+            {
+                using var tcpClient = new TcpClient();
+                await tcpClient.ConnectAsync(_rabbitmq.Hostname, _rabbitmq.GetMappedPublicPort(5672), cancellationToken);
+            });
+    }
+
+    private async Task EnsureServerInitializedAsync()
+    {
+        Exception? lastException = null;
+
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                _ = Server;
+                return;
+            }
+            catch (Exception ex) when (attempt < 3)
+            {
+                lastException = ex;
+                await Task.Delay(TimeSpan.FromSeconds(2));
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                break;
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Failed to initialize E2E test server after 3 attempts.",
+            lastException);
+    }
+
+    private static async Task WaitForDependencyAsync(
+        string dependencyName,
+        Func<CancellationToken, Task> checkAsync)
+    {
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Exception? lastException = null;
+
+        while (!timeoutCts.IsCancellationRequested)
+        {
+            try
+            {
+                await checkAsync(timeoutCts.Token);
+                return;
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+
+        throw new TimeoutException(
+            $"Timed out waiting for {dependencyName} to become ready within 30 seconds.",
+            lastException);
+    }
+
+    private static void RemoveFactoryHostedServices(IServiceCollection services)
+    {
+        for (var i = services.Count - 1; i >= 0; i--)
+        {
+            var descriptor = services[i];
+            if (descriptor.ServiceType == typeof(IHostedService) && descriptor.ImplementationFactory is not null)
+            {
+                services.RemoveAt(i);
+            }
+        }
+    }
+
+    private static void RemoveServiceByTypeName(IServiceCollection services, string fullTypeName)
+    {
+        for (var i = services.Count - 1; i >= 0; i--)
+        {
+            var descriptor = services[i];
+            var serviceTypeName = descriptor.ServiceType.FullName;
+            var implementationTypeName = descriptor.ImplementationType?.FullName;
+
+            if (serviceTypeName == fullTypeName || implementationTypeName == fullTypeName)
+            {
+                services.RemoveAt(i);
+            }
+        }
+    }
+
     /// <summary>
-    /// Simple IDateTimeService implementation for E2E tests.
+     /// Simple IDateTimeService implementation for E2E tests.
     /// </summary>
     private sealed class TestDateTimeService : IDateTimeService
     {
         public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+    }
+
+    private sealed class TestHomeostasisAgent : IHomeostasisAgent
+    {
+        public Task<OrganismHealth> MonitorHealthAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return Task.FromResult(new OrganismHealth(
+                Timestamp: DateTimeOffset.UtcNow,
+                AggregateHealthScore: 1.0,
+                ServiceHealthScores: new Dictionary<string, double>
+                {
+                    ["nem.Mimir"] = 1.0,
+                },
+                Diagnostics: new Dictionary<string, string>
+                {
+                    ["status"] = "testing",
+                }));
+        }
+
+        public Task<HomeostasisCorrectionId> TriggerCorrectionAsync(
+            string reason,
+            IReadOnlyDictionary<string, double> metrics,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+            ArgumentNullException.ThrowIfNull(metrics);
+            return Task.FromResult(HomeostasisCorrectionId.New());
+        }
+
+        public Task<string> GetStatusAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult("testing");
+        }
+    }
+
+    private sealed class TestAutonomyGate : IAutonomyGate
+    {
+        public Task<AutonomyLevel> GetAutonomyLevelAsync(
+            string serviceName,
+            string action,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
+            ArgumentException.ThrowIfNullOrWhiteSpace(action);
+            return Task.FromResult(AutonomyLevel.L1_Suggest);
+        }
+
+        public Task<bool> RequestEscalationAsync(
+            string serviceName,
+            AutonomyLevel requestedLevel,
+            string reason,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
+            ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+            return Task.FromResult(true);
+        }
+
+        public Task OverrideAsync(
+            string serviceName,
+            string action,
+            AutonomyLevel level,
+            DateTimeOffset expiresAt,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
+            ArgumentException.ThrowIfNullOrWhiteSpace(action);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class VerboseTestExceptionHandler : IExceptionHandler
+    {
+        public async ValueTask<bool> TryHandleAsync(
+            HttpContext httpContext,
+            Exception exception,
+            CancellationToken cancellationToken)
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            httpContext.Response.ContentType = "application/problem+json";
+
+            await httpContext.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = exception.GetType().Name,
+                Detail = exception.ToString(),
+                Instance = httpContext.Request.Path,
+            }, cancellationToken: cancellationToken);
+
+            return true;
+        }
     }
 }
