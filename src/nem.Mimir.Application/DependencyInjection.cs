@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using nem.Mimir.Application.Common.Behaviours;
 using nem.Mimir.Application.Common.Mappings;
+using nem.Mimir.Application.Common.Sanitization;
 
 namespace nem.Mimir.Application;
 
@@ -22,6 +23,9 @@ public static class DependencyInjection
         var assembly = Assembly.GetExecutingAssembly();
 
         services.AddSingleton<MimirMapper>();
+
+        services.AddOptions<SanitizationOptions>()
+            .BindConfiguration(SanitizationOptions.SectionName);
 
         services.AddValidatorsFromAssembly(assembly);
 
