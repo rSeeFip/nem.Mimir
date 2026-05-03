@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using nem.Mimir.Api.Middleware;
 using nem.Mimir.Application.Common.Sanitization;
 using NSubstitute;
@@ -7,11 +8,6 @@ using Shouldly;
 
 namespace nem.Mimir.Api.Tests.Middleware;
 
-/// <summary>
-/// Tests for <see cref="OutputSanitizationMiddleware"/>, which logs suspicious patterns
-/// detected in incoming POST/PUT request query parameters on message-related endpoints.
-/// It does NOT rewrite request/response bodies — sanitization happens in the application layer.
-/// </summary>
 public sealed class OutputSanitizationMiddlewareTests
 {
     private readonly ILogger<OutputSanitizationMiddleware> _logger =
@@ -20,9 +16,10 @@ public sealed class OutputSanitizationMiddlewareTests
     private readonly ISanitizationService _sanitizationService =
         Substitute.For<ISanitizationService>();
 
-    private OutputSanitizationMiddleware CreateMiddleware(RequestDelegate next)
+    private OutputSanitizationMiddleware CreateMiddleware(RequestDelegate next, SanitizationOptions? options = null)
     {
-        return new OutputSanitizationMiddleware(next, _logger);
+        var opts = Options.Create(options ?? new SanitizationOptions());
+        return new OutputSanitizationMiddleware(next, _logger, opts);
     }
 
     private static DefaultHttpContext CreateHttpContext(string method = "GET", string path = "/api/test")
@@ -39,25 +36,23 @@ public sealed class OutputSanitizationMiddlewareTests
     [Fact]
     public async Task InvokeAsync_PostWithSuspiciousQueryParam_LogsWarning()
     {
-        // Arrange
         var nextCalled = false;
-        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            new SanitizationOptions { DefaultMode = SanitizationMode.Log });
         var context = CreateHttpContext("POST", "/api/messages");
         context.Request.QueryString = new QueryString("?search=<script>alert('xss')</script>");
 
         _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert
         _logger.Received().Log(
             LogLevel.Warning,
             Arg.Any<EventId>(),
             Arg.Any<object>(),
             Arg.Any<Exception?>(),
             Arg.Any<Func<object, Exception?, string>>());
-        nextCalled.ShouldBeTrue(); // Should still call next — logging only, not blocking
+        nextCalled.ShouldBeTrue();
     }
 
     // ── SQL injection pattern in query → logged ─────────────────────────────
@@ -65,17 +60,15 @@ public sealed class OutputSanitizationMiddlewareTests
     [Fact]
     public async Task InvokeAsync_PutWithSqlInjectionQueryParam_LogsWarning()
     {
-        // Arrange
-        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+        var middleware = CreateMiddleware(_ => Task.CompletedTask,
+            new SanitizationOptions { DefaultMode = SanitizationMode.Log });
         var context = CreateHttpContext("PUT", "/api/conversations/1");
         context.Request.QueryString = new QueryString("?title='; DROP TABLE users; --");
 
         _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert
         _logger.Received().Log(
             LogLevel.Warning,
             Arg.Any<EventId>(),
@@ -89,26 +82,21 @@ public sealed class OutputSanitizationMiddlewareTests
     [Fact]
     public async Task InvokeAsync_NullResponseBody_PassesThroughWithoutCrash()
     {
-        // Arrange — a GET request with no query params and a null-like body scenario
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateHttpContext("GET", "/api/messages");
 
-        // Act & Assert — should not throw
         await middleware.InvokeAsync(context, _sanitizationService);
     }
 
     [Fact]
     public async Task InvokeAsync_PostToNonMessageEndpoint_SkipsSuspiciousPatternCheck()
     {
-        // Arrange
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateHttpContext("POST", "/api/health");
         context.Request.QueryString = new QueryString("?query=<script>xss</script>");
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert — should NOT have checked since path doesn't contain message/conversation/hubs/chat
         _sanitizationService.DidNotReceive().ContainsSuspiciousPatterns(Arg.Any<string>());
     }
 
@@ -122,15 +110,12 @@ public sealed class OutputSanitizationMiddlewareTests
     [InlineData("OPTIONS")]
     public async Task InvokeAsync_NonPostPutMethod_SkipsSuspiciousPatternCheck(string method)
     {
-        // Arrange
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateHttpContext(method, "/api/messages");
         context.Request.QueryString = new QueryString("?q=<script>alert(1)</script>");
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert
         _sanitizationService.DidNotReceive().ContainsSuspiciousPatterns(Arg.Any<string>());
     }
 
@@ -139,17 +124,15 @@ public sealed class OutputSanitizationMiddlewareTests
     [Fact]
     public async Task InvokeAsync_MultipleSuspiciousQueryParams_LogsWarningForEach()
     {
-        // Arrange
-        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+        var middleware = CreateMiddleware(_ => Task.CompletedTask,
+            new SanitizationOptions { DefaultMode = SanitizationMode.Log });
         var context = CreateHttpContext("POST", "/api/messages");
         context.Request.QueryString = new QueryString("?a=<script>x</script>&b=DROP+TABLE");
 
         _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert — should log for each suspicious param
         _logger.Received(2).Log(
             LogLevel.Warning,
             Arg.Any<EventId>(),
@@ -163,17 +146,14 @@ public sealed class OutputSanitizationMiddlewareTests
     [Fact]
     public async Task InvokeAsync_CleanQueryParams_DoesNotLogWarning()
     {
-        // Arrange
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateHttpContext("POST", "/api/messages");
         context.Request.QueryString = new QueryString("?page=1&size=10");
 
         _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(false);
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert
         _logger.DidNotReceive().Log(
             LogLevel.Warning,
             Arg.Any<EventId>(),
@@ -182,23 +162,21 @@ public sealed class OutputSanitizationMiddlewareTests
             Arg.Any<Func<object, Exception?, string>>());
     }
 
-    // ── Next delegate is always called (middleware never blocks) ─────────────
+    // ── Log mode: always calls next ──────────────────────────────────────────
 
     [Fact]
-    public async Task InvokeAsync_SuspiciousInput_StillCallsNextDelegate()
+    public async Task InvokeAsync_SuspiciousInput_LogMode_StillCallsNextDelegate()
     {
-        // Arrange
         var nextCalled = false;
-        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            new SanitizationOptions { DefaultMode = SanitizationMode.Log });
         var context = CreateHttpContext("POST", "/hubs/chat");
         context.Request.QueryString = new QueryString("?msg=<script>alert('xss')</script>");
 
         _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert — middleware is logging-only; it must always call next
         nextCalled.ShouldBeTrue();
     }
 
@@ -210,17 +188,14 @@ public sealed class OutputSanitizationMiddlewareTests
     [InlineData("/Hubs/Chat")]
     public async Task InvokeAsync_CaseInsensitivePath_StillChecksForSuspiciousPatterns(string path)
     {
-        // Arrange
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateHttpContext("POST", path);
         context.Request.QueryString = new QueryString("?q=test");
 
         _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(false);
 
-        // Act
         await middleware.InvokeAsync(context, _sanitizationService);
 
-        // Assert — should have checked since path contains message/conversation/hubs/chat
         _sanitizationService.Received().ContainsSuspiciousPatterns(Arg.Any<string>());
     }
 
@@ -229,11 +204,171 @@ public sealed class OutputSanitizationMiddlewareTests
     [Fact]
     public async Task InvokeAsync_NullRequestPath_DoesNotThrow()
     {
-        // Arrange
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateHttpContext("POST", "");
 
-        // Act & Assert — should not throw even with empty path
         await middleware.InvokeAsync(context, _sanitizationService);
+    }
+
+    // ── Block mode: returns 400 and does NOT call next ───────────────────────
+
+    [Fact]
+    public async Task InvokeAsync_BlockMode_SuspiciousInput_Returns400()
+    {
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            new SanitizationOptions { DefaultMode = SanitizationMode.Block });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=<script>xss</script>");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        context.Response.StatusCode.ShouldBe(400);
+        nextCalled.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_BlockMode_SuspiciousInput_ResponseContainsProblemDetails()
+    {
+        var middleware = CreateMiddleware(_ => Task.CompletedTask,
+            new SanitizationOptions { DefaultMode = SanitizationMode.Block });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=<script>xss</script>");
+        context.Response.Body = new MemoryStream();
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        body.ShouldContain("Injection attempt detected");
+        (context.Response.ContentType ?? string.Empty).ShouldContain("application/problem+json");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_BlockMode_CleanInput_CallsNext()
+    {
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            new SanitizationOptions { DefaultMode = SanitizationMode.Block });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=hello");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(false);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        nextCalled.ShouldBeTrue();
+    }
+
+    // ── Sanitize mode: strips patterns and calls next ────────────────────────
+
+    [Fact]
+    public async Task InvokeAsync_SanitizeMode_SuspiciousInput_CallsNext()
+    {
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            new SanitizationOptions { DefaultMode = SanitizationMode.Sanitize });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=<script>xss</script>");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        nextCalled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldNotBe(400);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_SanitizeMode_SuspiciousInput_StripsDangerousPatterns()
+    {
+        var capturedQuery = string.Empty;
+        var middleware = CreateMiddleware(ctx =>
+        {
+            capturedQuery = ctx.Request.QueryString.Value ?? string.Empty;
+            return Task.CompletedTask;
+        }, new SanitizationOptions { DefaultMode = SanitizationMode.Sanitize });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=hello<script>xss</script>world");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        capturedQuery.ShouldNotContain("<script");
+        capturedQuery.ShouldContain("hello");
+        capturedQuery.ShouldContain("world");
+    }
+
+    // ── EnforcementEnabled=false: always passes through regardless of mode ───
+
+    [Theory]
+    [InlineData(SanitizationMode.Block)]
+    [InlineData(SanitizationMode.Sanitize)]
+    [InlineData(SanitizationMode.Log)]
+    public async Task InvokeAsync_EnforcementDisabled_AlwaysCallsNext(SanitizationMode mode)
+    {
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; },
+            new SanitizationOptions { EnforcementEnabled = false, DefaultMode = mode });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=<script>xss</script>");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        nextCalled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldNotBe(400);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_EnforcementDisabled_BlockMode_StillLogs()
+    {
+        var middleware = CreateMiddleware(_ => Task.CompletedTask,
+            new SanitizationOptions { EnforcementEnabled = false, DefaultMode = SanitizationMode.Block });
+        var context = CreateHttpContext("POST", "/api/messages");
+        context.Request.QueryString = new QueryString("?q=<script>xss</script>");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        _logger.Received().Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception?>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    // ── Channel override: telegram path uses telegram mode ───────────────────
+
+    [Fact]
+    public async Task InvokeAsync_TelegramPath_UsesChannelOverrideMode()
+    {
+        var nextCalled = false;
+        var options = new SanitizationOptions
+        {
+            DefaultMode = SanitizationMode.Log,
+            ChannelOverrides = new Dictionary<string, SanitizationMode>
+            {
+                ["telegram"] = SanitizationMode.Block
+            }
+        };
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, options);
+        var context = CreateHttpContext("POST", "/api/telegram/messages");
+        context.Request.QueryString = new QueryString("?q=<script>xss</script>");
+
+        _sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        await middleware.InvokeAsync(context, _sanitizationService);
+
+        context.Response.StatusCode.ShouldBe(400);
+        nextCalled.ShouldBeFalse();
     }
 }
