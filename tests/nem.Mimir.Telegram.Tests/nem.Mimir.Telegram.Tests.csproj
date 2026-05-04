@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\nem.Mimir.Telegram\nem.Mimir.Telegram.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Application\nem.Mimir.Application.csproj" />
   </ItemGroup>
 
 </Project>

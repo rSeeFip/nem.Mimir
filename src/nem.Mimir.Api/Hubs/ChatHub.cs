@@ -3,12 +3,14 @@ using System.Text;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Sanitization;
 using nem.Mimir.Application.Common.Models;
 using nem.Mimir.Domain.Enums;
 using nem.Mimir.Infrastructure.LiteLlm;
+using nem.Mimir.Infrastructure.Sanitization;
 
 namespace nem.Mimir.Api.Hubs;
 
@@ -21,6 +23,8 @@ public sealed class ChatHub : Hub
 {
     private const string DefaultModel = "phi-4-mini";
 
+    private const string ChannelName = "webwidget";
+
     private readonly IConversationRepository _repository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
@@ -29,6 +33,10 @@ public sealed class ChatHub : Hub
     private readonly LlmRequestQueue _requestQueue;
     private readonly ILogger<ChatHub> _logger;
     private readonly ISanitizationService _sanitizationService;
+    private readonly StreamingSanitizer _streamingSanitizer;
+    private readonly SanitizationOptions _sanitizationOptions;
+
+    private const string StreamingBlockedMessage = "The response stream was terminated due to suspicious content.";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ChatHub"/> class.
@@ -41,7 +49,9 @@ public sealed class ChatHub : Hub
         IContextWindowService contextWindowService,
         LlmRequestQueue requestQueue,
         ILogger<ChatHub> logger,
-        ISanitizationService sanitizationService)
+        ISanitizationService sanitizationService,
+        StreamingSanitizer streamingSanitizer,
+        IOptions<SanitizationOptions> sanitizationOptions)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(currentUserService);
@@ -51,6 +61,8 @@ public sealed class ChatHub : Hub
         ArgumentNullException.ThrowIfNull(requestQueue);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(sanitizationService);
+        ArgumentNullException.ThrowIfNull(streamingSanitizer);
+        ArgumentNullException.ThrowIfNull(sanitizationOptions);
 
         _repository = repository;
         _currentUserService = currentUserService;
@@ -60,6 +72,8 @@ public sealed class ChatHub : Hub
         _requestQueue = requestQueue;
         _logger = logger;
         _sanitizationService = sanitizationService;
+        _streamingSanitizer = streamingSanitizer;
+        _sanitizationOptions = sanitizationOptions.Value;
     }
 
     /// <inheritdoc />
@@ -129,8 +143,25 @@ public sealed class ChatHub : Hub
             yield break;
         }
 
-        // Sanitize user input before any processing
-        content = _sanitizationService.SanitizeUserInput(content);
+        var mode = _sanitizationOptions.EnforcementEnabled
+            ? _sanitizationOptions.GetModeForChannel(ChannelName)
+            : SanitizationMode.Log;
+
+        if (_sanitizationService.ContainsSuspiciousPatterns(content))
+        {
+            _logger.LogWarning("Suspicious patterns detected in webwidget message from user {UserId}", userId);
+
+            if (mode == SanitizationMode.Block)
+            {
+                yield return new ChatToken("Your message was blocked due to suspicious content. Please rephrase and try again.", true, null);
+                yield break;
+            }
+        }
+
+        if (mode != SanitizationMode.Log)
+        {
+            content = _sanitizationService.SanitizeUserInput(content);
+        }
 
         // Load conversation and verify ownership BEFORE adding to group
         var conversation = await _repository.GetWithMessagesAsync(conversationGuid, cancellationToken);
@@ -192,10 +223,22 @@ public sealed class ChatHub : Hub
         {
             await foreach (var chunk in _llmService.StreamMessageAsync(model, llmMessages, cancellationToken))
             {
-                responseBuilder.Append(chunk.Content);
-
+                var sanitizedChunk = _streamingSanitizer.SanitizeChunk(chunk.Content, ChannelName);
                 var isComplete = chunk.FinishReason is not null;
-                await writer.WriteAsync(new ChatToken(chunk.Content, isComplete, null), cancellationToken);
+
+                if (sanitizedChunk.ShouldTerminate)
+                {
+                    _logger.LogWarning(
+                        "Blocked streaming output for conversation {ConversationId}; detected patterns: {Patterns}",
+                        conversation.Id,
+                        sanitizedChunk.DetectedPatterns);
+
+                    await writer.WriteAsync(new ChatToken(StreamingBlockedMessage, true, null), cancellationToken);
+                    break;
+                }
+
+                responseBuilder.Append(sanitizedChunk.CleanContent);
+                await writer.WriteAsync(new ChatToken(sanitizedChunk.CleanContent, isComplete, null), cancellationToken);
             }
 
             // Persist complete assistant message

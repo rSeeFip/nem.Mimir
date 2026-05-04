@@ -1201,3 +1201,15 @@ Following existing pattern: request DTOs as `sealed record` at the bottom of the
 - BuiltInPluginRegistrar casts IPluginService to PluginManager to access internal RegisterPlugin method
 - Test pattern: NSubstitute for IServiceScopeFactory chain → IServiceScope → IServiceProvider → ISandboxService
 - Global `<Using Include="Xunit" />` in test .csproj means no explicit `using Xunit;` needed
+
+## T8: PersistCostEvent Marten Persistence Handler
+
+### Completed
+- Updated `PersistCostEventHandler` to recompute the persistence idempotency key via `PersistedCostEvent.ComputeIdempotencyKey(tenantId, userId, model, occurredAt)` instead of trusting the transport key on `CostEvent`.
+- Added resilient tag mapping for both camelCase and snake_case token/model/user fields (`userId`/`user_id`, `model`/`model_name`, `promptTokens`/`input_tokens`, etc.).
+- Added real Marten + PostgreSQL integration tests for persistence, deduplication, and field mapping in `PersistCostEventHandlerTests`.
+
+### Key Learnings
+- The `CostEvent` contract's `IdempotencyKey` is not the persistence dedup key required by `PersistedCostEvent`; the handler must derive its own SHA-256 key from tenant, user, model, and timestamp.
+- Emission patterns in active code use snake_case tags (`model_name`, `input_tokens`, `output_tokens`, `total_tokens`), so the legacy handler needs to accept those keys to map fields correctly.
+- For duplicate Wolverine deliveries, `IDocumentSession.Query<PersistedCostEvent>().AnyAsync(...)` before `Store()` is sufficient to avoid duplicate rows while still preserving the Marten unique index as the hard backstop.

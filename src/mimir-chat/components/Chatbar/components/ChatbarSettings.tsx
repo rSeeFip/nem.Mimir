@@ -1,4 +1,4 @@
-import { IconFileExport, IconLogout, IconSettings, IconUser } from '@tabler/icons-react';
+import { IconFileExport, IconLogout, IconSettings, IconUser, IconReceipt } from '@tabler/icons-react';
 import { useContext, useState } from 'react';
 
 import { useTranslation } from 'next-i18next';
@@ -51,6 +51,12 @@ export const ChatbarSettings = () => {
         text={t('Export data')}
         icon={<IconFileExport size={18} />}
         onClick={() => handleExportData()}
+      />
+
+      <SidebarButton
+        text={t('Billing')}
+        icon={<IconReceipt size={18} />}
+        onClick={() => window.location.href = '/billing'}
       />
 
       <SidebarButton

@@ -6,6 +6,8 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using nem.Mimir.Application.Common.Interfaces;
+using nem.Mimir.Application.Common.Sanitization;
 using nem.Mimir.Telegram.Configuration;
 using nem.Mimir.Telegram.Handlers;
 using nem.Mimir.Telegram.Services;
@@ -44,7 +46,9 @@ public sealed class TelegramBotServiceTests
         var commandHandler = new CommandHandler(
             apiClient, stateManager, authService, NullLogger<CommandHandler>.Instance);
         var messageHandler = new MessageHandler(
-            apiClient, stateManager, Options.Create(settings), NullLogger<MessageHandler>.Instance);
+            apiClient, stateManager, Options.Create(settings), NullLogger<MessageHandler>.Instance,
+            Substitute.For<ISanitizationService>(),
+            Options.Create(new SanitizationOptions { DefaultMode = SanitizationMode.Log }));
 
         return new TelegramBotService(options, commandHandler, messageHandler, _logger);
     }

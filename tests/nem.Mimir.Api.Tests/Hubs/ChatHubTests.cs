@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using nem.Mimir.Api.Hubs;
 using nem.Mimir.Application.Common.Exceptions;
 using nem.Mimir.Application.Common.Interfaces;
 using nem.Mimir.Application.Common.Sanitization;
 using nem.Mimir.Domain.Entities;
 using nem.Mimir.Infrastructure.LiteLlm;
+using nem.Mimir.Infrastructure.Sanitization;
 using NSubstitute;
 using Shouldly;
 
@@ -22,6 +24,8 @@ public sealed class ChatHubTests : IDisposable
     private readonly LlmRequestQueue _requestQueue;
     private readonly ILogger<ChatHub> _logger;
     private readonly ISanitizationService _sanitizationService;
+    private readonly StreamingSanitizer _streamingSanitizer;
+    private readonly IOptions<SanitizationOptions> _sanitizationOptions;
     private readonly ChatHub _hub;
 
     public ChatHubTests()
@@ -34,6 +38,8 @@ public sealed class ChatHubTests : IDisposable
         _requestQueue = new LlmRequestQueue(NullLogger<LlmRequestQueue>.Instance);
         _logger = NullLogger<ChatHub>.Instance;
         _sanitizationService = Substitute.For<ISanitizationService>();
+        _sanitizationOptions = Options.Create(new SanitizationOptions { DefaultMode = SanitizationMode.Log });
+        _streamingSanitizer = new StreamingSanitizer(_sanitizationOptions, NullLogger<StreamingSanitizer>.Instance);
 
         // Default: sanitize returns input as-is
         _sanitizationService.SanitizeUserInput(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
@@ -46,7 +52,9 @@ public sealed class ChatHubTests : IDisposable
             _contextWindowService,
             _requestQueue,
             _logger,
-            _sanitizationService);
+            _sanitizationService,
+            _streamingSanitizer,
+            _sanitizationOptions);
 
         // Set up mock Hub context and groups
         var mockContext = Substitute.For<HubCallerContext>();

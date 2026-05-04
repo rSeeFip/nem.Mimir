@@ -4,37 +4,39 @@ using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using nem.Mimir.Application.Common.Sanitization;
 using nem.Mimir.Telegram.Configuration;
 using nem.Mimir.Telegram.Services;
 
 namespace nem.Mimir.Telegram.Handlers;
 
-/// <summary>
-/// Handles regular (non-command) text messages by sending them to the Mimir API
-/// and streaming the response back to the Telegram user.
-/// </summary>
 internal sealed class MessageHandler : IMessageHandler
 {
+    private const string ChannelName = "telegram";
+
     private readonly MimirApiClient _apiClient;
     private readonly UserStateManager _stateManager;
     private readonly TelegramSettings _settings;
     private readonly ILogger<MessageHandler> _logger;
+    private readonly ISanitizationService _sanitizationService;
+    private readonly SanitizationOptions _sanitizationOptions;
 
     public MessageHandler(
         MimirApiClient apiClient,
         UserStateManager stateManager,
         IOptions<TelegramSettings> settings,
-        ILogger<MessageHandler> logger)
+        ILogger<MessageHandler> logger,
+        ISanitizationService sanitizationService,
+        IOptions<SanitizationOptions> sanitizationOptions)
     {
         _apiClient = apiClient;
         _stateManager = stateManager;
         _settings = settings.Value;
         _logger = logger;
+        _sanitizationService = sanitizationService;
+        _sanitizationOptions = sanitizationOptions.Value;
     }
 
-    /// <summary>
-    /// Processes a text message from a Telegram user.
-    /// </summary>
     public async Task HandleAsync(ITelegramBotClient bot, Message message, CancellationToken ct)
     {
         var chatId = message.Chat.Id;
@@ -59,12 +61,33 @@ internal sealed class MessageHandler : IMessageHandler
             return;
         }
 
+        var mode = _sanitizationOptions.EnforcementEnabled
+            ? _sanitizationOptions.GetModeForChannel(ChannelName)
+            : SanitizationMode.Log;
+
+        if (_sanitizationService.ContainsSuspiciousPatterns(text))
+        {
+            _logger.LogWarning("Suspicious patterns detected in telegram message from user {UserId}", userId);
+
+            if (mode == SanitizationMode.Block)
+            {
+                await bot.SendMessage(chatId,
+                    "⚠️ Your message was blocked due to suspicious content. Please rephrase and try again.",
+                    cancellationToken: ct);
+                return;
+            }
+        }
+
+        if (mode != SanitizationMode.Log)
+        {
+            text = _sanitizationService.SanitizeUserInput(text);
+        }
+
         _apiClient.SetBearerToken(state.BearerToken);
 
         _logger.LogDebug("Sending message from user {UserId} to conversation {ConversationId}",
             userId, state.CurrentConversationId);
 
-        // Send initial "Thinking..." message
         var thinkingMessage = await bot.SendMessage(chatId, "🤔 Thinking...", cancellationToken: ct);
         var responseBuilder = new StringBuilder();
         var lastUpdateTime = DateTimeOffset.UtcNow;
@@ -86,7 +109,6 @@ internal sealed class MessageHandler : IMessageHandler
                 }
             }
 
-            // Final update with complete response
             var finalResponse = responseBuilder.Length > 0
                 ? responseBuilder.ToString()
                 : "⚠️ The AI returned an empty response.";
@@ -95,7 +117,6 @@ internal sealed class MessageHandler : IMessageHandler
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            // Graceful shutdown — update with whatever we have
             if (responseBuilder.Length > 0)
             {
                 await TryEditMessageAsync(bot, chatId, thinkingMessage.Id,
@@ -114,7 +135,6 @@ internal sealed class MessageHandler : IMessageHandler
     {
         try
         {
-            // Telegram has a 4096 character limit for messages
             if (text.Length > 4096)
             {
                 text = text[..4093] + "...";

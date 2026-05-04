@@ -78,3 +78,10 @@ Browser → openchat-ui (Next.js :3000)
 - ADJUST: T27-T30 (Wave 5) are now obsolete for Angular, replaced by new tasks
 - ADJUST: T28 streaming → built into openchat-ui natively (SSE)
 - ADJUST: T29 admin → minimal in openchat-ui, defer full admin to MCP Dashboard
+
+
+## ADR-T8: Persisted cost-event dedup uses computed document key
+
+- `PersistCostEventHandler` ignores the incoming `CostEvent.IdempotencyKey` for persistence deduplication and instead computes the Marten document key with `PersistedCostEvent.ComputeIdempotencyKey(...)`.
+- The handler accepts both legacy camelCase tags and active snake_case token/model tags so infrastructure persistence remains compatible with multiple emitters.
+- `TotalTokens` is taken from explicit tags first, then prompt+completion sum, then integer token `UsageQuantity` fallback when `UsageUnit == "tokens"`.

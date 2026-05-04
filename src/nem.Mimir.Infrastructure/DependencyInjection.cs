@@ -14,6 +14,7 @@ using nem.Mimir.Infrastructure.McpServers;
 using nem.Mimir.Infrastructure.Persistence;
 using nem.Mimir.Infrastructure.Persistence.Interceptors;
 using nem.Mimir.Infrastructure.Persistence.Repositories;
+using nem.Mimir.Infrastructure.Sanitization;
 using nem.Mimir.Infrastructure.Services;
 using nem.Mimir.Application.Common.Sanitization;
 using Polly;
@@ -36,6 +37,8 @@ public static class DependencyInjection
 
         services.AddMarten(options =>
         {
+            options.Connection(configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("DefaultConnection connection string is required for Marten."));
             options.Schema.For<PersistedCostEvent>()
                 .UniqueIndex(x => x.IdempotencyKey);
         });
@@ -71,6 +74,7 @@ public static class DependencyInjection
         // Sanitization service (singleton — stateless)
         services.Configure<SanitizationSettings>(configuration.GetSection(SanitizationSettings.SectionName));
         services.AddSingleton<ISanitizationService, SanitizationService>();
+        services.AddScoped<StreamingSanitizer>();
         // LiteLLM options
         services.Configure<LiteLlmOptions>(configuration.GetSection(LiteLlmOptions.SectionName));
 

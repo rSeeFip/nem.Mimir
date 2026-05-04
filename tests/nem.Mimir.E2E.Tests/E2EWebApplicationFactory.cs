@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using System.Text;
 using Npgsql;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
@@ -14,7 +15,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
+using Marten;
 using nem.Mimir.E2E.Tests.Helpers;
+using nem.Mimir.Infrastructure.Billing;
 using nem.Mimir.Infrastructure.Persistence;
 using nem.Contracts.Identity;
 using nem.Contracts.Organism;
@@ -108,7 +111,7 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
                 ["LiteLlm:TimeoutSeconds"] = "30",
 
                 // JWT test settings — use symmetric key for test token validation
-                ["MimirApiOptions:StandaloneMode"] = "true",
+                ["MimirApiOptions:StandaloneMode"] = "false",
                 ["Jwt:Authority"] = JwtTokenHelper.TestIssuer,
                 ["Jwt:Audience"] = JwtTokenHelper.TestAudience,
                 ["Jwt:RequireHttpsMetadata"] = "false",
@@ -125,6 +128,21 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
 
         builder.ConfigureTestServices(services =>
         {
+            // Override Marten to use the Testcontainers PostgreSQL database.
+            // Remove existing Marten registrations first so our test config wins.
+            services.RemoveAll<IDocumentStore>();
+            services.RemoveAll<IDocumentSession>();
+            services.RemoveAll<IQuerySession>();
+#pragma warning disable EXTEXP0001 // Experimental API
+            services.AddMarten(options =>
+            {
+                options.Connection(_postgres.GetConnectionString());
+                options.Schema.For<PersistedCostEvent>()
+                    .UniqueIndex(x => x.IdempotencyKey);
+                options.AutoCreateSchemaObjects = JasperFx.AutoCreate.All;
+            });
+#pragma warning restore EXTEXP0001
+
             // Disable Wolverine's external transports (RabbitMQ) to prevent
             // connection failures during test server startup.
             // This is the proven pattern from nem.Mimir.Api.IntegrationTests.
@@ -171,27 +189,29 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
                     name: "litellm",
                     timeout: TimeSpan.FromSeconds(5));
             // Override JWT Bearer to use symmetric key validation instead of Keycloak OIDC discovery
-            services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
-            {
-                var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(JwtTokenHelper.TestSigningKey));
-
-                options.Authority = null;
-                options.RequireHttpsMetadata = false;
-
-                options.TokenValidationParameters = new TokenValidationParameters
+            services.RemoveAll<IAuthenticationSchemeProvider>();
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
                 {
-                    ValidateIssuer = true,
-                    ValidIssuer = JwtTokenHelper.TestIssuer,
-                    ValidateAudience = true,
-                    ValidAudience = JwtTokenHelper.TestAudience,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = key,
-                    NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier,
-                    RoleClaimType = System.Security.Claims.ClaimTypes.Role,
-                };
-            });
+                    var key = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(JwtTokenHelper.TestSigningKey));
+
+                    options.Authority = null;
+                    options.RequireHttpsMetadata = false;
+
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidIssuer = JwtTokenHelper.TestIssuer,
+                        ValidateAudience = true,
+                        ValidAudience = JwtTokenHelper.TestAudience,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = key,
+                        NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier,
+                        RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+                    };
+                });
         });
     }
 

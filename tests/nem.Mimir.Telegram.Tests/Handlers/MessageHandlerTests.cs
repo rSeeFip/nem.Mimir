@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using nem.Mimir.Application.Common.Interfaces;
+using nem.Mimir.Application.Common.Sanitization;
 using nem.Mimir.Telegram.Configuration;
 using nem.Mimir.Telegram.Handlers;
 using nem.Mimir.Telegram.Services;
@@ -31,7 +33,9 @@ public sealed class MessageHandlerTests
             StreamingUpdateIntervalMs = 500
         });
 
-        _sut = new MessageHandler(_apiClient, _stateManager, _settings, _logger);
+        _sut = new MessageHandler(_apiClient, _stateManager, _settings, _logger,
+            Substitute.For<ISanitizationService>(),
+            Options.Create(new SanitizationOptions { DefaultMode = SanitizationMode.Log }));
     }
 
     [Fact]
@@ -116,6 +120,107 @@ public sealed class MessageHandlerTests
             }
         }
         return null;
+    }
+
+    [Fact]
+    public async Task HandleAsync_SanitizationCalled_OnUserInput()
+    {
+        var sanitizationService = Substitute.For<ISanitizationService>();
+        sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(false);
+        sanitizationService.SanitizeUserInput(Arg.Any<string>()).Returns("sanitized text");
+
+        var sut = CreateHandlerWithSanitization(sanitizationService,
+            new SanitizationOptions
+            {
+                EnforcementEnabled = true,
+                DefaultMode = SanitizationMode.Sanitize
+            });
+
+        var bot = CreateBotWithThinkingMessageMock();
+        _stateManager.SetAuthenticated(200, "test-token");
+        _stateManager.SetCurrentConversation(200, Guid.NewGuid(), "Test Conversation");
+        var message = CreateMessage("Hello AI");
+
+        await sut.HandleAsync(bot, message, CancellationToken.None);
+
+        sanitizationService.Received(1).SanitizeUserInput("Hello AI");
+    }
+
+    [Fact]
+    public async Task HandleAsync_BlockMode_ReturnErrorMessage_WhenSuspiciousContent()
+    {
+        var sanitizationService = Substitute.For<ISanitizationService>();
+        sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+
+        var sut = CreateHandlerWithSanitization(sanitizationService,
+            new SanitizationOptions
+            {
+                EnforcementEnabled = true,
+                DefaultMode = SanitizationMode.Block
+            });
+
+        _stateManager.SetAuthenticated(200, "test-token");
+        _stateManager.SetCurrentConversation(200, Guid.NewGuid(), "Test Conversation");
+        var message = CreateMessage("<script>alert('xss')</script>");
+
+        await sut.HandleAsync(_bot, message, CancellationToken.None);
+
+        var sentText = GetSentMessageText();
+        sentText.ShouldNotBeNull();
+        sentText.ShouldContain("blocked");
+    }
+
+    [Fact]
+    public async Task HandleAsync_SanitizeMode_StripsSuspiciousContent_AndContinues()
+    {
+        var sanitizationService = Substitute.For<ISanitizationService>();
+        sanitizationService.ContainsSuspiciousPatterns(Arg.Any<string>()).Returns(true);
+        sanitizationService.SanitizeUserInput(Arg.Any<string>()).Returns("clean text");
+
+        var sut = CreateHandlerWithSanitization(sanitizationService,
+            new SanitizationOptions
+            {
+                EnforcementEnabled = true,
+                DefaultMode = SanitizationMode.Sanitize
+            });
+
+        var bot = CreateBotWithThinkingMessageMock();
+        _stateManager.SetAuthenticated(200, "test-token");
+        _stateManager.SetCurrentConversation(200, Guid.NewGuid(), "Test Conversation");
+        var message = CreateMessage("<script>bad</script> clean text");
+
+        await sut.HandleAsync(bot, message, CancellationToken.None);
+
+        sanitizationService.Received(1).SanitizeUserInput(Arg.Any<string>());
+        var calls = bot.ReceivedCalls().ToList();
+        var blockMessageSent = calls
+            .Select(c => c.GetArguments())
+            .Where(a => a.Length > 0 && a[0] is SendMessageRequest)
+            .Select(a => ((SendMessageRequest)a[0]!).Text!)
+            .Any(t => t.Contains("blocked", StringComparison.OrdinalIgnoreCase));
+        blockMessageSent.ShouldBeFalse();
+    }
+
+    private MessageHandler CreateHandlerWithSanitization(
+        ISanitizationService sanitizationService,
+        SanitizationOptions options)
+    {
+        return new MessageHandler(
+            _apiClient,
+            _stateManager,
+            _settings,
+            _logger,
+            sanitizationService,
+            Options.Create(options));
+    }
+
+    private static ITelegramBotClient CreateBotWithThinkingMessageMock()
+    {
+        var bot = Substitute.For<ITelegramBotClient>();
+        var thinkingMessage = new Message { Chat = new Chat { Id = 100 }, Date = DateTime.UtcNow };
+        bot.SendRequest<Message>(Arg.Any<SendMessageRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(thinkingMessage));
+        return bot;
     }
 
     private static Message CreateMessage(string text)
