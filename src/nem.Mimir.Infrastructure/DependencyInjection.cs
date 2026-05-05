@@ -145,6 +145,7 @@ public static class DependencyInjection
         services.AddHostedService(sp => sp.GetRequiredService<Health.MimirHealthReportEmitter>());
 
         services.AddScoped<ITenantUsageQueryService, TenantUsageQueryService>();
+        services.AddSingleton<Observability.MimirMetrics>();
 
         services.AddSingleton<IToolAuditLogger, ToolAuditLogger>();
 

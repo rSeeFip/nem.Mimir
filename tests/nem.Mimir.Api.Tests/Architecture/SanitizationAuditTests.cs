@@ -61,7 +61,10 @@ public sealed class SanitizationAuditTests
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=mimir_tests;Username=postgres;Password=postgres"
+            })
             .Build();
 
         services.AddApplicationServices();
