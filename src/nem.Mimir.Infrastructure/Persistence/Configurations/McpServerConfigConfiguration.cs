@@ -16,6 +16,11 @@ public class McpServerConfigConfiguration : IEntityTypeConfiguration<McpServerCo
             .HasColumnName("id")
             .ValueGeneratedNever();
 
+        builder.Property(c => c.TenantId)
+            .HasColumnName("tenant_id")
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(c => c.Name)
             .HasColumnName("name")
             .HasMaxLength(200)
@@ -64,8 +69,14 @@ public class McpServerConfigConfiguration : IEntityTypeConfiguration<McpServerCo
             .IsRequired();
 
         builder.HasIndex(c => c.Name)
-            .IsUnique()
             .HasDatabaseName("ix_mcp_server_configs_name");
+
+        builder.HasIndex(c => new { c.TenantId, c.Name })
+            .IsUnique()
+            .HasDatabaseName("ix_mcp_server_configs_tenant_id_name");
+
+        builder.HasIndex(c => c.TenantId)
+            .HasDatabaseName("ix_mcp_server_configs_tenant_id");
 
         builder.HasIndex(c => c.IsEnabled)
             .HasDatabaseName("ix_mcp_server_configs_is_enabled");
@@ -86,6 +97,7 @@ public class McpServerConfigConfiguration : IEntityTypeConfiguration<McpServerCo
             new McpServerConfig
             {
                 Id = new Guid("a1b2c3d4-0001-0000-0000-000000000001"),
+                TenantId = "default",
                 Name = "Brave Web Search",
                 Description = "Web search powered by Brave Search API",
                 TransportType = McpTransportType.Stdio,
@@ -99,6 +111,7 @@ public class McpServerConfigConfiguration : IEntityTypeConfiguration<McpServerCo
             new McpServerConfig
             {
                 Id = new Guid("a1b2c3d4-0002-0000-0000-000000000002"),
+                TenantId = "default",
                 Name = "Filesystem",
                 Description = "Local filesystem access via MCP",
                 TransportType = McpTransportType.Stdio,
@@ -112,6 +125,7 @@ public class McpServerConfigConfiguration : IEntityTypeConfiguration<McpServerCo
             new McpServerConfig
             {
                 Id = new Guid("a1b2c3d4-0003-0000-0000-000000000003"),
+                TenantId = "default",
                 Name = "Database",
                 Description = "Database query and management via MCP",
                 TransportType = McpTransportType.Stdio,
@@ -125,6 +139,7 @@ public class McpServerConfigConfiguration : IEntityTypeConfiguration<McpServerCo
             new McpServerConfig
             {
                 Id = new Guid("a1b2c3d4-0004-0000-0000-000000000004"),
+                TenantId = "default",
                 Name = "Code Execution",
                 Description = "Sandboxed code execution via MCP",
                 TransportType = McpTransportType.Stdio,

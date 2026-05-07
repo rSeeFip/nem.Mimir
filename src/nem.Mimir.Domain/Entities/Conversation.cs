@@ -7,6 +7,7 @@ using nem.Mimir.Domain.ValueObjects;
 
 public class Conversation : BaseAuditableEntity<Guid>
 {
+    public string TenantId { get; private set; } = "default";
     public Guid UserId { get; private set; }
     public string Title { get; private set; } = string.Empty;
     public ConversationStatus Status { get; private set; }
@@ -17,7 +18,7 @@ public class Conversation : BaseAuditableEntity<Guid>
 
     private Conversation() { }
 
-    public static Conversation Create(Guid userId, string title)
+    public static Conversation Create(Guid userId, string title, string tenantId = "default")
     {
         if (userId == Guid.Empty)
             throw new ArgumentException("User ID cannot be empty.", nameof(userId));
@@ -25,9 +26,13 @@ public class Conversation : BaseAuditableEntity<Guid>
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty.", nameof(title));
 
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty.", nameof(tenantId));
+
         var conversation = new Conversation
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             UserId = userId,
             Title = title,
             Status = ConversationStatus.Active,
@@ -43,7 +48,7 @@ public class Conversation : BaseAuditableEntity<Guid>
         if (Status == ConversationStatus.Archived)
             throw new InvalidOperationException("Cannot add messages to archived conversation.");
 
-        var message = Message.Create(Id, role, content, model);
+        var message = Message.Create(Id, TenantId, role, content, model);
         _messages.Add(message);
 
         AddDomainEvent(new Events.MessageSentEvent(message.Id, Id, role));

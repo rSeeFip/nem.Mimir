@@ -45,7 +45,7 @@ public sealed class BillingController : ControllerBase
         [FromQuery] DateTimeOffset to,
         CancellationToken ct = default)
     {
-        var tenantId = _currentUserService.UserId ?? string.Empty;
+        var tenantId = _currentUserService.TenantId ?? string.Empty;
         var summary = await _usageQueryService.GetUsageAsync(tenantId, from, to, ct);
         return Ok(summary);
     }
@@ -65,7 +65,7 @@ public sealed class BillingController : ControllerBase
         [FromQuery] DateTimeOffset to,
         CancellationToken ct = default)
     {
-        var tenantId = _currentUserService.UserId ?? string.Empty;
+        var tenantId = _currentUserService.TenantId ?? string.Empty;
         var summary = await _usageQueryService.GetUsageAsync(tenantId, from, to, ct);
         return Ok(summary.ModelBreakdown);
     }

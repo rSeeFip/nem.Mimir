@@ -44,13 +44,15 @@ internal sealed class CreateConversationCommandHandler(
     {
         var userId = currentUserService.UserId
             ?? throw new ForbiddenAccessException("User is not authenticated.");
+        var tenantId = currentUserService.TenantId
+            ?? throw new ForbiddenAccessException("Tenant identity could not be determined.");
 
         if (!Guid.TryParse(userId, out var userGuid))
         {
             throw new ForbiddenAccessException("User identity could not be determined.");
         }
 
-        var conversation = Conversation.Create(userGuid, request.Title);
+        var conversation = Conversation.Create(userGuid, request.Title, tenantId);
 
         // Wire optional settings if provided
         if (request.Model is not null || request.SystemPrompt is not null)

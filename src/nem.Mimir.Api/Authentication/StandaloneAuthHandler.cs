@@ -28,8 +28,10 @@ public class StandaloneAuthHandler : AuthenticationHandler<AuthenticationSchemeO
             new Claim(ClaimTypes.NameIdentifier, "standalone-dev-user"),
             new Claim(ClaimTypes.Name, "Dev Admin"),
             new Claim(ClaimTypes.Email, "admin@mimir.local"),
-            new Claim(ClaimTypes.Role, "admin"),
+            new Claim(ClaimTypes.Role, "platform-admin"),
             new Claim(ClaimTypes.Role, "user"),
+            new Claim("tenant_id", "standalone"),
+            new Claim("tenant_name", "Standalone"),
             new Claim("preferred_username", "admin"),
         };
 

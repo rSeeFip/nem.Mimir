@@ -3,6 +3,7 @@ namespace nem.Mimir.Domain.McpServers;
 public class McpServerConfig
 {
     public Guid Id { get; set; }
+    public string TenantId { get; set; } = "default";
     public required string Name { get; set; }
     public string? Description { get; set; }
     public McpTransportType TransportType { get; set; }

@@ -11,6 +11,11 @@ public interface ICurrentUserService
     string? UserId { get; }
 
     /// <summary>
+    /// Gets the tenant identifier of the current user, or null if unavailable.
+    /// </summary>
+    string? TenantId { get; }
+
+    /// <summary>
     /// Gets a value indicating whether the current user is authenticated.
     /// </summary>
     bool IsAuthenticated { get; }
@@ -19,4 +24,14 @@ public interface ICurrentUserService
     /// Gets the roles assigned to the current user.
     /// </summary>
     IReadOnlyList<string> Roles { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the current user is a platform administrator.
+    /// </summary>
+    bool IsPlatformAdmin { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the current user is a tenant administrator.
+    /// </summary>
+    bool IsTenantAdmin { get; }
 }

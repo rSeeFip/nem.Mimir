@@ -20,10 +20,14 @@ public sealed record CreateMcpServerCommand(
 
 internal sealed class CreateMcpServerCommandHandler(
     IMcpServerConfigRepository repository,
+    ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork) : IRequestHandler<CreateMcpServerCommand, Guid>
 {
     public async Task<Guid> Handle(CreateMcpServerCommand request, CancellationToken cancellationToken)
     {
+        var tenantId = currentUserService.TenantId
+            ?? throw new ForbiddenAccessException("Tenant identity could not be determined.");
+
         if (!Enum.IsDefined(typeof(McpTransportType), request.TransportType))
         {
             throw new ValidationException(
@@ -34,6 +38,7 @@ internal sealed class CreateMcpServerCommandHandler(
         var config = new McpServerConfig
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             Name = request.Name,
             TransportType = request.TransportType,
             Description = request.Description,

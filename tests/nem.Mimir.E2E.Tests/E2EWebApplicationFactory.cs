@@ -221,10 +221,14 @@ public sealed class E2EWebApplicationFactory : WebApplicationFactory<Program>, I
     /// <param name="userId">Optional user ID for the token.</param>
     /// <param name="email">Optional email for the token.</param>
     /// <returns>An HttpClient with Authorization header set.</returns>
-    public HttpClient CreateAuthenticatedClient(string? userId = null, string? email = null)
+    public HttpClient CreateAuthenticatedClient(
+        string? userId = null,
+        string? email = null,
+        string? tenantId = null,
+        IEnumerable<string>? roles = null)
     {
         var client = CreateClient();
-        var token = JwtTokenHelper.GenerateToken(userId, email);
+        var token = JwtTokenHelper.GenerateToken(userId, email, roles, tenantId);
         client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return client;

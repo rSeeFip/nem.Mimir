@@ -22,6 +22,8 @@ using Docker.DotNet;
 using nem.Mimir.Infrastructure.Plugins;
 using nem.Mimir.Infrastructure.Plugins.BuiltIn;
 using nem.Mimir.Infrastructure.Tools;
+using nem.Mimir.Infrastructure.MultiTenancy;
+using nem.Mimir.Domain.MultiTenancy;
 using nem.Mimir.Domain.Tools;
 
 public static class DependencyInjection
@@ -34,13 +36,34 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         services.AddScoped<ISaveChangesInterceptor, AuditableEntityInterceptor>();
+        services.AddScoped<TenantContext>();
+        services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
 
         services.AddMarten(options =>
         {
             options.Connection(configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("DefaultConnection connection string is required for Marten."));
             options.Schema.For<PersistedCostEvent>()
+                .MultiTenanted()
                 .UniqueIndex(x => x.IdempotencyKey);
+        });
+
+        services.AddScoped<IQuerySession>(sp =>
+        {
+            var store = sp.GetRequiredService<IDocumentStore>();
+            var tenantId = sp.GetRequiredService<ITenantContext>().TenantId;
+            return string.IsNullOrWhiteSpace(tenantId)
+                ? store.QuerySession()
+                : store.QuerySession(tenantId);
+        });
+
+        services.AddScoped<IDocumentSession>(sp =>
+        {
+            var store = sp.GetRequiredService<IDocumentStore>();
+            var tenantId = sp.GetRequiredService<ITenantContext>().TenantId;
+            return string.IsNullOrWhiteSpace(tenantId)
+                ? store.LightweightSession()
+                : store.LightweightSession(tenantId);
         });
 
         services.AddDbContext<MimirDbContext>((sp, options) =>

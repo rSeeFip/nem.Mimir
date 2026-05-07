@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
 using nem.Mimir.Api.Configuration;
@@ -16,6 +17,7 @@ using nem.Mimir.Sync.Configuration;
 using Wolverine;
 using nem.Mimir.Api.Authentication;
 using nem.Contracts.AspNetCore.Secrets;
+using nem.Mimir.Infrastructure.MultiTenancy;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -65,8 +67,17 @@ try
     // ── Authorization ────────────────────────────────────────────────────────
     builder.Services.AddAuthorization(options =>
     {
-        options.AddPolicy("RequireAdmin", policy => policy.RequireRole("admin"));
-        options.AddPolicy("RequireUser", policy => policy.RequireRole("user", "admin"));
+        options.AddPolicy("platform-admin", policy => policy.RequireRole("platform-admin", "admin"));
+        options.AddPolicy("tenant-admin", policy => policy.RequireRole("tenant-admin", "platform-admin", "admin"));
+        options.AddPolicy("user", policy => policy.RequireRole("user", "tenant-admin", "platform-admin", "admin"));
+        options.AddPolicy("RequireAdmin", policy => policy.RequireRole("tenant-admin", "platform-admin", "admin"));
+        options.AddPolicy("RequireUser", policy => policy.RequireRole("user", "tenant-admin", "platform-admin", "admin"));
+    });
+
+    builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+    {
+        options.TokenValidationParameters.NameClaimType = ClaimTypes.NameIdentifier;
+        options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
     });
 
     // ── CORS ─────────────────────────────────────────────────────────────────
@@ -178,6 +189,7 @@ try
     app.UseExceptionHandler();
     app.UseStatusCodePages();
     app.UseMiddleware<OutputSanitizationMiddleware>();
+    app.UseMiddleware<TenantContextMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {

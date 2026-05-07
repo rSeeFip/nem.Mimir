@@ -29,10 +29,14 @@ public static class JwtTokenHelper
     public static string GenerateToken(
         string? userId = null,
         string? email = null,
-        IEnumerable<string>? roles = null)
+        IEnumerable<string>? roles = null,
+        string? tenantId = null,
+        string? tenantName = null)
     {
         userId ??= Guid.NewGuid().ToString();
         email ??= $"testuser-{userId[..8]}@test.local";
+        tenantId ??= "default";
+        tenantName ??= tenantId;
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestSigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -43,14 +47,20 @@ public static class JwtTokenHelper
             new(ClaimTypes.NameIdentifier, userId),
             new(JwtRegisteredClaimNames.Email, email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("tenant_id", tenantId),
+            new("tenant_name", tenantName),
         };
 
-        if (roles is not null)
+        var effectiveRoles = (roles ?? ["user"])
+            .SelectMany(role => role.Equals("admin", StringComparison.OrdinalIgnoreCase)
+                ? new[] { role, "platform-admin" }
+                : new[] { role })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var role in effectiveRoles)
         {
-            foreach (var role in roles)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
-            }
+            claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
         var token = new JwtSecurityToken(

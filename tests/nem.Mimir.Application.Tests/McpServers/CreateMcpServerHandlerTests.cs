@@ -9,9 +9,14 @@ namespace nem.Mimir.Application.Tests.McpServers;
 public sealed class CreateMcpServerHandlerTests
 {
     private readonly IMcpServerConfigRepository _repository = Substitute.For<IMcpServerConfigRepository>();
+    private readonly ICurrentUserService _currentUserService = Substitute.For<ICurrentUserService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
-    private CreateMcpServerCommandHandler CreateHandler() => new(_repository, _unitOfWork);
+    private CreateMcpServerCommandHandler CreateHandler()
+    {
+        _currentUserService.TenantId.Returns("test-tenant");
+        return new(_repository, _currentUserService, _unitOfWork);
+    }
 
     [Fact]
     public async Task Handle_ShouldCreateServerAndReturnId()

@@ -1,6 +1,7 @@
 <Project>
   <ItemGroup>
     <!-- Application packages -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="FluentValidation" Version="12.1.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.0" />
     <PackageVersion Include="MediatR" Version="12.4.1" />

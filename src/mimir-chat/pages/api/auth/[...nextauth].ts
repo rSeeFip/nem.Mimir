@@ -4,6 +4,64 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 
 const isDevMode = process.env.AUTH_MODE === 'dev';
 
+type DevUser = {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: 'platform-admin' | 'tenant-admin' | 'user';
+  tenantId: string;
+  tenantName: string;
+  accessToken: string;
+};
+
+const devUsers: DevUser[] = [
+  {
+    id: 'admin',
+    name: 'Platform Admin',
+    email: 'admin@mimir.local',
+    password: 'admin',
+    role: 'platform-admin',
+    tenantId: 'default',
+    tenantName: 'Default',
+    accessToken: 'dev-token-admin',
+  },
+  {
+    id: 'tenant-admin-a',
+    name: 'Tenant Admin A',
+    email: 'tenant-admin-a@mimir.local',
+    password: 'tenant-admin-a',
+    role: 'tenant-admin',
+    tenantId: 'tenant-a',
+    tenantName: 'Tenant A',
+    accessToken: 'dev-token-tenant-admin-a',
+  },
+  {
+    id: 'user-a',
+    name: 'User A',
+    email: 'user-a@mimir.local',
+    password: 'user-a',
+    role: 'user',
+    tenantId: 'tenant-a',
+    tenantName: 'Tenant A',
+    accessToken: 'dev-token-user-a',
+  },
+  {
+    id: 'user-b',
+    name: 'User B',
+    email: 'user-b@mimir.local',
+    password: 'user-b',
+    role: 'user',
+    tenantId: 'tenant-b',
+    tenantName: 'Tenant B',
+    accessToken: 'dev-token-user-b',
+  },
+];
+
+function isDevUser(user: unknown): user is DevUser {
+  return typeof user === 'object' && user !== null && 'role' in user && 'tenantId' in user;
+}
+
 const providers = isDevMode
   ? [
       CredentialsProvider({
@@ -13,17 +71,13 @@ const providers = isDevMode
           password: { label: 'Password', type: 'password', placeholder: 'admin' },
         },
         async authorize(credentials) {
-          // In dev mode, accept admin/admin as default credentials
-          const validUsers = [
-            { id: '1', name: 'Admin', email: 'admin@mimir.local', role: 'admin' },
-          ];
-          if (
-            credentials?.username === 'admin' &&
-            credentials?.password === 'admin'
-          ) {
-            return validUsers[0];
-          }
-          return null;
+          return (
+            devUsers.find(
+              (user) =>
+                user.id === credentials?.username &&
+                user.password === credentials?.password,
+            ) ?? null
+          );
         },
       }),
     ]
@@ -48,15 +102,28 @@ export const authOptions: NextAuthOptions = {
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
       }
-      if (user) {
+      if (isDevUser(user)) {
         token.name = user.name;
         token.email = user.email;
+        token.role = user.role;
+        token.roles = [user.role];
+        token.tenantId = user.tenantId;
+        token.tenantName = user.tenantName;
+        token.accessToken = user.accessToken;
       }
       return token;
     },
     async session({ session, token }) {
       // Expose accessToken to the client session
       session.accessToken = (token.accessToken as string) ?? 'dev-token';
+      if (session.user) {
+        session.user.name = session.user.name ?? token.name ?? null;
+        session.user.email = session.user.email ?? token.email ?? null;
+      }
+      session.role = token.role as string | undefined;
+      session.roles = token.roles as string[] | undefined;
+      session.tenantId = token.tenantId as string | undefined;
+      session.tenantName = token.tenantName as string | undefined;
       return session;
     },
   },

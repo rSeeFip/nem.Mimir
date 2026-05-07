@@ -21,6 +21,11 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasColumnName("conversation_id")
             .IsRequired();
 
+        builder.Property(m => m.TenantId)
+            .HasColumnName("tenant_id")
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(m => m.Role)
             .HasColumnName("role")
             .HasConversion<string>()
@@ -45,6 +50,9 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
 
         builder.HasIndex(m => m.ConversationId)
             .HasDatabaseName("ix_messages_conversation_id");
+
+        builder.HasIndex(m => m.TenantId)
+            .HasDatabaseName("ix_messages_tenant_id");
 
         // Ignore domain events collection
         builder.Ignore(m => m.DomainEvents);

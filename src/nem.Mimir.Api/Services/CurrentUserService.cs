@@ -9,6 +9,8 @@ namespace nem.Mimir.Api.Services;
 /// </summary>
 public sealed class CurrentUserService : ICurrentUserService
 {
+    private const string TenantIdClaimType = "tenant_id";
+
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public CurrentUserService(IHttpContextAccessor httpContextAccessor)
@@ -19,6 +21,10 @@ public sealed class CurrentUserService : ICurrentUserService
     /// <inheritdoc />
     public string? UserId =>
         _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+    /// <inheritdoc />
+    public string? TenantId =>
+        _httpContextAccessor.HttpContext?.User?.FindFirstValue(TenantIdClaimType);
 
     /// <inheritdoc />
     public bool IsAuthenticated =>
@@ -36,6 +42,8 @@ public sealed class CurrentUserService : ICurrentUserService
             // Try standard role claims first
             var roles = user.FindAll(ClaimTypes.Role)
                 .Select(c => c.Value)
+                .Concat(user.FindAll("role").Select(c => c.Value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             if (roles.Count > 0)
@@ -67,4 +75,12 @@ public sealed class CurrentUserService : ICurrentUserService
             return [];
         }
     }
+
+    /// <inheritdoc />
+    public bool IsPlatformAdmin => Roles.Contains("platform-admin", StringComparer.OrdinalIgnoreCase)
+        || Roles.Contains("admin", StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
+    public bool IsTenantAdmin => IsPlatformAdmin
+        || Roles.Contains("tenant-admin", StringComparer.OrdinalIgnoreCase);
 }

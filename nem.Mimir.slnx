@@ -11,6 +11,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/nem.Mimir.Api.Tests/nem.Mimir.Api.Tests.csproj" />
+    <Project Path="tests/nem.Mimir.Benchmarks/nem.Mimir.Benchmarks.csproj" />
     <Project Path="tests/nem.Mimir.E2E.Tests/nem.Mimir.E2E.Tests.csproj" />
     <Project Path="tests/nem.Mimir.Integration.Tests/nem.Mimir.Integration.Tests.csproj" />
     <Project Path="tests/nem.Mimir.Sync.Tests/nem.Mimir.Sync.Tests.csproj" />

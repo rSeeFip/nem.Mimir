@@ -6,6 +6,7 @@ using nem.Mimir.Domain.Enums;
 public class Message : BaseEntity<Guid>
 {
     public Guid ConversationId { get; private set; }
+    public string TenantId { get; private set; } = "default";
     public MessageRole Role { get; private set; }
     public string Content { get; private set; } = string.Empty;
     public string? Model { get; private set; }
@@ -14,10 +15,13 @@ public class Message : BaseEntity<Guid>
 
     private Message() { }
 
-    internal static Message Create(Guid conversationId, MessageRole role, string content, string? model = null)
+    internal static Message Create(Guid conversationId, string tenantId, MessageRole role, string content, string? model = null)
     {
         if (conversationId == Guid.Empty)
             throw new ArgumentException("Conversation ID cannot be empty.", nameof(conversationId));
+
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new ArgumentException("Tenant ID cannot be empty.", nameof(tenantId));
 
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("Content cannot be empty.", nameof(content));
@@ -26,6 +30,7 @@ public class Message : BaseEntity<Guid>
         {
             Id = Guid.NewGuid(),
             ConversationId = conversationId,
+            TenantId = tenantId,
             Role = role,
             Content = content,
             Model = model,

@@ -22,6 +22,11 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
             .HasColumnName("user_id")
             .IsRequired();
 
+        builder.Property(c => c.TenantId)
+            .HasColumnName("tenant_id")
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(c => c.Title)
             .HasColumnName("title")
             .HasMaxLength(500)
@@ -55,11 +60,12 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
         builder.Property(c => c.DeletedAt)
             .HasColumnName("deleted_at");
 
-        builder.HasQueryFilter(c => !c.IsDeleted);
-
         // PostgreSQL optimistic concurrency via xmin
         builder.Property<uint>("xmin")
             .IsRowVersion();
+
+        builder.HasIndex(c => c.TenantId)
+            .HasDatabaseName("ix_conversations_tenant_id");
 
         builder.HasIndex(c => c.UserId)
             .HasDatabaseName("ix_conversations_user_id");
