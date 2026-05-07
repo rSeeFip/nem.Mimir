@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Net;
 using Shouldly;
-using Xunit.Abstractions;
 
 namespace nem.Mimir.Api.IntegrationTests;
 
@@ -11,12 +10,10 @@ public sealed class RateLimitingTests
     private const string RateLimitedEndpoint = "/api/models";
 
     private readonly MimirWebApplicationFactory _factory;
-    private readonly ITestOutputHelper _output;
 
-    public RateLimitingTests(MimirWebApplicationFactory factory, ITestOutputHelper output)
+    public RateLimitingTests(MimirWebApplicationFactory factory)
     {
         _factory = factory;
-        _output = output;
     }
 
     [Fact]
@@ -36,7 +33,7 @@ public sealed class RateLimitingTests
         var otherTenantResponse = await tenantBClient.GetAsync(RateLimitedEndpoint);
 
         otherTenantResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        _output.WriteLine($"Tenant A received {rateLimitedResponse.StatusCode}; tenant B received {otherTenantResponse.StatusCode}.");
+        Console.WriteLine($"TENANT_ISOLATION tenantA={tenantA} limitedStatus={(int)rateLimitedResponse.StatusCode} tenantB={tenantB} unaffectedStatus={(int)otherTenantResponse.StatusCode}");
     }
 
     [Fact]
@@ -54,8 +51,7 @@ public sealed class RateLimitingTests
         int.TryParse(retryAfterValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var retryAfterSeconds)
             .ShouldBeTrue();
         retryAfterSeconds.ShouldBeGreaterThan(0);
-
-        _output.WriteLine($"429 Retry-After: {retryAfterValue}");
+        Console.WriteLine($"RATE_LIMIT_429 status={(int)response.StatusCode} retryAfter={retryAfterValue}");
     }
 
     private static async Task<HttpResponseMessage> ExhaustRateLimitAsync(HttpClient client)

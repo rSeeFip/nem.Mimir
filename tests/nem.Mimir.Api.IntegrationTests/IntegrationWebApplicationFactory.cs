@@ -21,6 +21,7 @@ using Microsoft.IdentityModel.Tokens;
 using nem.Contracts.Identity;
 using nem.Contracts.Organism;
 using nem.Mimir.Domain.MultiTenancy;
+using nem.Mimir.Domain.Tenants;
 using nem.Mimir.Infrastructure.MultiTenancy;
 using nem.Mimir.Infrastructure.Persistence;
 using Npgsql;
@@ -187,6 +188,7 @@ public sealed class MimirWebApplicationFactory : WebApplicationFactory<Program>,
             services.AddMarten(options =>
             {
                 options.Connection(_postgres.GetConnectionString());
+                options.Schema.For<Tenant>();
                 options.Schema.For<nem.Mimir.Infrastructure.Billing.PersistedCostEvent>()
                     .MultiTenanted()
                     .UniqueIndex(x => x.IdempotencyKey);
