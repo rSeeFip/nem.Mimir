@@ -16,6 +16,10 @@
     <!-- Wolverine -->
     <PackageVersion Include="WolverineFx" Version="5.16.4" />
     <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.16.4" />
+    <!-- Caching packages -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.3" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.8.41" />
     <!-- Infrastructure packages -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.3" />

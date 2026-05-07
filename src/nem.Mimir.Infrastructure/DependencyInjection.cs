@@ -24,6 +24,7 @@ using nem.Mimir.Infrastructure.Plugins.BuiltIn;
 using nem.Mimir.Infrastructure.Tools;
 using nem.Mimir.Infrastructure.MultiTenancy;
 using nem.Mimir.Domain.MultiTenancy;
+using nem.Mimir.Infrastructure.Caching;
 using nem.Mimir.Domain.Tools;
 
 public static class DependencyInjection
@@ -34,6 +35,19 @@ public static class DependencyInjection
     {
         services.AddSingleton<IDateTimeService, DateTimeService>();
         services.AddSingleton(TimeProvider.System);
+
+        services.Configure<CacheOptions>(configuration.GetSection(CacheOptions.SectionName));
+
+        var redisConnectionString = configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redisConnectionString))
+        {
+            services.AddStackExchangeRedisCache(opts => opts.Configuration = redisConnectionString);
+        }
+        else
+        {
+            services.AddDistributedMemoryCache();
+        }
+        services.AddSingleton<RedisCacheService>();
 
         services.AddScoped<ISaveChangesInterceptor, AuditableEntityInterceptor>();
         services.AddScoped<TenantContext>();
