@@ -1,8 +1,10 @@
 using System.Security.Claims;
+using System.Globalization;
 using System.Threading.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi;
 using nem.Mimir.Api.Configuration;
 using nem.Mimir.Api.Middleware;
@@ -16,6 +18,7 @@ using nem.Mimir.Api.Hubs;
 using nem.Mimir.Sync.Configuration;
 using Wolverine;
 using nem.Mimir.Api.Authentication;
+using nem.Mimir.Domain.MultiTenancy;
 using nem.Contracts.AspNetCore.Secrets;
 using nem.Mimir.Infrastructure.MultiTenancy;
 
@@ -113,16 +116,64 @@ try
     }
 
     // ── Rate Limiting ────────────────────────────────────────────────────────
+    var tenantPermitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PerTenant:PermitLimit") ?? 100;
+    var tenantWindowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:PerTenant:WindowSeconds") ?? 60;
+    var tenantSegmentsPerWindow = builder.Configuration.GetValue<int?>("RateLimiting:PerTenant:SegmentsPerWindow") ?? 6;
+
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        options.AddPolicy("per-user", context =>
+
+        options.OnRejected = async (rateLimitContext, cancellationToken) =>
         {
-            var userId = context.User?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
-            return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+            if (rateLimitContext.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
             {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1)
+                var retryAfterSeconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
+                rateLimitContext.HttpContext.Response.Headers["Retry-After"] =
+                    retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (!rateLimitContext.HttpContext.Response.HasStarted)
+            {
+                await rateLimitContext.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status429TooManyRequests,
+                    Title = "Too Many Requests",
+                    Detail = "Rate limit exceeded. Retry the request after the indicated delay.",
+                }, cancellationToken);
+            }
+        };
+
+        options.AddPolicy("per-tenant", context =>
+        {
+            var tenantId = context.RequestServices.GetRequiredService<ITenantContext>().TenantId;
+
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                return RateLimitPartition.GetSlidingWindowLimiter(tenantId, _ => new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = tenantPermitLimit,
+                    Window = TimeSpan.FromSeconds(tenantWindowSeconds),
+                    SegmentsPerWindow = tenantSegmentsPerWindow,
+                    QueueLimit = 0,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    AutoReplenishment = true,
+                });
+            }
+
+            var remoteIpAddress = context.Connection.RemoteIpAddress?.ToString();
+            var partitionKey = string.IsNullOrWhiteSpace(remoteIpAddress)
+                ? "ip:unknown"
+                : $"ip:{remoteIpAddress}";
+
+            return RateLimitPartition.GetSlidingWindowLimiter(partitionKey, _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = tenantPermitLimit,
+                Window = TimeSpan.FromSeconds(tenantWindowSeconds),
+                SegmentsPerWindow = tenantSegmentsPerWindow,
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true,
             });
         });
     });
@@ -233,8 +284,8 @@ try
     app.UseAuthorization();
     app.UseRateLimiter();
 
-    app.MapControllers().RequireRateLimiting("per-user");
-    app.MapHub<ChatHub>("/hubs/chat").RequireRateLimiting("per-user");
+    app.MapControllers().RequireRateLimiting("per-tenant");
+    app.MapHub<ChatHub>("/hubs/chat").RequireRateLimiting("per-tenant");
     app.MapHealthChecks("/health", new HealthCheckOptions
     {
         AllowCachingResponses = false

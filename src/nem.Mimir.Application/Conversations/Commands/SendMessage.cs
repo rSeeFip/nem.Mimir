@@ -148,8 +148,7 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
                 ToolCalls = response.ToolCalls,
             });
 
-            // Execute each tool call sequentially
-            foreach (var toolCall in response.ToolCalls)
+            var toolTasks = response.ToolCalls.Select(async toolCall =>
             {
                 string toolContent;
                 try
@@ -164,12 +163,15 @@ internal sealed class SendMessageCommandHandler : IRequestHandler<SendMessageCom
                     toolContent = $"Error executing tool '{toolCall.FunctionName}': {ex.Message}";
                 }
 
-                messages.Add(new LlmMessage("tool", toolContent)
+                return new LlmMessage("tool", toolContent)
                 {
                     ToolCallId = toolCall.Id,
                     Name = toolCall.FunctionName,
-                });
-            }
+                };
+            });
+
+            var toolResults = await Task.WhenAll(toolTasks);
+            messages.AddRange(toolResults);
         }
 
         // Max iterations reached — make one final call without tools to get a text response

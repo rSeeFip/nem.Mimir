@@ -19,6 +19,7 @@ using nem.Mimir.Infrastructure.Services;
 using nem.Mimir.Application.Common.Sanitization;
 using Polly;
 using Docker.DotNet;
+using Npgsql;
 using nem.Mimir.Infrastructure.Plugins;
 using nem.Mimir.Infrastructure.Plugins.BuiltIn;
 using nem.Mimir.Infrastructure.Tools;
@@ -55,8 +56,19 @@ public static class DependencyInjection
 
         services.AddMarten(options =>
         {
-            options.Connection(configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException("DefaultConnection connection string is required for Marten."));
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("DefaultConnection connection string is required for Marten.");
+
+            // Configure Npgsql connection pool: Max=100, MinIdle=5, CommandTimeout=30s
+            var builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString)
+            {
+                MaxPoolSize = 100,
+                MinPoolSize = 5,
+                CommandTimeout = 30,
+                Pooling = true,
+            };
+
+            options.Connection(builder.ToString());
             options.Schema.For<PersistedCostEvent>()
                 .MultiTenanted()
                 .UniqueIndex(x => x.IdempotencyKey);
@@ -159,10 +171,58 @@ public static class DependencyInjection
             });
         });
 
-        // Request queue (singleton — one queue for the whole app)
+        services.AddHttpClient(HttpClientNames.Mcp, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        })
+        .AddResilienceHandler("McpResilience", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 2,
+                Delay = TimeSpan.FromMilliseconds(500),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = static args => ValueTask.FromResult(
+                    args.Outcome.Result?.StatusCode is
+                        System.Net.HttpStatusCode.TooManyRequests or
+                        System.Net.HttpStatusCode.ServiceUnavailable
+                    || args.Outcome.Exception is HttpRequestException),
+            });
+        });
+
+        services.AddHttpClient(HttpClientNames.External, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(60);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        })
+        .AddResilienceHandler("ExternalResilience", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromSeconds(1),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = static args => ValueTask.FromResult(
+                    args.Outcome.Result?.StatusCode is
+                        System.Net.HttpStatusCode.TooManyRequests or
+                        System.Net.HttpStatusCode.InternalServerError or
+                        System.Net.HttpStatusCode.BadGateway or
+                        System.Net.HttpStatusCode.ServiceUnavailable
+                    || args.Outcome.Exception is HttpRequestException),
+            });
+
+            builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                SamplingDuration = TimeSpan.FromSeconds(60),
+                FailureRatio = 0.5,
+                MinimumThroughput = 5,
+                BreakDuration = TimeSpan.FromSeconds(30),
+            });
+        });
+
         services.AddSingleton<LlmRequestQueue>();
 
-        // LLM service
         services.AddScoped<ILlmService, LiteLlmClient>();
 
         // Docker sandbox service
