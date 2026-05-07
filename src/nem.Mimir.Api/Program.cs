@@ -5,6 +5,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using nem.Mimir.Domain.MultiTenancy;
 using Microsoft.OpenApi;
 using nem.Mimir.Api.Configuration;
 using nem.Mimir.Api.Middleware;
