@@ -40,20 +40,6 @@ public sealed class TenantsController(ISender sender) : ControllerBase
         return Created($"/api/tenants/{tenant.Id}", tenant);
     }
 
-    [HttpPut("{id}/configuration")]
-    [Authorize(Policy = "tenant-admin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateConfiguration(string id, [FromBody] UpdateTenantConfigurationRequest request, CancellationToken cancellationToken)
-    {
-        await sender.Send(
-            new UpdateTenantConfigurationCommand(id, request.RateLimitPerMinute, request.AllowedModels, request.AllowedTools, request.FeatureFlags),
-            cancellationToken);
-        return NoContent();
-    }
-
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

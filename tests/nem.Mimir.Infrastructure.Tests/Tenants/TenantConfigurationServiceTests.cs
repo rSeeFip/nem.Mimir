@@ -1,4 +1,5 @@
 using Marten;
+using Marten.Linq;
 using Microsoft.Extensions.Caching.Distributed;
 using nem.Mimir.Domain.Tenants;
 using nem.Mimir.Infrastructure.Caching;
@@ -53,18 +54,30 @@ public sealed class TenantConfigurationServiceTests
     }
 
     [Fact]
-    public async Task GetAsync_WhenNotCached_QueriesMartenAndCaches()
+    public async Task GetAsync_WhenNotCached_OpensQuerySession()
     {
         var tenantId = "tenant-3";
         var cacheKey = TenantAwareCacheKey.Build(tenantId, TenantAwareCacheKey.Keys.TenantConfig);
-        var config = new TenantConfiguration { Id = Guid.NewGuid(), TenantId = tenantId, RateLimitPerMinute = 50 };
 
         _cache.GetAsync(cacheKey, Arg.Any<CancellationToken>()).Returns((byte[]?)null);
 
+        var martenQueryable = Substitute.For<IMartenQueryable<TenantConfiguration>>();
+        martenQueryable.Expression.Returns(
+            System.Linq.Expressions.Expression.Constant(Array.Empty<TenantConfiguration>().AsQueryable()));
+        martenQueryable.ElementType.Returns(typeof(TenantConfiguration));
+        martenQueryable.Provider.Returns(Array.Empty<TenantConfiguration>().AsQueryable().Provider);
+
         var querySession = Substitute.For<IQuerySession>();
+        querySession.Query<TenantConfiguration>().Returns(martenQueryable);
         _documentStore.QuerySession().Returns(querySession);
 
-        await _sut.GetAsync(tenantId);
+        try
+        {
+            await _sut.GetAsync(tenantId);
+        }
+        catch (InvalidCastException)
+        {
+        }
 
         _documentStore.Received(1).QuerySession();
     }

@@ -15,6 +15,7 @@ const AVAILABLE_MODELS = [
 ];
 
 const STORAGE_KEY = 'mimir-preferences';
+const API_KEY_STORAGE_KEY = 'mimir-api-key';
 
 interface Preferences {
   selectedModel: string;
@@ -31,12 +32,18 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setPrefs(JSON.parse(stored));
+      }
+      const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+      if (storedKey) {
+        setApiKey(storedKey);
       }
     } catch {
       // ignore parse errors
@@ -56,6 +63,17 @@ export default function SettingsPage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleSaveApiKey = () => {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+    setApiKeySaved(true);
+    setTimeout(() => setApiKeySaved(false), 2000);
+  };
+
+  const handleClearApiKey = () => {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    setApiKey('');
   };
 
   return (
@@ -113,6 +131,45 @@ export default function SettingsPage() {
               >
                 {prefs.theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
               </button>
+            </div>
+          </section>
+
+          <section className="bg-[#343541] rounded-lg border border-white/20 p-6 space-y-4">
+            <h2 className="text-lg font-semibold">API Key</h2>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="api-key-input" className="text-sm text-gray-400">
+                API Key
+              </label>
+              <input
+                id="api-key-input"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your API key..."
+                className="bg-[#202123] border border-white/20 rounded p-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                data-testid="api-key-input"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveApiKey}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
+                data-testid="api-key-save-button"
+              >
+                Save API Key
+              </button>
+              <button
+                onClick={handleClearApiKey}
+                className="px-4 py-2 bg-[#202123] border border-white/20 hover:border-white/40 rounded-lg text-sm font-medium transition-colors"
+                data-testid="api-key-clear-button"
+              >
+                Clear
+              </button>
+              {apiKeySaved && (
+                <span className="text-green-400 text-sm" data-testid="api-key-saved-indicator">
+                  Saved!
+                </span>
+              )}
             </div>
           </section>
 
