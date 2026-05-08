@@ -19,7 +19,6 @@ using nem.Mimir.Infrastructure.Services;
 using nem.Mimir.Application.Common.Sanitization;
 using Polly;
 using Docker.DotNet;
-using Npgsql;
 using nem.Mimir.Infrastructure.Plugins;
 using nem.Mimir.Infrastructure.Plugins.BuiltIn;
 using nem.Mimir.Infrastructure.Tools;
@@ -27,6 +26,9 @@ using nem.Mimir.Infrastructure.MultiTenancy;
 using nem.Mimir.Domain.MultiTenancy;
 using nem.Mimir.Infrastructure.Caching;
 using nem.Mimir.Domain.Tools;
+using nem.Mimir.Domain.Tenants;
+using nem.Mimir.Application.Tenants;
+using nem.Mimir.Infrastructure.Tenants;
 
 public static class DependencyInjection
 {
@@ -69,6 +71,7 @@ public static class DependencyInjection
             };
 
             options.Connection(builder.ToString());
+            options.Schema.For<Tenant>();
             options.Schema.For<PersistedCostEvent>()
                 .MultiTenanted()
                 .UniqueIndex(x => x.IdempotencyKey);
@@ -112,7 +115,9 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IEntityRestoreRepository, EntityRestoreRepository>();
         services.AddScoped<IMcpServerConfigRepository, McpServerConfigRepository>();
+        services.AddScoped<ITenantStore, TenantStore>();
         services.AddScoped<IToolWhitelistService, ToolWhitelistService>();
+        services.AddScoped<ITenantConfigurationService, TenantConfigurationService>();
 
         // Context window service (scoped — depends on scoped ISystemPromptRepository)
         services.AddScoped<IContextWindowService, ContextWindowService>();

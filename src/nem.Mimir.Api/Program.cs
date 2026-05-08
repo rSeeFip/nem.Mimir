@@ -19,7 +19,6 @@ using nem.Mimir.Api.Hubs;
 using nem.Mimir.Sync.Configuration;
 using Wolverine;
 using nem.Mimir.Api.Authentication;
-using nem.Mimir.Domain.MultiTenancy;
 using nem.Contracts.AspNetCore.Secrets;
 using nem.Mimir.Infrastructure.MultiTenancy;
 
@@ -123,16 +122,29 @@ try
 
     builder.Services.AddRateLimiter(options =>
     {
+        SlidingWindowRateLimiterOptions CreateSlidingWindowOptions() => new()
+        {
+            PermitLimit = tenantPermitLimit,
+            Window = TimeSpan.FromSeconds(tenantWindowSeconds),
+            SegmentsPerWindow = tenantSegmentsPerWindow,
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            AutoReplenishment = true,
+        };
+
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
         options.OnRejected = async (rateLimitContext, cancellationToken) =>
         {
+            var retryAfterSeconds = tenantWindowSeconds;
+
             if (rateLimitContext.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
             {
-                var retryAfterSeconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
-                rateLimitContext.HttpContext.Response.Headers["Retry-After"] =
-                    retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
+                retryAfterSeconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
             }
+
+            rateLimitContext.HttpContext.Response.Headers["Retry-After"] =
+                retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
 
             if (!rateLimitContext.HttpContext.Response.HasStarted)
             {
@@ -151,15 +163,14 @@ try
 
             if (!string.IsNullOrWhiteSpace(tenantId))
             {
-                return RateLimitPartition.GetSlidingWindowLimiter(tenantId, _ => new SlidingWindowRateLimiterOptions
-                {
-                    PermitLimit = tenantPermitLimit,
-                    Window = TimeSpan.FromSeconds(tenantWindowSeconds),
-                    SegmentsPerWindow = tenantSegmentsPerWindow,
-                    QueueLimit = 0,
-                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                    AutoReplenishment = true,
-                });
+                return RateLimitPartition.GetSlidingWindowLimiter(tenantId, _ => CreateSlidingWindowOptions());
+            }
+
+            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                return RateLimitPartition.GetSlidingWindowLimiter($"user:{userId}", _ => CreateSlidingWindowOptions());
             }
 
             var remoteIpAddress = context.Connection.RemoteIpAddress?.ToString();
@@ -167,15 +178,7 @@ try
                 ? "ip:unknown"
                 : $"ip:{remoteIpAddress}";
 
-            return RateLimitPartition.GetSlidingWindowLimiter(partitionKey, _ => new SlidingWindowRateLimiterOptions
-            {
-                PermitLimit = tenantPermitLimit,
-                Window = TimeSpan.FromSeconds(tenantWindowSeconds),
-                SegmentsPerWindow = tenantSegmentsPerWindow,
-                QueueLimit = 0,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                AutoReplenishment = true,
-            });
+            return RateLimitPartition.GetSlidingWindowLimiter(partitionKey, _ => CreateSlidingWindowOptions());
         });
     });
 

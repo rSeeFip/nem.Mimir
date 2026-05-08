@@ -8,6 +8,7 @@ namespace nem.Mimir.Api.IntegrationTests;
 public sealed class RateLimitingTests
 {
     private const string RateLimitedEndpoint = "/api/models";
+    private const int PermitLimit = 100;
 
     private readonly MimirWebApplicationFactory _factory;
 
@@ -26,8 +27,9 @@ public sealed class RateLimitingTests
         using var tenantAClient = _factory.CreateAuthenticatedClient(userId: sharedUserId, tenantId: tenantA);
         using var tenantBClient = _factory.CreateAuthenticatedClient(userId: sharedUserId, tenantId: tenantB);
 
-        var rateLimitedResponse = await ExhaustRateLimitAsync(tenantAClient);
+        var (rateLimitedResponse, attempts) = await ExhaustRateLimitAsync(tenantAClient);
 
+        attempts.ShouldBe(PermitLimit + 1);
         rateLimitedResponse.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
 
         var otherTenantResponse = await tenantBClient.GetAsync(RateLimitedEndpoint);
@@ -42,8 +44,9 @@ public sealed class RateLimitingTests
         var tenantId = $"tenant-retry-{Guid.NewGuid():N}";
         using var client = _factory.CreateAuthenticatedClient(userId: Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture), tenantId: tenantId);
 
-        var response = await ExhaustRateLimitAsync(client);
+        var (response, attempts) = await ExhaustRateLimitAsync(client);
 
+        attempts.ShouldBe(PermitLimit + 1);
         response.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
         response.Headers.TryGetValues("Retry-After", out var retryAfterValues).ShouldBeTrue();
 
@@ -54,22 +57,22 @@ public sealed class RateLimitingTests
         Console.WriteLine($"RATE_LIMIT_429 status={(int)response.StatusCode} retryAfter={retryAfterValue}");
     }
 
-    private static async Task<HttpResponseMessage> ExhaustRateLimitAsync(HttpClient client)
+    private static async Task<(HttpResponseMessage Response, int Attempts)> ExhaustRateLimitAsync(HttpClient client)
     {
         HttpResponseMessage? lastResponse = null;
 
-        for (var attempt = 1; attempt <= 150; attempt++)
+        for (var attempt = 1; attempt <= PermitLimit + 1; attempt++)
         {
             lastResponse = await client.GetAsync(RateLimitedEndpoint);
 
             if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                return lastResponse;
+                return (lastResponse, attempt);
             }
 
             lastResponse.StatusCode.ShouldBe(HttpStatusCode.OK, $"Expected 200 before hitting limit on attempt {attempt}.");
         }
 
-        throw new ShouldAssertException($"Expected a 429 response within 150 requests, last status was {lastResponse?.StatusCode}.");
+        throw new ShouldAssertException($"Expected a 429 response on attempt {PermitLimit + 1}, last status was {lastResponse?.StatusCode}.");
     }
 }
