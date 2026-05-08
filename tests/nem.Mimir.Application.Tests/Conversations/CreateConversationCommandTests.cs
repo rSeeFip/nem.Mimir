@@ -34,6 +34,7 @@ public sealed class CreateConversationCommandTests
         // Arrange
         var userId = Guid.NewGuid();
         _currentUserService.UserId.Returns(userId.ToString());
+        _currentUserService.TenantId.Returns("test-tenant");
 
         _repository.CreateAsync(Arg.Any<Conversation>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => callInfo.Arg<Conversation>());

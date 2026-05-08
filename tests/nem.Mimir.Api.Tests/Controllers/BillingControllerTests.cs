@@ -15,11 +15,11 @@ public sealed class BillingControllerTests
     private const string TenantId = "tenant-abc";
 
     private static (BillingController controller, ITenantUsageQueryService usageService) CreateController(
-        string? userId = TenantId)
+        string? tenantId = TenantId)
     {
         var usageService = Substitute.For<ITenantUsageQueryService>();
         var currentUserService = Substitute.For<ICurrentUserService>();
-        currentUserService.UserId.Returns(userId);
+        currentUserService.TenantId.Returns(tenantId);
 
         var controller = new BillingController(usageService, currentUserService);
         controller.ControllerContext = new ControllerContext
@@ -149,7 +149,7 @@ public sealed class BillingControllerTests
     [Fact]
     public async Task GetUsage_PassesTenantIdFromCurrentUser()
     {
-        var (controller, usageService) = CreateController(userId: "user-xyz");
+        var (controller, usageService) = CreateController(tenantId: "user-xyz");
         usageService.GetUsageAsync(Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(new TenantUsageSummary { TenantId = "user-xyz" });
 
@@ -161,7 +161,7 @@ public sealed class BillingControllerTests
     [Fact]
     public async Task GetUsageByModel_PassesTenantIdFromCurrentUser()
     {
-        var (controller, usageService) = CreateController(userId: "user-xyz");
+        var (controller, usageService) = CreateController(tenantId: "user-xyz");
         usageService.GetUsageAsync(Arg.Any<string>(), Arg.Any<DateTimeOffset>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(new TenantUsageSummary { TenantId = "user-xyz" });
 
