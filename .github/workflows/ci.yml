@@ -86,3 +86,61 @@ jobs:
 
       - name: Check code formatting
         run: dotnet format nem.Mimir.slnx --verify-no-changes
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: src/mimir-chat
+        run: npm ci
+
+      - name: Lint
+        working-directory: src/mimir-chat
+        run: npm run lint
+
+      - name: Test
+        working-directory: src/mimir-chat
+        run: npm test
+
+      - name: Build
+        working-directory: src/mimir-chat
+        run: npm run build
+
+  docker-lint:
+    name: Docker Lint + Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/api/Dockerfile
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL
+          exit-code: "1"
+
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint Helm chart
+        run: helm lint deploy/helm/nem-mimir

@@ -17,10 +17,14 @@ RUN --mount=type=cache,target=/root/.nuget/packages \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 WORKDIR /app
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=builder /app/publish .
 
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 EXPOSE 5000
-ENV ASPNETCORE_HTTP_PORTS=5000
+ENV ASPNETCORE_URLS=http://+:5000
 ENTRYPOINT ["dotnet", "nem.Mimir.Api.dll"]
