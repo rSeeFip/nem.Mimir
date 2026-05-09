@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mimir-api-staging-config
+  labels:
+    app.kubernetes.io/name: mimir-api
+    app.kubernetes.io/instance: staging
+data:
+  ASPNETCORE_ENVIRONMENT: Staging
+  ASPNETCORE_HTTP_PORTS: "5000"
+  Jwt__Audience: mimir-api
+  Jwt__Authority: https://mimir-keycloak.staging.svc.cluster.local/realms/mimir
+  Jwt__RequireHttpsMetadata: "true"
+  RabbitMQ__Host: mimir-rabbitmq.staging.svc.cluster.local
+  RabbitMQ__Port: "5672"
+  RabbitMQ__User: guest
+  LiteLLM__BaseUrl: http://mimir-litellm.staging.svc.cluster.local:4000
+  Cors__AllowedOrigins: '["https://mimir-chat.staging.example.com"]'

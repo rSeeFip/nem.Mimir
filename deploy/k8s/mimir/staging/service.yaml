@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mimir-api-staging
+  labels:
+    app.kubernetes.io/name: mimir-api
+    app.kubernetes.io/instance: staging
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mimir-api
+    app.kubernetes.io/instance: staging
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

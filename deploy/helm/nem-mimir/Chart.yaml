@@ -1,0 +1,17 @@
+apiVersion: v2
+name: nem-mimir
+description: Helm chart for nem.Mimir conversational AI API
+type: application
+kubeVersion: ">=1.27.0-0"
+version: 0.1.0
+appVersion: "1.0.0"
+
+keywords:
+  - nem
+  - mimir
+  - ai
+  - chat
+  - llm
+home: https://github.com/nem-ecosystem
+sources:
+  - https://github.com/nem-ecosystem/nem-mimir

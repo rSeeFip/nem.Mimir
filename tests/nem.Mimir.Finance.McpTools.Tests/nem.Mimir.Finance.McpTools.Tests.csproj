@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>nem.Mimir.Finance.McpTools.Tests</RootNamespace>
+    <AssemblyName>nem.Mimir.Finance.McpTools.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\nem.Mimir.Finance.McpTools\nem.Mimir.Finance.McpTools.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Domain\nem.Mimir.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

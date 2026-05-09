@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>nem.Mimir.Api.Tests</RootNamespace>
+    <AssemblyName>nem.Mimir.Api.Tests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="Marten" />
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\nem.Mimir.Api\nem.Mimir.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Hubs\CursorTrackingTests.cs" />
+    <Compile Include="Hubs\CursorTrackingTests.cs" />
+  </ItemGroup>
+
+</Project>

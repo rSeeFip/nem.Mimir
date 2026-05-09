@@ -5,7 +5,7 @@ import {
   updateConversationTitle as apiUpdateTitle,
   saveMessages as apiSaveMessages,
   deleteConversation as apiDeleteConversation,
-} from './conversationApi';
+} from './conversation-api';
 
 // ---------------------------------------------------------------------------
 // Write-through helpers — fire API call, log errors but never block the UI.
@@ -13,9 +13,7 @@ import {
 // ---------------------------------------------------------------------------
 
 function fireAndForget(fn: () => Promise<unknown>) {
-  fn().catch((err) => {
-    console.warn('[conversation] API write-through failed:', err);
-  });
+  fn().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -74,8 +72,7 @@ export const createConversationOnApi = async (
   try {
     const serverConversation = await apiCreateConversation(conversation);
     return { ...conversation, id: serverConversation.id };
-  } catch (err) {
-    console.warn('[conversation] API create failed, using local ID:', err);
+  } catch {
     return conversation;
   }
 };

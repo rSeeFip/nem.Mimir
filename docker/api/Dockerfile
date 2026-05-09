@@ -1,46 +1,26 @@
-# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS builder
-WORKDIR /app
+WORKDIR /src
 
-# Copy solution and project files
-COPY *.sln ./
-COPY Directory.Packages.props ./
-COPY Directory.Build.props ./
-COPY global.json ./
-COPY src/Mimir.Domain/Mimir.Domain.csproj src/Mimir.Domain/
-COPY src/Mimir.Application/Mimir.Application.csproj src/Mimir.Application/
-COPY src/Mimir.Infrastructure/Mimir.Infrastructure.csproj src/Mimir.Infrastructure/
-COPY src/Mimir.Sync/Mimir.Sync.csproj src/Mimir.Sync/
-COPY src/Mimir.Api/Mimir.Api.csproj src/Mimir.Api/
+COPY ["NuGet.Config", "./NuGet.Config"]
+COPY ["nem.Contracts/", "nem.Contracts/"]
+COPY ["nem.KnowHub/", "nem.KnowHub/"]
+COPY ["nem.KnowHub-arachne/", "nem.KnowHub-arachne/"]
+COPY ["nem.MCP/", "nem.MCP/"]
+COPY ["nem.Mimir-typed-ids/", "nem.Mimir-typed-ids/"]
 
-# Restore dependencies
-RUN dotnet restore src/Mimir.Api/Mimir.Api.csproj
+WORKDIR /src/nem.Mimir-typed-ids
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet restore "src/nem.Mimir.Api/nem.Mimir.Api.csproj" --configfile /src/NuGet.Config --disable-parallel
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet publish "src/nem.Mimir.Api/nem.Mimir.Api.csproj" -c Release -o /app/publish --no-restore -p:RunAnalyzers=false
 
-# Copy remaining source code
-COPY src/ src/
-
-# Build
-RUN dotnet build src/Mimir.Api/Mimir.Api.csproj -c Release
-
-# Publish
-RUN dotnet publish src/Mimir.Api/Mimir.Api.csproj -c Release -o /app/publish
-
-# Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 WORKDIR /app
 
-# Install curl for health checks
 RUN apk add --no-cache curl
 
 COPY --from=builder /app/publish .
 
 EXPOSE 5000
 ENV ASPNETCORE_HTTP_PORTS=5000
-# Performance: Use Server GC for better throughput
-ENV DOTNET_GCHeapHardLimit=1
-ENV DOTNET_GCHeapHardLimit_SO=1
-ENV DOTNET_GCTuningRefreshIntervalMS=10000
-# Enable Tiered Compilation for faster JIT
-ENV DOTNET_TieredCompilation="1"
-ENV DOTNET_TieredCompilationQuickJit="1"
-ENTRYPOINT ["dotnet", "Mimir.Api.dll"]
+ENTRYPOINT ["dotnet", "nem.Mimir.Api.dll"]

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 
 import { GetServerSideProps } from 'next';
@@ -7,10 +7,10 @@ import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 
-import { useCreateReducer } from '@/hooks/useCreateReducer';
+import { useCreateReducer } from '@/hooks/use-create-reducer';
 
-import useErrorService from '@/services/errorService';
-import useApiService from '@/services/useApiService';
+import useErrorService from '@/services/error-service';
+import useApiService from '@/services/use-api-service';
 
 import {
   cleanConversationHistory,
@@ -23,7 +23,7 @@ import {
   updateConversation,
   createConversationOnApi,
 } from '@/utils/app/conversation';
-import { fetchConversations } from '@/utils/app/conversationApi';
+import { fetchConversations } from '@/utils/app/conversation-api';
 import { saveFolders } from '@/utils/app/folders';
 import { savePrompts } from '@/utils/app/prompts';
 import { getSettings } from '@/utils/app/settings';
@@ -82,9 +82,9 @@ const Home = ({
 
   const stopConversationRef = useRef<boolean>(false);
 
-  const { data, error, refetch } = useQuery(
-    ['GetModels', serverSideApiKeyIsSet],
-    ({ signal }) => {
+  const { data, error } = useQuery({
+    queryKey: ['GetModels', serverSideApiKeyIsSet],
+    queryFn: ({ signal }) => {
       return getModels(
         {
           key: '',
@@ -92,8 +92,10 @@ const Home = ({
         signal,
       );
     },
-    { enabled: true, refetchOnMount: false },
-  );
+    enabled: serverSideApiKeyIsSet && typeof window !== 'undefined',
+    refetchOnMount: false,
+    retry: false,
+  });
 
   useEffect(() => {
     if (data) dispatch({ field: 'models', value: data });
@@ -235,10 +237,10 @@ const Home = ({
   // EFFECTS  --------------------------------------------
 
   useEffect(() => {
-    if (window.innerWidth < 640) {
+    if (selectedConversation && window.innerWidth < 640) {
       dispatch({ field: 'showChatbar', value: false });
     }
-  }, [selectedConversation]);
+  }, [dispatch, selectedConversation]);
 
   useEffect(() => {
     defaultModelId &&
@@ -253,7 +255,7 @@ const Home = ({
         field: 'serverSidePluginKeysSet',
         value: serverSidePluginKeysSet,
       });
-  }, [defaultModelId, serverSideApiKeyIsSet, serverSidePluginKeysSet]);
+  }, [defaultModelId, dispatch, serverSideApiKeyIsSet, serverSidePluginKeysSet]);
 
   // ON LOAD --------------------------------------------
 
@@ -311,8 +313,7 @@ const Home = ({
           saveConversations(apiConversations);
           return;
         }
-      } catch (err) {
-        console.warn('[home] API conversation fetch failed, using localStorage:', err);
+      } catch {
       }
 
       // Fallback: load from localStorage
@@ -356,12 +357,7 @@ const Home = ({
         },
       });
     }
-  }, [
-    defaultModelId,
-    dispatch,
-    serverSideApiKeyIsSet,
-    serverSidePluginKeysSet,
-  ]);
+  }, [conversations, defaultModelId, dispatch, serverSidePluginKeysSet, t]);
 
   if (status === 'loading') {
     return (
