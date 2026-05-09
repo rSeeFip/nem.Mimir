@@ -120,6 +120,41 @@ See [Architecture Documentation](../docs/architecture/index.md)
 - [ADR-001: OpenChat UI Pivot](docs/adr/ADR-001-openchat-ui-pivot.md)
 - [ADR-002: Plugin Architecture](docs/adr/ADR-002-plugin-architecture.md)
 - [ADR-003: Wolverine Messaging](docs/adr/ADR-003-wolverine-messaging.md)
+- [ADR-005: Typed ID Adoption](docs/adr/ADR-005-typed-id-adoption.md)
+- [ADR-006: Integration Test Strategy](docs/adr/ADR-006-integration-test-strategy.md)
+
+## Docker Build
+
+The API service uses a multi-repo COPY pattern. It expects sibling repositories (like `nem.Contracts`) to be present in the parent directory during build. 
+
+To build the image from the workspace root:
+
+```bash
+cd /workspace/wmreflect
+docker build -f nem.Mimir-typed-ids/docker/api/Dockerfile -t mimir-api .
+```
+
+The Dockerfile is hardened for production, running as a non-root user (`appuser`) and listening on port 5000.
+
+## Helm Deployment
+
+Production deployments are managed via Helm charts located in `deploy/helm/nem-mimir/`.
+
+```bash
+helm upgrade --install nem-mimir ./deploy/helm/nem-mimir -f values.yaml
+```
+
+## CI Pipeline
+
+The GitHub Actions CI pipeline consists of 7 specialized jobs to ensure platform stability:
+
+1. **build-and-test**: Core .NET build and unit test execution (excluding integration tests).
+2. **security-scan**: Runs Gitleaks for secret detection and checks NuGet packages for known vulnerabilities.
+3. **lint**: Verifies code formatting via `dotnet format`.
+4. **integration-tests**: Executes tests marked with `Category=Integration` using Testcontainers. This job is currently non-blocking.
+5. **frontend**: Handles `npm ci`, linting, unit tests, and production build for the `mimir-chat` Next.js application.
+6. **docker-lint**: Uses `hadolint` to verify Dockerfile best practices and `Trivy` for filesystem security scans.
+7. **helm-lint**: Validates the Helm chart syntax and structure.
 
 ## License
 
