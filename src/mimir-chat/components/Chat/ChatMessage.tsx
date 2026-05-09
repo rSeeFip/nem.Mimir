@@ -196,12 +196,14 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
                   <button
                     className="invisible group-hover:visible focus:visible text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     onClick={toggleEditing}
+                    aria-label={t('Edit message') as string}
                   >
                     <IconEdit size={20} />
                   </button>
                   <button
                     className="invisible group-hover:visible focus:visible text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     onClick={handleDeleteMessage}
+                    aria-label={t('Delete message') as string}
                   >
                     <IconTrash size={20} />
                   </button>
@@ -277,6 +279,7 @@ export const ChatMessage: FC<Props> = memo(({ message, messageIndex, onEdit }) =
                   <button
                     className="invisible group-hover:visible focus:visible text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     onClick={copyOnClick}
+                    aria-label={t('Copy message') as string}
                   >
                     <IconCopy size={20} />
                   </button>
