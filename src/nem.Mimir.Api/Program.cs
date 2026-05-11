@@ -34,6 +34,10 @@ using nem.Contracts.AspNetCore.Messaging.DeadLetter;
 using nem.Contracts.AspNetCore.Messaging.Federation;
 using nem.Contracts.AspNetCore.Observability;
 using nem.Contracts.AspNetCore.Secrets;
+using nem.Contracts.Federation;
+using nem.Contracts.Interfaces;
+using nem.Mimir.Infrastructure.Federation;
+using nem.Mimir.Infrastructure.Messaging;
 
 // Bootstrap logger for startup logging (before host is built)
 Log.Logger = new LoggerConfiguration()
@@ -72,6 +76,7 @@ try
         opts.Policies.AddMiddleware(typeof(nem.Mimir.Application.Common.Behaviours.PerformanceMiddleware));
         opts.Policies.AddMiddleware<MimirFederationAbacMiddleware>();
         opts.AddFederationCorrelationMiddleware();
+        opts.AddMimirFederationPropagation();
 
         opts.AddMimirMessaging(builder.Configuration);
     });
@@ -231,6 +236,10 @@ try
     builder.Services.AddApplicationServices(builder.Configuration);
     builder.Services.AddInfrastructureServices(builder.Configuration);
     builder.Services.AddMimirFederation(builder.Configuration);
+    builder.Services.AddScoped<MutableFederationContextAccessor>();
+    builder.Services.AddScoped<IFederationContextAccessor>(sp => sp.GetRequiredService<MutableFederationContextAccessor>());
+    builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<MutableFederationContextAccessor>());
+    builder.Services.AddScoped<FederationContextMiddleware>();
     builder.Services.AddTransient<LiteLlmClassificationInterceptor>();
     builder.Services.AddTransient<ClassificationGatingHandler>();
     var classificationOptions = builder.Configuration
@@ -299,6 +308,7 @@ try
     app.UseNemSecurityHeaders();
 
     app.UseAuthentication();
+    app.UseMiddleware<FederationContextMiddleware>();
     app.UseAuthorization();
     app.UseRateLimiter();
 
