@@ -161,7 +161,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 ## TODOs
 
-- [ ] 1. Secret Scan + Commit Squash + Push + PR Creation
+- [x] 1. Secret Scan + Commit Squash + Push + PR Creation
 
   **What to do**:
   - Run `gitleaks detect --source . --no-banner` on the repo. If ANY secrets found, STOP and report — do not push.
@@ -252,7 +252,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
   **Commit**: NO (this task IS the push/PR)
 
-- [ ] 2. Add Integration Test CI Job
+- [x] 2. Add Integration Test CI Job
 
   **What to do**:
   - Add a new job `integration-tests` to `.github/workflows/ci.yml`
@@ -316,7 +316,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `ci: add integration test job (non-blocking)`
   - Files: `.github/workflows/ci.yml`
 
-- [ ] 4. Harden Dockerfile
+- [x] 4. Harden Dockerfile
 
   **What to do**:
   - In `docker/api/Dockerfile`, add a non-root user in the runtime stage:
@@ -390,7 +390,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `build: harden Dockerfile with non-root user and ASPNETCORE_URLS`
   - Files: `docker/api/Dockerfile`
 
-- [ ] 5. Add Docker Build + Trivy Scan CI Job
+- [x] 5. Add Docker Build + Trivy Scan CI Job
 
   **What to do**:
   - Add a new job `docker-build` to `.github/workflows/ci.yml`
@@ -449,7 +449,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `ci: add Dockerfile lint and security scan job`
   - Files: `.github/workflows/ci.yml`
 
-- [ ] 6. Add Helm Lint CI Job
+- [x] 6. Add Helm Lint CI Job
 
   **What to do**:
   - Add a new job `helm-lint` to `.github/workflows/ci.yml`
@@ -504,7 +504,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `ci: add Helm lint job`
   - Files: `.github/workflows/ci.yml`
 
-- [ ] 3. Add Frontend CI Job
+- [x] 3. Add Frontend CI Job
 
   **What to do**:
   - Add a new job `frontend` to `.github/workflows/ci.yml`
@@ -570,7 +570,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `ci: add frontend lint, test, and build job`
   - Files: `.github/workflows/ci.yml`
 
-- [ ] 7. Frontend Accessibility Audit + Fixes
+- [x] 7. Frontend Accessibility Audit + Fixes
 
   **What to do**:
   - Install `@axe-core/cli` or use `npx @axe-core/cli` to run a11y audit against the built Next.js app
@@ -647,7 +647,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `fix(a11y): resolve critical accessibility violations in mimir-chat`
   - Files: `src/mimir-chat/...` (affected components)
 
-- [ ] 8. Security Audit + Config Fixes
+- [x] 8. Security Audit + Config Fixes
 
   **What to do**:
   - **CORS audit**: Read `AddNemCors` implementation in `../nem.Contracts/src/nem.Contracts.AspNetCore/Cors/NemCorsExtensions.cs` (sibling repo). Verify allowed origins are environment-specific (not unconditional `AllowAnyOrigin()`). Document findings. Note: CORS is implemented in nem.Contracts shared library, not in this repo — fixes to CORS itself are out of scope, but audit findings should be documented.
@@ -734,7 +734,7 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
   - Message: `security: add gitleaks CI, audit CORS and API docs gating`
   - Files: `.github/workflows/ci.yml` (gitleaks step), docs or commit message for audit findings
 
-- [ ] 9. Documentation (ADRs + README sections)
+- [x] 9. Documentation (ADRs + README sections)
 
   **What to do**:
   - Create `docs/adr/` directory
@@ -814,19 +814,19 @@ Wave FINAL (After ALL tasks — 4 parallel reviews, then user okay):
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists. For each "Must NOT Have": search codebase for forbidden patterns — reject with file:line if found. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `dotnet build nem.Mimir.slnx --warnaserrors` + `dotnet test nem.Mimir.slnx --filter "Category!=Integration"` + `cd src/mimir-chat && npm run lint && npm run build`. Review changed files for: empty catches, console.log in prod, commented-out code, unused imports. Check YAML syntax on all CI workflow files.
   Output: `Build [PASS/FAIL] | Lint [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Execute EVERY QA scenario from EVERY task — follow exact steps, capture evidence. Test CI workflow YAML validity. Verify Docker build + non-root. Run secret scan. Check a11y report. Save to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (`git diff origin/main..HEAD`). Verify 1:1 — everything in spec was built, nothing beyond spec was built. Check "Must NOT do" compliance. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
