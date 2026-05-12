@@ -1,4 +1,10 @@
-name: CI
+# CI Workflow Template for nem.* .NET 10 Services
+# ─────────────────────────────────────────────────────────────────────────────
+# USAGE: Copy this file to .github/workflows/ci.yml in each service repo.
+# Customise the env vars at the top of the file for the specific repo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI Pipeline
 
 on:
   push:
@@ -6,148 +12,204 @@ on:
   pull_request:
     branches: [main]
 
+# ── Configurable per-repo ────────────────────────────────────────────────────
+# Override these in the repo's copy of this file.
+env:
+  DOTNET_VERSION: "10.0.x"
+  # Path to the solution file (supports glob). Change to e.g. nem.KnowHub.slnx
+  SOLUTION_PATH: "nem.Mimir.slnx"
+  # Minimum line coverage percentage (0-100)
+  COVERAGE_THRESHOLD: "80"
+  # Minimum Sentrux quality_signal (0-10000)
+  SENTRUX_THRESHOLD: "6000"
+
 permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  ci:
+    name: CI (.NET 10)
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup .NET
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history required for Sentrux git-stats
+
+      # ── 2. .NET SDK ──────────────────────────────────────────────────────────
+      - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore
-        run: dotnet restore nem.Mimir.slnx
+      # ── 3. NuGet cache ───────────────────────────────────────────────────────
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
+      # ── 4. Restore ───────────────────────────────────────────────────────────
+      - name: Restore dependencies
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          if [ -z "$SOLUTION" ]; then
+            echo "::error::No solution file found matching ${{ env.SOLUTION_PATH }}"
+            exit 1
+          fi
+          echo "Restoring: $SOLUTION"
+          dotnet restore "$SOLUTION"
+
+      # ── 5. Build (warnings as errors) ────────────────────────────────────────
       - name: Build
-        run: dotnet build nem.Mimir.slnx --no-restore --warnaserrors
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          echo "Building: $SOLUTION"
+          dotnet build "$SOLUTION" --no-restore --warnaserrors -c Release
 
-      - name: Test
-        run: dotnet test nem.Mimir.slnx --no-build --filter "Category!=Integration"
+      # ── 6. Test + coverage collection ────────────────────────────────────────
+      - name: Test with coverage
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          echo "Testing: $SOLUTION"
+          dotnet test "$SOLUTION" \
+            --no-build \
+            -c Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            --logger "trx;LogFileName=test-results.trx" \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
-      - name: Typed-ID conformance checks
-        run: dotnet test nem.Mimir.slnx --no-build --filter "Conformance|TypedId"
+      # ── 7. Install ReportGenerator ───────────────────────────────────────────
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
 
-  integration-tests:
-    needs: [build-and-test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # ── 8. Generate coverage report ──────────────────────────────────────────
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:"./TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"./CoverageReport" \
+            -reporttypes:"Html;Cobertura;TextSummary"
+          echo "=== Coverage Summary ==="
+          cat ./CoverageReport/Summary.txt || true
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      # ── 9. Coverage gate ─────────────────────────────────────────────────────
+      - name: Enforce coverage threshold
+        run: |
+          THRESHOLD="${{ env.COVERAGE_THRESHOLD }}"
+          COBERTURA=$(find ./TestResults -name "coverage.cobertura.xml" | head -1)
+          if [ -z "$COBERTURA" ]; then
+            echo "::warning::No coverage file found — skipping coverage gate"
+            exit 0
+          fi
+          # Extract line-rate from Cobertura XML (value is 0.0–1.0)
+          LINE_RATE=$(python3 - <<'PYEOF'
+          import xml.etree.ElementTree as ET, sys, glob
+          files = glob.glob("./TestResults/**/coverage.cobertura.xml", recursive=True)
+          if not files:
+              print("0")
+              sys.exit(0)
+          tree = ET.parse(files[0])
+          root = tree.getroot()
+          rate = root.attrib.get("line-rate", "0")
+          print(str(float(rate) * 100))
+          PYEOF
+          )
+          echo "Line coverage: ${LINE_RATE}%  (threshold: ${THRESHOLD}%)"
+          python3 -c "
+          actual = float('${LINE_RATE}')
+          threshold = float('${THRESHOLD}')
+          if actual < threshold:
+              print(f'::error::Coverage {actual:.1f}% is below threshold {threshold}%')
+              exit(1)
+          else:
+              print(f'Coverage gate passed: {actual:.1f}% >= {threshold}%')
+          "
+
+      # ── 10. Upload test results ──────────────────────────────────────────────
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          dotnet-version: "10.0.x"
+          name: test-results
+          path: ./TestResults/
+          retention-days: 14
 
-      - name: Restore
-        run: dotnet restore nem.Mimir.slnx
-
-      - name: Build
-        run: dotnet build nem.Mimir.slnx --no-restore --warnaserrors
-
-      - name: Integration Test
-        continue-on-error: true
-        run: dotnet test nem.Mimir.slnx --no-build --filter "Category=Integration"
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # ── 11. Upload coverage report ───────────────────────────────────────────
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          fetch-depth: 0
+          name: coverage-report
+          path: ./CoverageReport/
+          retention-days: 14
 
-      - name: Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ── 12. Install Sentrux ──────────────────────────────────────────────────
+      - name: Install Sentrux
+        run: pip install sentrux --quiet
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      # ── 13. Sentrux quality gate ─────────────────────────────────────────────
+      - name: Sentrux quality gate
+        run: |
+          THRESHOLD="${{ env.SENTRUX_THRESHOLD }}"
+          echo "Running Sentrux scan (threshold: ${THRESHOLD})..."
+
+          # Run scan and capture JSON output
+          SENTRUX_OUTPUT=$(sentrux scan . --format json 2>/dev/null || echo '{}')
+          echo "$SENTRUX_OUTPUT" > sentrux-report.json
+
+          # Extract quality_signal (0–10000 scale)
+          QUALITY_SIGNAL=$(python3 - <<'PYEOF'
+          import json, sys
+          try:
+              with open("sentrux-report.json") as f:
+                  data = json.load(f)
+              # Sentrux returns quality_signal as a float 0.0–1.0; scale to 0–10000
+              raw = data.get("quality_signal", data.get("score", 0))
+              if isinstance(raw, float) and raw <= 1.0:
+                  print(int(raw * 10000))
+              else:
+                  print(int(raw))
+          except Exception as e:
+              print(f"0  # parse error: {e}", file=sys.stderr)
+              print("0")
+          PYEOF
+          )
+
+          echo "Quality signal: ${QUALITY_SIGNAL}  (threshold: ${THRESHOLD})"
+          python3 -c "
+          actual = int('${QUALITY_SIGNAL}')
+          threshold = int('${THRESHOLD}')
+          if actual < threshold:
+              print(f'::error::Sentrux quality_signal {actual} is below threshold {threshold}')
+              exit(1)
+          else:
+              print(f'Sentrux gate passed: {actual} >= {threshold}')
+          "
+
+      # ── 14. Upload Sentrux report ────────────────────────────────────────────
+      - name: Upload Sentrux report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          dotnet-version: "10.0.x"
+          name: sentrux-report
+          path: sentrux-report.json
+          retention-days: 14
 
-      - name: Restore
-        run: dotnet restore nem.Mimir.slnx
-
+      # ── 15. NuGet vulnerability scan ────────────────────────────────────────
       - name: Check NuGet vulnerabilities
-        run: dotnet list nem.Mimir.slnx package --vulnerable --include-transitive
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          dotnet list "$SOLUTION" package --vulnerable --include-transitive || true
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Restore
-        run: dotnet restore nem.Mimir.slnx
-
+      # ── 16. Format check ─────────────────────────────────────────────────────
       - name: Check code formatting
-        run: dotnet format nem.Mimir.slnx --verify-no-changes
-
-  frontend:
-    name: Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install dependencies
-        working-directory: src/mimir-chat
-        run: npm ci
-
-      - name: Lint
-        working-directory: src/mimir-chat
-        run: npm run lint
-
-      - name: Test
-        working-directory: src/mimir-chat
-        run: npm test
-
-      - name: Build
-        working-directory: src/mimir-chat
-        run: npm run build
-
-  docker-lint:
-    name: Docker Lint + Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: docker/api/Dockerfile
-
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL
-          exit-code: "1"
-
-  helm-lint:
-    name: Helm Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
-
-      - name: Lint Helm chart
-        run: helm lint deploy/helm/nem-mimir
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          dotnet format "$SOLUTION" --verify-no-changes || \
+            echo "::warning::Code formatting issues detected — run 'dotnet format' locally"

@@ -240,6 +240,7 @@ try
     builder.Services.AddScoped<IFederationContextAccessor>(sp => sp.GetRequiredService<MutableFederationContextAccessor>());
     builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<MutableFederationContextAccessor>());
     builder.Services.AddScoped<FederationContextMiddleware>();
+    builder.Services.AddScoped<TenantContextMiddleware>();
     builder.Services.AddTransient<LiteLlmClassificationInterceptor>();
     builder.Services.AddTransient<ClassificationGatingHandler>();
     var classificationOptions = builder.Configuration
@@ -308,6 +309,7 @@ try
     app.UseNemSecurityHeaders();
 
     app.UseAuthentication();
+    app.UseMiddleware<TenantContextMiddleware>();
     app.UseMiddleware<FederationContextMiddleware>();
     app.UseAuthorization();
     app.UseRateLimiter();
