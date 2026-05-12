@@ -1,0 +1,29 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+processors:
+  batch:
+
+exporters:
+  debug:
+    verbosity: detailed
+  logging:
+    loglevel: debug
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, logging]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, logging]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, logging]

@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>nem.Mimir.Infrastructure.Tests</RootNamespace>
+    <AssemblyName>nem.Mimir.Infrastructure.Tests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="WolverineFx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\nem.Mimir.Api\nem.Mimir.Api.csproj" />
+    <ProjectReference Include="..\..\src\nem.Mimir.Infrastructure\nem.Mimir.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts\nem.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\nem.Contracts\src\nem.Contracts.AspNetCore\nem.Contracts.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\..\nem.MCP\services\nem.MCP.Core\nem.MCP.Core.csproj" />
+    <ProjectReference Include="..\..\..\nem.MCP\services\nem.MCP.Infrastructure\nem.MCP.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.Abstractions\nem.KnowHub.Enhancement.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.Distillation\nem.KnowHub.Enhancement.Distillation.csproj" />
+    <ProjectReference Include="..\..\..\nem.KnowHub\src\nem.KnowHub.Enhancement.GraphRag\nem.KnowHub.Enhancement.GraphRag.csproj" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Compile Remove="Services\SandboxServiceTests.cs" />
+    <Compile Remove="Plugins\BuiltIn\CodeRunnerPluginTests.cs" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.msbuild">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>

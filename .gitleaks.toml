@@ -1,0 +1,10 @@
+[allowlist]
+description = "Test fixtures and template placeholders"
+regexes = [
+  '''sk-abc123xyz''',
+  '''<base64 encoded key>''',
+]
+paths = [
+  '''tests/.*\.cs''',
+  '''src/mimir-chat/k8s/.*\.yaml''',
+]

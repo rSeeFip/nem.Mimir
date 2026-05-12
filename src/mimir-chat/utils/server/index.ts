@@ -4,8 +4,7 @@ import { OpenAIModel } from '@/types/openai';
 import { AZURE_DEPLOYMENT_ID, OPENAI_API_HOST, OPENAI_API_TYPE, OPENAI_API_VERSION, OPENAI_ORGANIZATION } from '../app/const';
 
 import {
-  ParsedEvent,
-  ReconnectInterval,
+  EventSourceMessage,
   createParser,
 } from 'eventsource-parser';
 
@@ -30,6 +29,15 @@ export const OpenAIStream = async (
   key: string,
   messages: Message[],
 ) => {
+  const normalizedModelId =
+    {
+      OpenChat: 'phi-4-mini',
+      'OpenChat-8192': 'qwen-2.5-72b',
+      'openchat_v3.1_llama2': 'qwen-2.5-72b',
+      'openchat_v3.2': 'qwen-2.5-72b',
+      OpenCoder: 'qwen-2.5-coder-32b',
+    }[model.id] ?? model.id;
+
   let url = `${OPENAI_API_HOST}/v1/chat/completions`;
   if (OPENAI_API_TYPE === 'azure') {
     url = `${OPENAI_API_HOST}/openai/deployments/${AZURE_DEPLOYMENT_ID}/chat/completions?api-version=${OPENAI_API_VERSION}`;
@@ -47,7 +55,7 @@ export const OpenAIStream = async (
     },
     method: 'POST',
     body: JSON.stringify({
-      ...(OPENAI_API_TYPE === 'openai' && {model: model.id}),
+      ...(OPENAI_API_TYPE === 'openai' && {model: normalizedModelId}),
       messages: [
         {
           role: 'system',
@@ -84,8 +92,8 @@ export const OpenAIStream = async (
 
   const stream = new ReadableStream({
     async start(controller) {
-      const onParse = (event: ParsedEvent | ReconnectInterval) => {
-        if (event.type === 'event') {
+      const parser = createParser({
+        onEvent: (event: EventSourceMessage) => {
           const data = event.data;
 
           try {
@@ -100,10 +108,8 @@ export const OpenAIStream = async (
           } catch (e) {
             controller.error(e);
           }
-        }
-      };
-
-      const parser = createParser(onParse);
+        },
+      });
 
       for await (const chunk of res.body as any) {
         parser.feed(decoder.decode(chunk));

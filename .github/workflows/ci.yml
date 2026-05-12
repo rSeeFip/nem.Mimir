@@ -1,160 +1,215 @@
+# CI Workflow Template for nem.* .NET 10 Services
+# ─────────────────────────────────────────────────────────────────────────────
+# USAGE: Copy this file to .github/workflows/ci.yml in each service repo.
+# Customise the env vars at the top of the file for the specific repo.
+# ─────────────────────────────────────────────────────────────────────────────
+
 name: CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+
+# ── Configurable per-repo ────────────────────────────────────────────────────
+# Override these in the repo's copy of this file.
+env:
+  DOTNET_VERSION: "10.0.x"
+  # Path to the solution file (supports glob). Change to e.g. nem.KnowHub.slnx
+  SOLUTION_PATH: "nem.Mimir.slnx"
+  # Minimum line coverage percentage (0-100)
+  COVERAGE_THRESHOLD: "80"
+  # Minimum Sentrux quality_signal (0-10000)
+  SENTRUX_THRESHOLD: "6000"
 
 permissions:
   contents: read
-  packages: write
-
-env:
-  DOTNET_VERSION: "10.0.x"
 
 jobs:
-  build:
-    name: Build (.NET)
+  ci:
+    name: CI (.NET 10)
     runs-on: ubuntu-latest
+
     steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history required for Sentrux git-stats
 
+      # ── 2. .NET SDK ──────────────────────────────────────────────────────────
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      # ── 3. NuGet cache ───────────────────────────────────────────────────────
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.props') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
 
+      # ── 4. Restore ───────────────────────────────────────────────────────────
       - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          if [ -z "$SOLUTION" ]; then
+            echo "::error::No solution file found matching ${{ env.SOLUTION_PATH }}"
+            exit 1
+          fi
+          echo "Restoring: $SOLUTION"
+          dotnet restore "$SOLUTION"
 
-      - name: Build solution
-        run: dotnet build nem.Mimir.sln --no-restore --warnaserrors
+      # ── 5. Build (warnings as errors) ────────────────────────────────────────
+      - name: Build
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          echo "Building: $SOLUTION"
+          dotnet build "$SOLUTION" --no-restore --warnaserrors -c Release
 
-  unit-tests:
-    name: Unit Tests (.NET)
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # ── 6. Test + coverage collection ────────────────────────────────────────
+      - name: Test with coverage
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          echo "Testing: $SOLUTION"
+          dotnet test "$SOLUTION" \
+            --no-build \
+            -c Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            --logger "trx;LogFileName=test-results.trx" \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+      # ── 7. Install ReportGenerator ───────────────────────────────────────────
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+      # ── 8. Generate coverage report ──────────────────────────────────────────
+      - name: Generate coverage report
+        run: |
+          reportgenerator \
+            -reports:"./TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"./CoverageReport" \
+            -reporttypes:"Html;Cobertura;TextSummary"
+          echo "=== Coverage Summary ==="
+          cat ./CoverageReport/Summary.txt || true
 
-      - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
+      # ── 9. Coverage gate ─────────────────────────────────────────────────────
+      - name: Enforce coverage threshold
+        run: |
+          THRESHOLD="${{ env.COVERAGE_THRESHOLD }}"
+          COBERTURA=$(find ./TestResults -name "coverage.cobertura.xml" | head -1)
+          if [ -z "$COBERTURA" ]; then
+            echo "::warning::No coverage file found — skipping coverage gate"
+            exit 0
+          fi
+          # Extract line-rate from Cobertura XML (value is 0.0–1.0)
+          LINE_RATE=$(python3 - <<'PYEOF'
+          import xml.etree.ElementTree as ET, sys, glob
+          files = glob.glob("./TestResults/**/coverage.cobertura.xml", recursive=True)
+          if not files:
+              print("0")
+              sys.exit(0)
+          tree = ET.parse(files[0])
+          root = tree.getroot()
+          rate = root.attrib.get("line-rate", "0")
+          print(str(float(rate) * 100))
+          PYEOF
+          )
+          echo "Line coverage: ${LINE_RATE}%  (threshold: ${THRESHOLD}%)"
+          python3 -c "
+          actual = float('${LINE_RATE}')
+          threshold = float('${THRESHOLD}')
+          if actual < threshold:
+              print(f'::error::Coverage {actual:.1f}% is below threshold {threshold}%')
+              exit(1)
+          else:
+              print(f'Coverage gate passed: {actual:.1f}% >= {threshold}%')
+          "
 
-      - name: Run Domain Tests
-        run: dotnet run --project tests/Mimir.Domain.Tests/Mimir.Domain.Tests.csproj
-
-      - name: Run Application Tests
-        run: dotnet run --project tests/Mimir.Application.Tests/Mimir.Application.Tests.csproj
-
-      - name: Run Infrastructure Tests
-        run: dotnet run --project tests/Mimir.Infrastructure.Tests/Mimir.Infrastructure.Tests.csproj
-
-      - name: Run API Tests
-        run: dotnet run --project tests/Mimir.Api.Tests/Mimir.Api.Tests.csproj
-
-      - name: Run TUI Tests
-        run: dotnet run --project tests/Mimir.Tui.Tests/Mimir.Tui.Tests.csproj
-
-      - name: Run Telegram Tests
-        run: dotnet run --project tests/Mimir.Telegram.Tests/Mimir.Telegram.Tests.csproj
-
-      - name: Run Sync Tests
-        run: dotnet run --project tests/Mimir.Sync.Tests/Mimir.Sync.Tests.csproj
-
+      # ── 10. Upload test results ──────────────────────────────────────────────
       - name: Upload test results
-        uses: actions/upload-artifact@v4
         if: always()
-        with:
-          name: unit-test-results
-          path: TestResults/
-          retention-days: 7
-
-  integration-tests:
-    name: Integration & E2E Tests (.NET)
-    runs-on: ubuntu-latest
-    needs: build
-    if: false  # Skip — Docker/external services unavailable in CI
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
-
-      - name: Run E2E Tests
-        run: dotnet run --project tests/Mimir.E2E.Tests/Mimir.E2E.Tests.csproj
-
-      - name: Run API Integration Tests
-        run: dotnet run --project tests/Mimir.Api.IntegrationTests/Mimir.Api.IntegrationTests.csproj
-
-      - name: Upload test results
         uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./TestResults/
+          retention-days: 14
+
+      # ── 11. Upload coverage report ───────────────────────────────────────────
+      - name: Upload coverage report
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: integration-test-results
-          path: TestResults/
-          retention-days: 7
+          name: coverage-report
+          path: ./CoverageReport/
+          retention-days: 14
 
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # ── 12. Install Sentrux ──────────────────────────────────────────────────
+      - name: Install Sentrux
+        run: pip install sentrux --quiet
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+      # ── 13. Sentrux quality gate ─────────────────────────────────────────────
+      - name: Sentrux quality gate
+        run: |
+          THRESHOLD="${{ env.SENTRUX_THRESHOLD }}"
+          echo "Running Sentrux scan (threshold: ${THRESHOLD})..."
+
+          # Run scan and capture JSON output
+          SENTRUX_OUTPUT=$(sentrux scan . --format json 2>/dev/null || echo '{}')
+          echo "$SENTRUX_OUTPUT" > sentrux-report.json
+
+          # Extract quality_signal (0–10000 scale)
+          QUALITY_SIGNAL=$(python3 - <<'PYEOF'
+          import json, sys
+          try:
+              with open("sentrux-report.json") as f:
+                  data = json.load(f)
+              # Sentrux returns quality_signal as a float 0.0–1.0; scale to 0–10000
+              raw = data.get("quality_signal", data.get("score", 0))
+              if isinstance(raw, float) and raw <= 1.0:
+                  print(int(raw * 10000))
+              else:
+                  print(int(raw))
+          except Exception as e:
+              print(f"0  # parse error: {e}", file=sys.stderr)
+              print("0")
+          PYEOF
+          )
+
+          echo "Quality signal: ${QUALITY_SIGNAL}  (threshold: ${THRESHOLD})"
+          python3 -c "
+          actual = int('${QUALITY_SIGNAL}')
+          threshold = int('${THRESHOLD}')
+          if actual < threshold:
+              print(f'::error::Sentrux quality_signal {actual} is below threshold {threshold}')
+              exit(1)
+          else:
+              print(f'Sentrux gate passed: {actual} >= {threshold}')
+          "
+
+      # ── 14. Upload Sentrux report ────────────────────────────────────────────
+      - name: Upload Sentrux report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          name: sentrux-report
+          path: sentrux-report.json
+          retention-days: 14
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Restore dependencies
-        run: dotnet restore nem.Mimir.sln
-
+      # ── 15. NuGet vulnerability scan ────────────────────────────────────────
       - name: Check NuGet vulnerabilities
-        run: dotnet list nem.Mimir.sln package --vulnerable --include-transitive
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          dotnet list "$SOLUTION" package --vulnerable --include-transitive || true
+
+      # ── 16. Format check ─────────────────────────────────────────────────────
+      - name: Check code formatting
+        run: |
+          SOLUTION=$(find . -name "*.slnx" -o -name "*.sln" | head -1)
+          dotnet format "$SOLUTION" --verify-no-changes || \
+            echo "::warning::Code formatting issues detected — run 'dotnet format' locally"

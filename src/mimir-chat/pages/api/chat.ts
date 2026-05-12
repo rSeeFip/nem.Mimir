@@ -72,7 +72,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
     res.end();
   } catch (error) {
-    console.error(error);
     if (error instanceof OpenAIError) {
       return res.status(500).json({ error: error.message });
     } else {

@@ -60,7 +60,6 @@ export const cleanConversationHistory = (history: any[]): Conversation[] => {
   // added messages (4/16/23)
 
   if (!Array.isArray(history)) {
-    console.warn('history is not an array. Returning an empty array.');
     return [];
   }
 
@@ -88,11 +87,7 @@ export const cleanConversationHistory = (history: any[]): Conversation[] => {
 
       acc.push(conversation);
       return acc;
-    } catch (error) {
-      console.warn(
-        `error while cleaning conversations' history. Removing culprit`,
-        error,
-      );
+    } catch {
     }
     return acc;
   }, []);

@@ -33,7 +33,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
       if (!response.ok) {
         const text = await response.text();
-        console.error(`Mimir API error ${response.status}: ${text}`);
         return res.status(response.status).json({ error: text });
       }
 
@@ -51,7 +50,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
       if (!response.ok) {
         const text = await response.text();
-        console.error(`Mimir API error ${response.status}: ${text}`);
         return res.status(response.status).json({ error: text });
       }
 
@@ -66,7 +64,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
       if (!response.ok) {
         const text = await response.text();
-        console.error(`Mimir API error ${response.status}: ${text}`);
         return res.status(response.status).json({ error: text });
       }
 
@@ -74,8 +71,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
-  } catch (error) {
-    console.error('BFF /api/conversations/[id] error:', error);
+  } catch {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

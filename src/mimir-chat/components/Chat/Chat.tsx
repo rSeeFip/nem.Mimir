@@ -29,6 +29,7 @@ import Spinner from '../Spinner';
 import { ChatInput } from './ChatInput';
 import { ChatLoader } from './ChatLoader';
 import { ErrorMessageDiv } from './ErrorMessageDiv';
+import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog';
 import { ModelSelect } from './ModelSelect';
 import { SystemPrompt } from './SystemPrompt';
 import { TemperatureSlider } from './Temperature';
@@ -60,6 +61,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
   const [currentMessage, setCurrentMessage] = useState<Message>();
   const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showClearAllDialog, setShowClearAllDialog] = useState<boolean>(false);
   const [showScrollDownButton, setShowScrollDownButton] =
     useState<boolean>(false);
 
@@ -212,7 +214,11 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
           saveConversations(updatedConversations);
           homeDispatch({ field: 'messageIsStreaming', value: false });
         } else {
-          const { answer } = await response.json();
+          const pluginResponse = await response.json();
+          const answer =
+            typeof pluginResponse?.answer === 'string'
+              ? pluginResponse.answer
+              : '';
           const updatedMessages: Message[] = [
             ...updatedConversation.messages,
             { role: 'assistant', content: answer },
@@ -223,7 +229,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
           };
           homeDispatch({
             field: 'selectedConversation',
-            value: updateConversation,
+            value: updatedConversation,
           });
           saveConversation(updatedConversation);
           const updatedConversations: Conversation[] = conversations.map(
@@ -287,14 +293,17 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
   };
 
   const onClearAll = () => {
-    if (
-      confirm(t<string>('Are you sure you want to clear all messages?')) &&
-      selectedConversation
-    ) {
+    if (selectedConversation) {
       handleUpdateConversation(selectedConversation, {
         key: 'messages',
         value: [],
       });
+    }
+  };
+
+  const handleClearAllClick = () => {
+    if (selectedConversation) {
+      setShowClearAllDialog(true);
     }
   };
 
@@ -304,14 +313,6 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
     }
   };
   const throttledScrollDown = throttle(scrollDown, 250);
-
-  // useEffect(() => {
-  //   console.log('currentMessage', currentMessage);
-  //   if (currentMessage) {
-  //     handleSend(currentMessage);
-  //     homeDispatch({ field: 'currentMessage', value: undefined });
-  //   }
-  // }, [currentMessage]);
 
   useEffect(() => {
     throttledScrollDown();
@@ -347,6 +348,18 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
 
   return (
     <div className="relative flex-1 overflow-hidden bg-white dark:bg-nem-900">
+      <ConfirmDialog
+        open={showClearAllDialog}
+        title={t('Clear all messages')}
+        message={t('Are you sure you want to clear all messages?')}
+        confirmText={t('Clear')}
+        cancelText={t('Cancel')}
+        onCancel={() => setShowClearAllDialog(false)}
+        onConfirm={() => {
+          onClearAll();
+          setShowClearAllDialog(false);
+        }}
+      />
       {modelError ? (
         <ErrorMessageDiv error={modelError} />
       ) : (
@@ -420,15 +433,17 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
                   <button
                     className="ml-2 cursor-pointer hover:opacity-50"
                     onClick={handleSettings}
+                    aria-label={t('Settings') as string}
                   >
                     <IconSettings size={18} />
                   </button>
                   <button
                     className="ml-2 cursor-pointer hover:opacity-50"
-                    onClick={onClearAll}
-                  >
-                    <IconClearAll size={18} />
-                  </button>
+                    onClick={handleClearAllClick}
+                    aria-label={t('Clear all messages') as string}
+                    >
+                      <IconClearAll size={18} />
+                    </button>
                 </div>
                 {showSettings && (
                   <div className="flex flex-col space-y-10 md:mx-auto md:max-w-xl md:gap-6 md:py-3 md:pt-6 lg:max-w-2xl lg:px-0 xl:max-w-3xl">
@@ -437,7 +452,6 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
                     </div>
                   </div>
                 )}
-
                 {selectedConversation?.messages.map((message, index) => (
                   <MemoizedChatMessage
                     key={index}

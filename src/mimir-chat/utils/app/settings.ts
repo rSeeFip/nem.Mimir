@@ -11,8 +11,7 @@ export const getSettings = (): Settings => {
     try {
       let savedSettings = JSON.parse(settingsJson) as Settings;
       settings = Object.assign(settings, savedSettings);
-    } catch (e) {
-      console.error(e);
+    } catch {
     }
   }
   return settings;

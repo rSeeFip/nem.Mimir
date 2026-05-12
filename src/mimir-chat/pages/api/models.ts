@@ -33,11 +33,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     if (response.status === 401) {
       return res.status(500).json({ error: 'Upstream API returned 401' });
     } else if (response.status !== 200) {
-      console.error(
-        `OpenAI API returned an error ${
-          response.status
-        }: ${await response.text()}`,
-      );
       throw new Error('OpenAI API returned an error');
     }
 
@@ -58,8 +53,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       .filter(Boolean);
 
     return res.status(200).json(models);
-  } catch (error) {
-    console.error(error);
+  } catch {
     return res.status(500).json({ error: 'Error' });
   }
 };

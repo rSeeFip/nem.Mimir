@@ -1,0 +1,114 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: nem-mimir
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+serviceAccount:
+  create: false
+  automountServiceAccountToken: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+imagePullSecrets: []
+
+podSecurityContext:
+  fsGroup: 10001
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: mimir.nem.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: nem-mimir-tls
+      hosts:
+        - mimir.nem.local
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+config:
+  env: Production
+  logLevel: Information
+  httpPort: 8080
+  jwt:
+    authority: https://keycloak.nem.local/realms/mimir
+    audience: mimir-api
+    requireHttpsMetadata: true
+  liteLlm:
+    baseUrl: http://litellm.nem-system.svc.cluster.local:4000
+    timeoutSeconds: 120
+  inferencePolicy:
+    enabled: true
+    defaultPolicy: allow-all
+    action: Allow
+  tokenBudgetGovernor:
+    defaultBudget: 5000
+    warnThresholdPercent: 80
+  guardrails:
+    enabled: true
+    maxOutputTokens: 4096
+    activeBundle: standard
+  replayBuffer:
+    maxMessages: 50
+    windowMinutes: 5
+  observability:
+    enabled: true
+    serviceName: nem.Mimir
+  sanitization:
+    maxMessageLength: 10000
+    logSuspiciousPatterns: true
+    stripHtmlTags: true
+  cors:
+    allowedOrigins:
+      - https://mimir.nem.local
+    allowedMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    allowedHeaders:
+      - Authorization
+      - Content-Type
+      - X-Correlation-ID
+  allowedHosts: "*"
+
+openbao:
+  clusterSecretStore: openbao-cluster-store
+  refreshInterval: 1h
+  secretPathPrefix: kv/data/nem/mimir
+  targetSecretName: nem-mimir-runtime
+  keys:
+    databaseConnectionString: databaseConnectionString
+    liteLlmApiKey: liteLlmApiKey
+    rabbitMqConnectionString: rabbitMqConnectionString

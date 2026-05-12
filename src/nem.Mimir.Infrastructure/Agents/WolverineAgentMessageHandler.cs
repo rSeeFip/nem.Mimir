@@ -1,0 +1,11 @@
+﻿namespace nem.Mimir.Infrastructure.Agents;
+
+using nem.Mimir.Domain.Agents.Messages;
+
+public sealed class WolverineAgentMessageHandler
+{
+    public static Task Handle(IAgentMessage message, IAgentCommunicationBus communicationBus, CancellationToken cancellationToken)
+    {
+        return communicationBus.RouteIncomingAsync(message, cancellationToken);
+    }
+}

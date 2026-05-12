@@ -2,12 +2,12 @@ import { useCallback, useContext, useEffect } from 'react';
 
 import { useTranslation } from 'next-i18next';
 
-import { useCreateReducer } from '@/hooks/useCreateReducer';
+import { useCreateReducer } from '@/hooks/use-create-reducer';
 
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_TEMPERATURE } from '@/utils/app/const';
 import { saveConversation, saveConversations, deleteConversationFromApi } from '@/utils/app/conversation';
 import { saveFolders } from '@/utils/app/folders';
-import { exportData, importData } from '@/utils/app/importExport';
+import { exportData, importData } from '@/utils/app/import-export';
 
 import { Conversation } from '@/types/chat';
 import { LatestExportFormat, SupportedExportFormats } from '@/types/export';
@@ -201,7 +201,7 @@ export const Chatbar = () => {
         value: conversations,
       });
     }
-  }, [searchTerm, conversations]);
+  }, [chatDispatch, conversations, searchTerm]);
 
   return (
     <ChatbarContext.Provider

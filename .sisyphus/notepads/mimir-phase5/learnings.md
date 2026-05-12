@@ -1,0 +1,2 @@
+- T8: `src/mimir-chat/components/Chat/Chat.tsx` plugin responses were not rendered because the plugin branch dispatched the imported `updateConversation` helper instead of the local `updatedConversation` state object.
+- T8: Hardened plugin response parsing with a string/null guard for `response.json().answer` so malformed plugin payloads do not introduce undefined assistant content.

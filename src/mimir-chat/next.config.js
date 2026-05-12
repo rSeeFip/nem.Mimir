@@ -6,6 +6,8 @@ const nextConfig = {
   output: 'standalone',
   i18n,
   reactStrictMode: true,
+  staticPageGenerationTimeout: 300,
+  turbopack: {},
 
   webpack(config, { isServer, dev }) {
     config.experiments = {

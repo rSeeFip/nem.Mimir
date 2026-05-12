@@ -24,7 +24,7 @@ services:
   mimir-keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: mimir-keycloak
-    command: start-dev --import-realm --health-enabled=true
+    command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-changeme}
@@ -39,7 +39,7 @@ services:
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && timeout 1 cat <&3 | grep -q '200 OK'"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -59,23 +59,19 @@ services:
       - "5000:5000"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      DOTNET_GCConserveMemory: "9"
-      DOTNET_GCHeapHardLimit: "0x10000000"
-      DOTNET_EnableDiagnostics: "0"
-      Jwt__Authority: http://mimir-keycloak:8080/realms/mimir
-      Jwt__Audience: mimir-api
-      Jwt__RequireHttpsMetadata: "false"
-      LiteLlm__BaseUrl: http://mimir-litellm:4000
-      Database__ConnectionString: Host=mimir-db;Port=5432;Database=mimir;Username=${DB_USER:-mimir};Password=${DB_PASSWORD:-changeme}
       ConnectionStrings__DefaultConnection: Host=mimir-db;Port=5432;Database=mimir;Username=${DB_USER:-mimir};Password=${DB_PASSWORD:-changeme}
-      RabbitMQ__ConnectionString: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@mimir-rabbitmq:5672
+      RabbitMQ__Host: mimir-rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__User: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:-guest}
       Keycloak__Url: http://mimir-keycloak:8080
       Keycloak__Realm: mimir
       Keycloak__ClientId: mimir-api
       Keycloak__ClientSecret: ${KEYCLOAK_CLIENT_SECRET:-dev-secret}
       LiteLLM__BaseUrl: http://mimir-litellm:4000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -84,8 +80,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          pids: 256
+          memory: 1G
+          cpus: '1.0'
         reservations:
           memory: 512M
           cpus: '0.5'
@@ -96,6 +92,16 @@ services:
         condition: service_healthy
       mimir-rabbitmq:
         condition: service_healthy
+    networks:
+      - mimir-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
     networks:
       - mimir-network
 
@@ -113,10 +119,10 @@ services:
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-this-to-a-random-string}
       - OPENAI_API_HOST=http://mimir-api:5000
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen2.5-coder-32b-instruct}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3.5-9b-mlx}
     depends_on:
       mimir-api:
-        condition: service_started
+        condition: service_healthy
       mimir-keycloak:
         condition: service_healthy
     healthcheck:
@@ -131,13 +137,13 @@ services:
   mimir-litellm:
     image: ghcr.io/berriai/litellm:main-latest
     container_name: mimir-litellm
-    command: --config /etc/litellm/config.yaml --port 4000 --num_workers 1
+    command: --config /app/config.yaml --port 4000 --num_workers 1
     volumes:
-      - ./litellm_config.yaml:/etc/litellm/config.yaml:ro
+      - ./litellm_config.yaml:/app/config.yaml:ro
     ports:
       - "4000:4000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health')\" || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -169,8 +175,6 @@ services:
         limits:
           memory: 256M
           cpus: '0.5'
-          pids: 128
-
   mimir-sandbox:
     build:
       context: ./docker/sandbox

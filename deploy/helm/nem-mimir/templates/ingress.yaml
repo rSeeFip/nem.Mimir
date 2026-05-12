@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: '{{ include "nem-mimir.fullname" . }}'
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    helm.sh/chart: '{{ include "nem-mimir.chart" . }}'
+    app.kubernetes.io/name: '{{ include "nem-mimir.name" . }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/version: '{{ .Chart.AppVersion }}'
+    app.kubernetes.io/managed-by: '{{ .Release.Service }}'
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  tls:
+    - secretName: {{ index .Values.ingress.tls 0 "secretName" | quote }}
+      hosts:
+        - {{ index (index .Values.ingress.tls 0 "hosts") 0 | quote }}
+  rules:
+    - host: {{ index .Values.ingress.hosts 0 "host" | quote }}
+      http:
+        paths:
+          - path: {{ index (index .Values.ingress.hosts 0 "paths") 0 "path" | quote }}
+            pathType: {{ index (index .Values.ingress.hosts 0 "paths") 0 "pathType" | quote }}
+            backend:
+              service:
+                name: '{{ include "nem-mimir.fullname" . }}'
+                port:
+                  number: {{ .Values.service.port }}

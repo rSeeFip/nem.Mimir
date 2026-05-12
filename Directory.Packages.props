@@ -1,10 +1,10 @@
 <Project>
   <ItemGroup>
     <!-- Application packages -->
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
-    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
-    <PackageVersion Include="MediatR" Version="12.4.1" />
-    <PackageVersion Include="MediatR.Contracts" Version="2.0.1" />
+    <PackageVersion Include="FluentValidation" Version="12.1.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.0" />
+    <PackageVersion Include="MediatR" Version="11.1.0" />
+    <PackageVersion Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
@@ -12,8 +12,18 @@
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
 
   <!-- Wolverine -->
- <PackageVersion Include="WolverineFx" Version="5.16.4" />
- <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.16.4" />
+  <PackageVersion Include="WolverineFx" Version="5.16.4" />
+  <PackageVersion Include="WolverineFx.FluentValidation" Version="5.16.4" />
+  <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.16.4" />
+
+    <!-- MCP packages -->
+    <PackageVersion Include="ModelContextProtocol" Version="0.9.0-preview.2" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="0.9.0-preview.2" />
+
+    <!-- OpenTelemetry packages -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
 
     <!-- Infrastructure packages -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
@@ -22,6 +32,8 @@
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.3.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.3" />
     <PackageVersion Include="Docker.DotNet.Enhanced" Version="3.131.1" />
+    <PackageVersion Include="Marten" Version="8.22.2" />
+    <PackageVersion Include="Marten.AspNetCore" Version="8.22.2" />
 
     <!-- API packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
@@ -30,11 +42,18 @@
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
 
+    <!-- Teams packages -->
+    <PackageVersion Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.23.1" />
+
     <!-- Telegram packages -->
     <PackageVersion Include="Telegram.Bot" Version="22.9.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.3" />
+    <!-- Voice packages -->
+    <PackageVersion Include="Whisper.net" Version="1.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.3" />
+
     <!-- TUI packages -->
     <PackageVersion Include="Spectre.Console" Version="0.54.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
@@ -45,6 +64,7 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageVersion Include="Shouldly" Version="4.2.1" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.0.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.10.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3" />
@@ -55,5 +75,11 @@
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.10.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="coverlet.msbuild" Version="6.0.4" />
-  </ItemGroup>
+    <PackageVersion Include="NBomber" Version="6.0.0" />
+    <PackageVersion Include="NBomber.Http" Version="6.0.0" />
+      <!-- Static analyzers -->
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.12.0.118525" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.14.0" />
+</ItemGroup>
 </Project>

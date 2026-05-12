@@ -89,6 +89,12 @@ All models use OpenAI provider (LM Studio compatible).
 - API services will connect to LiteLLM at http://mimir-litellm:4000
 - Test users can be added to realm-export.json before startup
 
+## API Health Probes - Task T7
+
+- `Program.cs` now maps `/healthz` with an empty predicate so it behaves like a lightweight liveness probe.
+- `/ready` reuses the existing health checks registration, so it reports readiness based on dependency health (database and optional LiteLLM).
+- Kept the existing `/health` endpoint for compatibility while adding the new probe routes.
+
 
 # Domain Entity Unit Tests - Task T7 Completion
 
@@ -198,6 +204,12 @@ Events are records with:
 ✅ **Patterns**: xUnit + Shouldly, file-scoped namespaces, AAA structure
 
 ## Design Insights
+
+## 2026-05-01 — PolicyIntegration passthrough test fix
+
+- The passthrough integration test should stay focused on `PolicyIntentOverlayService` + `PolicyLlmServiceDecorator` behavior and not bootstrap DI with missing concrete types.
+- Using NSubstitute directly keeps the test aligned with the other policy integration tests: policy returns `Allow`, model resolution returns the same alias/tier, and the inner `ILlmService` must be called with the original model.
+- This avoids brittle references to non-existent test-only types like `AllowAllInferencePolicy` and `DefaultModelResolution`.
 1. **Aggregate Pattern**: Messages belong to Conversations - enforce via API
 2. **Immutability**: Domain objects use private setters - prevents post-creation mutations
 3. **Domain Events**: Records for event sourcing capabilities
@@ -855,6 +867,18 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - Build: 0 errors, 0 warnings ✓
 - Tests: 569 passed (160+130+151+44+39+45) ✓
 
+## [2026-03-07] T40 integration test stabilization (CrossServiceIntegrationTests)
+
+- Reflection against `NullLogger<T>.Instance` is brittle when `T` is only known at runtime via `MakeGenericType`; property lookup can return null depending on reflection context/runtime shape and causes NRE before test body executes.
+- Safer pattern for runtime-constructed generic logger dependencies in tests: build `ILogger<runtimeType>` interface with `typeof(ILogger<>).MakeGenericType(type)` and inject `Substitute.For(interfaceType, Array.Empty<object>())`.
+- Context-optimizer assertions should avoid strict `<` comparisons when optimization can validly return unchanged token count at threshold boundaries; `<=` preserves intent (no regression in token pressure) without flaky boundary failures.
+
+## [2026-04-23] PromoteSessionHandler test update
+
+- `PromoteSessionHandler.Handle` now requires `IDocumentSession` before `CancellationToken`; unit tests must create `Substitute.For<IDocumentSession>()` and pass it explicitly.
+- `Channel` cannot be object-initialized in tests because it has a private constructor/private setters; use `Channel.Create(Guid.NewGuid(), name, null, ChannelType.Public)` for lightweight valid instances.
+- Non-idempotent promotion path no longer persists through `IUnitOfWork.SaveChangesAsync`, so older assertions on `unitOfWork.Received().SaveChangesAsync(...)` are invalid for the happy path.
+
 ## [2026-02-28] Task: P6 - Mimir.Sync.Tests
 
 ### NSubstitute + Internal Types + ILogger<T> Gotcha
@@ -906,6 +930,11 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - Uses `next-i18next` for internationalization (46 static pages generated for locales)
 - Browserslist caniuse-lite is outdated but doesn't block build
 - 679 packages installed total
+
+## 2026-05-08 — Merge resolution for feat/typed-id-adoption
+
+- When a merge leaves conflict markers in files but `git diff --name-only --diff-filter=U` is empty, the index is already normalized and the fastest safe recovery for an `--ours` merge is restoring the tracked tree from `HEAD`, cleaning untracked incoming files, then creating the merge commit with both parents.
+- For this repo, the `feat/typed-id-adoption` tree built successfully after keeping the full `ours` tree, confirming the typed-id-adoption branch should remain the authoritative baseline for later MCP reintegration tasks.
 - Source files at `src/mimir-chat/` are properly git-tracked; node_modules, .next, .env.local are gitignored
 
 ### Files modified
@@ -937,6 +966,39 @@ The `dotnet new classlib` template generates TargetFramework/Nullable/ImplicitUs
 - `pages/api/auth/[...nextauth].ts`: Keycloak provider with JWT/session callbacks
 - `pages/api/chat.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
 - `pages/api/models.ts`: Edge→Node.js runtime, JWT forwarding via getToken()
+
+## T28 Context Optimizer implementation learnings (2026-03-06)
+
+- `IContextOptimizer` and `PruneStrategy` from `nem.Contracts.TokenOptimization` resolve cleanly at build time in this repo even when transient LSP diagnostics report namespace resolution issues.
+- For context safety constraints in optimizer logic, practical block-level protection heuristics are effective: preserve system-like blocks, preserve latest user-like block, and preserve final 3 blocks to avoid trimming recent interaction state.
+- Auto-trigger optimization should be decoupled from method call intent: `PruneAsync` and `CompressAsync` use threshold gating (`AutoTriggerThreshold * MaxContextTokens`), while `DistillAsync` remains explicit target-budget driven.
+- NSubstitute + Shouldly patterns in this repository favor concrete service tests with real options objects and substitute loggers rather than heavy mocking of algorithm internals.
+- Solution build (`dotnet build nem.Mimir.sln --verbosity minimal`) is the source of truth for cross-project contract compatibility; local editor diagnostics may be stale until full compile.
+
+## [2026-03-06] MCP Client Manager (HTTP-based) implementation
+
+### What worked
+- Implemented MCP integration as plain HTTP client flow (`GET /tools/list`, `POST /tools/call`) instead of SDK transport wiring.
+- Kept server routing deterministic via `serverPrefix.toolName` convention, with discovery fallback when no prefix is provided.
+- Tool schema discovery caching with per-server TTL behaved correctly using `TimeProvider` + in-memory per-server cache state.
+
+### Testing patterns that helped
+- Reused `HttpMessageHandler` stubs for endpoint simulation (success, 500 errors, empty tool lists).
+- Used `NSubstitute` for `IHttpClientFactory` to return deterministic `HttpClient` instances in unit tests.
+- `ManualTimeProvider` enabled deterministic cache expiry tests without sleeping.
+
+### Constraints observed
+- Infrastructure tests use Shouldly + NSubstitute; no Moq usage.
+- No additional NuGet packages required for HTTP implementation path.
+- Full solution build succeeded with 0 warnings and 0 errors after MCP changes.
+
+## [2026-03-06] Agent Orchestrator implementation notes
+
+- `IAgentOrchestrator`/`ISpecialistAgent` in `nem.Contracts` define async capability checks and execution signatures; application-layer orchestration should consume contract types directly to avoid signature drift.
+- `AgentExecutionContext` turn limits are best enforced centrally (`Interlocked.Increment`) and shared across child contexts to prevent recursive delegation loops.
+- Per-turn timeout handling belongs in coordinator execution (`CancellationTokenSource.CancelAfter(30s)`), with explicit `TimedOut` agent results for observability instead of throwing upstream.
+- Capability routing quality improved by combining capability keyword scoring + `AgentTaskType` weighting + general-agent fallback.
+- Solution-wide build in this branch is currently impacted by unrelated pre-existing failures in `tests/Mimir.Infrastructure.Tests/Mcp/McpClientManagerTests.cs`; targeted `Mimir.Application` build succeeds.
 - `pages/api/home/home.tsx`: useSession route protection, removed apiKey from query/localStorage/state
 - `components/Chat/Chat.tsx`: removed apiKey conditional, simplified to modelError check only
 - `components/Chatbar/components/ChatbarSettings.tsx`: removed Key component, added inline user profile + logout
@@ -1084,6 +1146,12 @@ This ensures Wolverine can immediately connect to RabbitMQ in mimir-api on start
 - `Common/Interfaces/IPluginService.cs` — LoadPluginAsync, UnloadPluginAsync, ListPluginsAsync, ExecutePluginAsync
 - `Plugins/Commands/LoadPlugin.cs` — Command + Validator + Handler
 - `Plugins/Commands/UnloadPlugin.cs` — Command + Validator + Handler
+
+## 2026-03-07 — T43 NBomber performance test stability
+
+- NBomber result containers for `ScenarioStats`/`StepStats` are not guaranteed to expose `Get(string)`; relying on a single reflection method name is brittle across NBomber API shape changes.
+- A robust extraction path for benchmark assertions should use layered fallback: known accessor method names, dictionary-like lookup (`IDictionary`/`IDictionary<string, T>` via `TryGetValue`), then enumerable scan by common name keys (`Name`, `ScenarioName`, `StepName`, `Key`).
+- Threshold and p95 assertions remain valid when extraction is resilient; test intent (per-scenario p95 latency + zero failed requests) can be preserved without binding to one internal collection API.
 - `Plugins/Commands/ExecutePlugin.cs` — Command + Validator + Handler
 - `Plugins/Queries/ListPlugins.cs` — Query + Handler
 
@@ -1201,3 +1269,171 @@ Following existing pattern: request DTOs as `sealed record` at the bottom of the
 - BuiltInPluginRegistrar casts IPluginService to PluginManager to access internal RegisterPlugin method
 - Test pattern: NSubstitute for IServiceScopeFactory chain → IServiceScope → IServiceProvider → ISandboxService
 - Global `<Using Include="Xunit" />` in test .csproj means no explicit `using Xunit;` needed
+
+
+## T10: Mimir.Api Ingestion API Endpoints — Channel Events
+
+### Completed
+- `IngestChannelEventCommand` + `ChannelEventResult` DTOs (MediatR IRequest)
+- `SendChannelMessageCommand` + `SendChannelMessageResult` DTOs (MediatR IRequest)
+- `IChannelMessageSender` interface (Mimir.Application-level abstraction)
+- `ChannelEventRouter` — routes to correct `IChannelMessageSender` by `ChannelType`
+- `IngestChannelEventHandler` — logs event, returns tracking ID (TODO: persist in T14+)
+- `SendChannelMessageHandler` — uses ChannelEventRouter to find sender, delegates to SendAsync
+- `ChannelEventsController` — `[Authorize(Policy = "ServiceAuth")]`, `POST /api/channel-events` and `POST /api/channel-events/send`
+- `nem.Contracts.AspNetCore` project reference added to Mimir.Api for ServiceAuth
+- `AddServiceAuthorization()` and `ChannelEventRouter` singleton registered in Program.cs
+- 9 unit tests: 2 IngestHandler, 2 SendHandler, 5 Router tests — all passing
+- SolutionStructureTests updated to expect 3 project references (Infrastructure, Sync, Contracts.AspNetCore)
+
+### Key Technical Learnings
+
+#### 1. Ambiguous IChannelMessageSender — Application vs Contracts
+**Problem**: Both `Mimir.Application.ChannelEvents.IChannelMessageSender` and `nem.Contracts.Channels.IChannelMessageSender` exist. Test file imports both namespaces → CS0104 ambiguity.
+**Solution**: Use `using IChannelMessageSender = Mimir.Application.ChannelEvents.IChannelMessageSender;` alias in test file.
+**Design Note**: The Application-level interface is a simplified Mimir-specific abstraction returning `SendChannelMessageResult`. The Contracts-level interface uses `OutboundChannelMessage` and is meant for cross-service communication.
+
+#### 2. ServiceAuth Not Previously Wired in Mimir.Api
+The `nem.Contracts.AspNetCore` package provides `AddServiceAuthorization()` which registers the "ServiceAuth" policy and handler. Mimir.Api had no reference to this package. Added both the project reference and the DI call.
+
+#### 3. SolutionStructureTests Architecture Guard
+Pre-existing architecture test (`ApiProject_ShouldReferenceInfrastructureAndSyncProjects`) validates project reference count. Adding `nem.Contracts.AspNetCore` bumped count from 2 to 3 — test updated.
+
+#### 4. Pre-existing Domain Test Failure
+`DomainProject_ShouldHaveNoProjectReferences` fails (expects 0, has 1 — `nem.Contracts`). This is pre-existing and NOT caused by T10 changes.
+
+### Files Created
+- src/Mimir.Application/ChannelEvents/IngestChannelEventCommand.cs
+- src/Mimir.Application/ChannelEvents/SendChannelMessageCommand.cs
+- src/Mimir.Application/ChannelEvents/IChannelMessageSender.cs
+- src/Mimir.Application/ChannelEvents/ChannelEventRouter.cs
+- src/Mimir.Application/ChannelEvents/IngestChannelEventHandler.cs
+- src/Mimir.Application/ChannelEvents/SendChannelMessageHandler.cs
+- src/Mimir.Api/Controllers/ChannelEventsController.cs
+- tests/Mimir.Application.Tests/ChannelEvents/ChannelEventsHandlerTests.cs
+
+### Files Modified
+- src/Mimir.Api/Mimir.Api.csproj (added nem.Contracts.AspNetCore ref)
+- src/Mimir.Api/Program.cs (ServiceAuth + ChannelEventRouter DI)
+- tests/Mimir.Domain.Tests/SolutionStructureTests.cs (updated expected ref count)
+
+### Test Results
+- 236 Application tests ✅ (9 new)
+- 219 Domain tests ✅ (1 pre-existing failure)
+- All other test suites unchanged and passing
+
+---
+
+## T15: WhatsApp Cloud API Channel Adapter — Mimir.WhatsApp
+
+### Completed
+- `Mimir.WhatsApp` WebApplication (Microsoft.NET.Sdk.Web) with WhatsApp Cloud API webhook integration
+- `WhatsAppChannelAdapter` — BackgroundService + IChannelEventSource + Application.IChannelMessageSender
+- Webhook endpoints: GET (challenge/response verification), POST (incoming messages with HMAC-SHA256 signature validation)
+- `WhatsAppMessageConverter` — static converter: text→TextContent, audio→VoiceContent, image/video/document→TextContent with format metadata
+- `WhatsAppSignatureValidator` — HMAC-SHA256 with CryptographicOperations.FixedTimeEquals
+- `WhatsAppMediaDownloader` — IHttpClientFactory-based media URL resolution and download
+- `WhatsAppHealthCheck` — config completeness verification
+- `WhatsAppSettings` — AccessToken, PhoneNumberId, VerifyToken, AppSecret, ApiBaseUrl, MimirApiBaseUrl
+- Full WhatsApp Cloud API DTOs (webhook payload models, send request/response)
+- OpenTelemetry ActivitySource "Mimir.WhatsApp"
+- 31 unit tests across 5 test files — all passing
+- 0 warnings, 0 errors build
+
+### Architecture
+```
+src/Mimir.WhatsApp/
+├── Configuration/WhatsAppSettings.cs
+├── Models/WhatsAppModels.cs           — Full Cloud API DTOs
+├── Services/
+│   ├── IWhatsAppMediaDownloader.cs
+│   ├── WhatsAppMediaDownloader.cs     — Named HttpClient "WhatsAppMedia"
+│   ├── WhatsAppMessageConverter.cs    — Static text/audio/image/video/document conversion
+│   ├── WhatsAppSignatureValidator.cs  — HMAC-SHA256 validation
+│   ├── WhatsAppChannelAdapter.cs      — BackgroundService + dual interface impl
+│   └── WhatsAppWebhookEndpoints.cs    — Minimal API MapGroup("/webhook/whatsapp")
+├── Health/WhatsAppHealthCheck.cs
+├── Program.cs                         — WebApplication with DI, health checks, webhook mapping
+└── appsettings.json + appsettings.Development.json
+```
+
+### Key Technical Learnings
+
+#### 1. NU1510: Web SDK Implicit Package References
+**Problem**: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Http`, and `Microsoft.Extensions.Diagnostics.HealthChecks` referenced in the csproj cause NU1510 warnings (treated as errors) because Microsoft.NET.Sdk.Web already includes these packages implicitly.
+**Solution**: Remove these explicit PackageReferences from the csproj. Only `Microsoft.Extensions.Http.Resilience` and `OpenTelemetry.Extensions.Hosting` need explicit references since they're not part of the Web SDK.
+**Lesson**: When using `Microsoft.NET.Sdk.Web`, the framework provides hosting, HTTP, health checks, logging, DI, and configuration packages automatically. Only add packages that aren't part of the shared framework.
+
+#### 2. Dual IChannelMessageSender Interfaces
+**Problem**: Both `Mimir.Application.ChannelEvents.IChannelMessageSender` and `nem.Contracts.Channels.IChannelMessageSender` exist with the same name but different signatures.
+**Solution**: WhatsAppChannelAdapter explicitly implements `Mimir.Application.ChannelEvents.IChannelMessageSender` (which has `SendAsync(string recipientId, IContentPayload content, CancellationToken ct)` returning `SendChannelMessageResult`). The nem.Contracts version uses `OutboundChannelMessage` and is for cross-service communication.
+**Key Insight**: Always use fully-qualified names or using aliases when both interfaces are in scope.
+
+#### 3. CS8604 Nullable + Shouldly ShouldContain
+**Problem**: `result.Description.ShouldContain("text")` where `Description` is `string?` causes CS8604 (possible null reference).
+**Solution**: Use null-forgiving operator: `result.Description!.ShouldContain("text")`. This is safe because the test is asserting the value exists — if it's null, the test should fail anyway.
+**Note**: This same pattern was seen in T22 (Telegram), P16 (Plugins), and now T15 (WhatsApp).
+
+#### 4. WhatsApp Webhook Verification Flow
+- GET request with `hub.mode=subscribe`, `hub.verify_token`, `hub.challenge`
+- Verify token matches configured `WhatsAppSettings.VerifyToken`
+- Return `hub.challenge` as plain text (200 OK) on match, 403 on mismatch
+- POST request includes `X-Hub-Signature-256` header with `sha256=<hmac>` prefix
+- Validate HMAC-SHA256 of raw request body using AppSecret
+
+#### 5. WhatsApp Cloud API Message Structure
+- Webhook payload: `object` → `entry[]` → `changes[]` → `value` → `messages[]`
+- Each message has `type` field: "text", "audio", "image", "video", "document"
+- Media messages have separate media objects (e.g., `message.Image.Id`) requiring a second API call to get the media URL
+- Timestamps are Unix epoch strings (not integers)
+- Phone numbers are the actor identity (WaId from contacts array)
+
+### Files Created
+- src/Mimir.WhatsApp/Mimir.WhatsApp.csproj
+- src/Mimir.WhatsApp/Configuration/WhatsAppSettings.cs
+- src/Mimir.WhatsApp/Models/WhatsAppModels.cs
+- src/Mimir.WhatsApp/Services/IWhatsAppMediaDownloader.cs
+- src/Mimir.WhatsApp/Services/WhatsAppMediaDownloader.cs
+- src/Mimir.WhatsApp/Services/WhatsAppMessageConverter.cs
+- src/Mimir.WhatsApp/Services/WhatsAppSignatureValidator.cs
+- src/Mimir.WhatsApp/Services/WhatsAppChannelAdapter.cs
+- src/Mimir.WhatsApp/Services/WhatsAppWebhookEndpoints.cs
+- src/Mimir.WhatsApp/Health/WhatsAppHealthCheck.cs
+- src/Mimir.WhatsApp/Program.cs
+- src/Mimir.WhatsApp/appsettings.json + appsettings.Development.json
+- tests/Mimir.WhatsApp.Tests/Mimir.WhatsApp.Tests.csproj
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppSignatureValidatorTests.cs (6 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppMessageConverterTests.cs (8 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppHealthCheckTests.cs (4 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppChannelAdapterTests.cs (9 tests)
+- tests/Mimir.WhatsApp.Tests/Services/WhatsAppMediaDownloaderTests.cs (4 tests)
+
+### Files Modified
+- nem.Mimir.sln (added Mimir.WhatsApp + Mimir.WhatsApp.Tests with build configs and nesting)
+
+### Test Results
+- 31 WhatsApp tests ✅ (new)
+- Build: 0 errors, 0 warnings ✅
+
+## T29: Semantic cache (in-memory) learnings (2026-03-06)
+
+- `src/Mimir.Infrastructure/Directory.Build.props` already injects a `nem.Contracts` project reference for the infrastructure tree; direct csproj reference is optional and can be omitted.
+- Local semantic matching without external embeddings works reliably using normalized character trigrams + cosine similarity.
+- For constrained cache size with `ConcurrentDictionary`, simple oldest-by-created-at trimming is sufficient and keeps implementation dependency-free.
+- Lazy TTL eviction on `GetAsync`/`GetStatsAsync` is enough for correctness in this service and avoids background cleanup complexity.
+- Full-solution `dotnet build nem.Mimir.sln --verbosity minimal` is the final compatibility check for contract visibility (`nem.Contracts.TokenOptimization`) across infra + tests.
+
+## F4: Handler scope-fidelity audit learnings (2026-03-25)
+
+- Shape-only migration validation is strongest when comparing sampled handlers against a known pre-migration baseline commit (`e3313c`) rather than relying only on current-file inspection.
+- Controller migration fidelity can be assessed by holding routes/response contracts constant and confirming only dispatch abstraction changed (`ISender.Send` → `IMessageBus.InvokeAsync<T>`).
+- `git diff HEAD~N` is too coarse for strict scope audits in active branches; per-file `git show <baseline>:<path>` avoids unrelated-noise commits.
+- Plan middleware filenames may drift from repository filenames; inventory behaviour directory first, then inspect equivalent middleware classes (`LoggingMiddleware`, `PerformanceMiddleware`, `UnhandledExceptionMiddleware`) even when housed in `*Behavior.cs` files.
+
+- OTEL collector can be wired into `docker-compose.yml` with a simple bind-mounted `otel-collector-config.yaml`; `docker compose config` still succeeds even if other services emit existing env warnings.
+
+## 2026-05-08 — Helm chart scaffold for nem-mimir
+- Mirror the `nem-profitcenter` chart shape (`Chart.yaml`, `values.yaml`, `_helpers.tpl`, deployment/service/ingress/configmap/external secret`) but keep only resources required by the task.
+- `helm lint deploy/helm/nem-mimir` is the authoritative verification for Helm templates; raw YAML LSP errors are expected on Go-template syntax and should not block chart delivery once lint passes.
+- Mimir runtime config comes from `src/nem.Mimir.Api/appsettings*.json`: keep Jwt, LiteLlm, InferencePolicy, TokenBudgetGovernor, Guardrails, ReplayBuffer, Observability, Sanitization, Cors, and connection strings represented via config map + ExternalSecret.
+- Even though the current Dockerfile exposes port 5000, this chart intentionally standardizes the API container/service port to 8080 per task requirements and sets `ASPNETCORE_HTTP_PORTS=8080`.

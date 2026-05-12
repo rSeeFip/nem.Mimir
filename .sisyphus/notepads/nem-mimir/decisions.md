@@ -78,3 +78,35 @@ Browser → openchat-ui (Next.js :3000)
 - ADJUST: T27-T30 (Wave 5) are now obsolete for Angular, replaced by new tasks
 - ADJUST: T28 streaming → built into openchat-ui natively (SSE)
 - ADJUST: T29 admin → minimal in openchat-ui, defer full admin to MCP Dashboard
+
+## [2026-03-06] Agent orchestration layering decision
+
+- Introduced a dedicated `Mimir.Application/Agents` orchestration layer with separated concerns:
+  - `AgentOrchestrator`: lifecycle/status/cancellation and delegation entrypoint
+  - `AgentDispatcher`: capability-based agent selection with fallback
+  - `AgentCoordinator`: sequential/parallel/hierarchical execution strategy engine
+  - `AgentExecutionContext`: shared per-invocation state (history/tool results/turn budget)
+- Kept orchestrator thin: no direct data-store access, no embedded specialist logic, no hardcoded single-agent “god” behavior.
+- Chose scoped DI registration for orchestrator/dispatcher/coordinator to align with request-scoped application handlers.
+
+## [2026-03-06] MCP integration transport decision (nem.Mimir-typed-ids)
+
+- Selected HTTP endpoint integration for MCP servers (`/tools/list`, `/tools/call`) instead of direct ModelContextProtocol SDK client transport.
+- Rationale: reduce coupling to SDK surface/version differences and keep infrastructure implementation stable against package drift.
+- Resulting architecture:
+  - `McpClientManager` is the primary `IToolProvider` implementation and owns discovery/cache/routing/error handling.
+  - `McpToolAdapter` is a thin delegation wrapper for scoped provider consumption.
+  - `AddMcpClient()` registers configuration + named HttpClient + manager + adapter wiring.
+
+## [2026-03-06] T29 semantic cache design choices
+
+- Implemented `ISemanticCache` in Infrastructure as a singleton, in-memory `ConcurrentDictionary` store with no external backing service.
+- Chose character trigram cosine similarity for semantic matching to satisfy local/no-dependency requirement while avoiding exact-text matching.
+- Enforced minimum similarity floor at `0.90` even if caller/config requests lower threshold.
+- Added per-user key isolation based on current HTTP principal (`sub` / `NameIdentifier`) with anonymous/global fallbacks controlled by option flag.
+- Applied graceful degradation across all cache operations: never throw to callers; return cache miss/default stats and log warnings on failures.
+
+## [2026-03-07] T40 test helper construction decision
+
+- In integration tests that instantiate internal Infrastructure types through reflection, avoid depending on reflected static singleton properties (`NullLogger<T>.Instance`) for runtime-generated closed generic types.
+- Chosen approach: inject a dynamic `ILogger<ConcreteType>` substitute via `NSubstitute` using runtime interface construction. This keeps the helper resilient while preserving test intent and scope strictly inside test code.
