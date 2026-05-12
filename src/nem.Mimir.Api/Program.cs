@@ -263,26 +263,7 @@ try
     }
 
     // Add security headers middleware
-    app.Use(async (context, next) =>
-    {
-        context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-        context.Response.Headers.Append("X-Frame-Options", "DENY");
-        context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
-        context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-        
-        // Content Security Policy — strict policy for API-only service
-        // No unsafe-inline/unsafe-eval needed since this is a REST/SSE/SignalR API, not serving HTML pages
-        context.Response.Headers.Append(
-            "Content-Security-Policy",
-            "default-src 'none'; " +
-            "connect-src 'self' ws: wss:; " +
-            "frame-ancestors 'none'; " +
-            "base-uri 'self'; " +
-            "form-action 'self'"
-        );
-        
-        await next();
-    });
+    app.UseMiddleware<SecurityHeadersMiddleware>();
 
     app.UseAuthentication();
     app.UseAuthorization();
